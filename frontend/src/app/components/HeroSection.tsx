@@ -41,6 +41,7 @@ export function HeroSection() {
           <div className="h-1280 absolute left-0 top-0 w-56 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.06)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)] [translate:5%_-50%]" />
           <div className="h-1280 -translate-y-[350px] absolute left-0 top-0 w-56 -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.04)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)]" />
         </div>
+
         <section>
           <div className="relative pt-24 md:pt-36">
             <AnimatedGroup
@@ -88,7 +89,7 @@ export function HeroSection() {
                     className="hover:bg-background dark:hover:border-t-border bg-muted group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 dark:border-t-white/5 dark:shadow-zinc-950"
                   >
                     <span className="text-foreground text-sm">Introducing Support for AI Models</span>
-                    <span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700"></span>
+                    <span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700" />
 
                     <div className="bg-background group-hover:bg-muted size-6 overflow-hidden rounded-full duration-500">
                       <div className="flex w-12 -translate-x-1/2 duration-500 ease-in-out group-hover:translate-x-0">
@@ -175,7 +176,6 @@ export function HeroSection() {
             </div>
             <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
               {/* logos */}
-              {/* keep the logos as in your original snippet */}
             </div>
           </div>
         </section>
@@ -202,13 +202,28 @@ const HeroHeader = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // lock body scroll while mobile menu open
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const original = document.body.style.overflow;
+    if (menuState) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = original || "";
+    }
+    return () => {
+      document.body.style.overflow = original || "";
+    };
+  }, [menuState]);
+
   return (
     <header>
-      <nav data-state={menuState && "active"} className="fixed z-30 w-full px-2 top-0 left-0">
+      <nav data-state={menuState ? "active" : undefined} className="fixed z-30 w-full px-2 top-0 left-0">
         <div
           className={cn(
             "mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12",
-            isScrolled && "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5",
+            isScrolled && "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5"
           )}
         >
           <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
@@ -217,16 +232,23 @@ const HeroHeader = () => {
                 <Logo />
               </Link>
 
+              {/* Hamburger button */}
               <button
-                onClick={() => setMenuState(!menuState)}
-                aria-label={menuState == true ? "Close Menu" : "Open Menu"}
+                onClick={() => setMenuState((s) => !s)}
+                aria-expanded={menuState}
+                aria-label={menuState ? "Close Menu" : "Open Menu"}
                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
               >
-                <Menu className="in-data-[state=active]:rotate-180 group-data-[state=active]:scale-0 group-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
-                <X className="group-data-[state=active]:rotate-0 group-data-[state=active]:scale-100 group-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
+                <span className={cn("block", menuState ? "hidden" : "block")}>
+                  <Menu className="m-auto size-6" />
+                </span>
+                <span className={cn("absolute inset-0 m-auto size-6", menuState ? "block" : "hidden")}>
+                  <X className="m-auto size-6" />
+                </span>
               </button>
             </div>
 
+            {/* Center nav (desktop) */}
             <div className="absolute inset-0 m-auto hidden size-fit lg:block">
               <ul className="flex gap-8 text-sm">
                 {menuItems.map((item, index) => (
@@ -239,39 +261,100 @@ const HeroHeader = () => {
               </ul>
             </div>
 
-            <div className="bg-background group-data-[state=active]:block lg:group-data-[state=active]:flex mb-6 hidden w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent">
-              <div className="lg:hidden">
-                <ul className="space-y-6 text-base">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <Link href={item.href} className="text-muted-foreground hover:text-accent-foreground block duration-150">
-                        <span>{item.name}</span>
+            {/* Right-side: mobile container + desktop buttons */}
+            <div className="bg-background mb-6 hidden w-full flex-wrap items-center justify-end rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent">
+              {/* Mobile (hidden here) - real mobile menu shown below when toggled */}
+              {/* Desktop buttons (lg and up): render based on isScrolled */}
+              <div className="hidden lg:flex lg:items-center lg:gap-4">
+                {!isScrolled ? (
+                  <>
+                    <Button asChild variant="outline" size="sm" className="">
+                      <Link href="#">
+                        <span>Login</span>
                       </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-                <Button asChild variant="outline" size="sm" className={cn(isScrolled && "lg:hidden")}>
-                  <Link href="#">
-                    <span>Login</span>
-                  </Link>
-                </Button>
-                <Button asChild size="sm" className={cn(isScrolled && "lg:hidden")}>
-                  <Link href="#">
-                    <span>Sign Up</span>
-                  </Link>
-                </Button>
-                <Button asChild size="sm" className={cn(isScrolled ? "lg:inline-flex" : "hidden")}>
-                  <Link href="#">
-                    <span>Get Started</span>
-                  </Link>
-                </Button>
+                    </Button>
+
+                    <Button asChild size="sm" className="">
+                      <Link href="#">
+                        <span>Sign Up</span>
+                      </Link>
+                    </Button>
+                  </>
+                ) : (
+                  <Button asChild size="sm" className="">
+                    <Link href="#">
+                      <span>Get Started</span>
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
         </div>
+
+        {/* Mobile menu: only render when menuState is true */}
+        {menuState && (
+          <div className="lg:hidden">
+            {/* Overlay */}
+            <div
+              onClick={() => setMenuState(false)}
+              className="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm transition-opacity"
+            />
+
+            {/* Panel */}
+            <div className="fixed inset-x-4 top-20 z-30 rounded-2xl border bg-background p-6 shadow-xl animate-slide-in">
+              <div className="space-y-6">
+                <ul className="space-y-4 text-base">
+                  {menuItems.map((item, index) => (
+                    <li key={index}>
+                      <Link href={item.href} onClick={() => setMenuState(false)} className="block text-lg font-medium">
+                        {item.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="flex flex-col gap-3">
+                  <Button asChild variant="outline" size="sm" onClick={() => setMenuState(false)}>
+                    <Link href="#">
+                      <span>Login</span>
+                    </Link>
+                  </Button>
+
+                  <Button asChild size="sm" onClick={() => setMenuState(false)}>
+                    <Link href="#">
+                      <span>Sign Up</span>
+                    </Link>
+                  </Button>
+
+                  <Button asChild size="sm" onClick={() => setMenuState(false)}>
+                    <Link href="#">
+                      <span>Get Started</span>
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
+
+      {/* small keyframes for mobile panel animation */}
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-8px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in {
+          animation: slideIn 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
+        }
+      `}</style>
     </header>
   );
 };
@@ -279,7 +362,7 @@ const HeroHeader = () => {
 const Logo = ({ className }: { className?: string }) => {
   return (
     <svg viewBox="0 0 78 18" fill="none" xmlns="http://www.w3.org/2000/svg" className={cn("h-5 w-auto", className)}>
-      {/* ... paste the full SVG paths from your original Logo ... */}
+      {/* paste your full SVG paths here like in the original */}
       <defs>
         <linearGradient id="logo-gradient" x1="10" y1="0" x2="10" y2="20" gradientUnits="userSpaceOnUse">
           <stop stopColor="#9B99FE" />
