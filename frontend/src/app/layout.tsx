@@ -10,11 +10,13 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-50 text-gray-900">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        {/* Global Hero/Header */}
         <HeroSection />
+
         <main className="max-w-4xl mx-auto p-6 pt-6">
-          {/* because HeroHeader is fixed, if you have other pages, add padding-top */}
+          {/* Because HeroHeader is fixed, give some top padding for spacing */}
           <div style={{ paddingTop: "24px" }}>{children}</div>
         </main>
       </body>
