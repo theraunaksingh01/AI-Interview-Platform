@@ -45,12 +45,41 @@
   }
 }
 
-/* Full-bleed helper: break out of centered containers */
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip; /* safer than hidden; no scrollbars, still composited */
+}
+
+/* Root containers must not create their own horizontal scroll */
+#__next, body > div:first-child {
+  overflow-x: clip;
+}
+
+/* Make sure main wrappers don’t introduce scroll areas */
+main, [data-app-scroll] {
+  overflow-x: visible !important;
+}
+
+
+
 .full-bleed {
-  width: 100vw;
   position: relative;
   left: 50%;
   right: 50%;
   margin-left: -50vw;
   margin-right: -50vw;
+  width: 100vw;           /* fill the viewport width */
+  max-width: 100vw;       /* never wider than viewport */
+  isolation: isolate;     /* prevents z-index bleed into parent stacking context */
+  overflow-x: clip;       /* ensures no horizontal scrollbar from this section */
+}
+
+/* The content container that sits inside a full-bleed section */
+.bleed-inner {
+  /* pick a wide but sane max width; tweak as you like */
+  max-width: min(80rem, 100%);
+  margin-inline: auto;
+  padding-inline: 1.5rem; /* gutters so content doesn’t hug the edge */
 }

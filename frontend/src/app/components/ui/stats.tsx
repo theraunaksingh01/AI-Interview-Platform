@@ -24,7 +24,7 @@ export default function StatsSection({
   const two = stats.slice(0, 2) // <<< ensure exactly two columns on the left
 
   return (
-    <section id={id} className="py-14 md:py-18">
+    <section id={id} className=" full-bleed py-14 md:py-18">
       <div className="mx-auto max-w-7xl px-6">
         <h2 className="sr-only">Product stats</h2>
 

@@ -6,18 +6,25 @@ import "../app/style/globals.css";
 import Features from "./components/Features";
 import RoleForm from "./components/RoleForm";
 import RolesList from "./components/RolesList";
+import { ProcessBento } from "./components/ui/process-bento";
 
 // ✅ Icons required by <Features />
 import { Code, Server, BarChart2 } from "lucide-react";
-
-// ✅ Stacked-cards primitives
-import { ContainerScroll, CardSticky } from "./components/ui/cards-stack";
 
 import { VideoShowcase } from "./components/video-showcase";
 
 import StatsSection from "./components/ui/stats";
 import { MarqueeLogoScroller } from "./components/ui/marquee-logo-scroller";
 
+import SecurityCompliance  from "./components/ui/security-compliance";
+
+import Testimonials from "./components/ui/testimonials";
+
+import CTAWithMarquee from "./components/ui/cta-with-marquee";
+
+import { i } from "framer-motion/client";
+
+import { FooterHero } from "./components/Footer";
 
 
 export default function Page() {
@@ -163,49 +170,10 @@ export default function Page() {
       {/* -------- Features -------- */}
       <Features features={sampleFeatures} />
 
-      {/* -------- Process (left sticky copy + right stacked sticky cards) -------- */}
-      <section className="container px-4 md:px-6 isolate pb-16">
-        <div className="grid md:grid-cols-2 md:gap-8 xl:gap-12 items-start">
-          {/* LEFT: sticky copy (no md:h-svh) */}
-          <div className="md:sticky top-[calc(var(--header-h)+24px)] md:py-6 self-start">
-            <h5 className="text-xs uppercase tracking-wide">our process</h5>
-            <h2 className="mb-6 mt-4 text-4xl font-bold tracking-tight">
-              Planning your <span className="text-indigo-500">project development</span> journey
-            </h2>
-            <p className="max-w-prose text-sm text-muted-foreground">
-              We start with a deep discovery into the role and skills required.
-              Together we map responsibilities and outcomes you expect from candidates.
-              Then we iterate the flow until it fits your hiring bar.
-            </p>
-          </div>
+      {/* -------- Process Bento Grid -------- */}
+       <ProcessBento />
 
-          {/* RIGHT: stacked cards */}
-          <ContainerScroll
-            className="space-y-8 py-12"
-            style={{
-              // exact height = last card's sticky top + viewport + a small buffer
-              minHeight: `calc(${(START_INDEX + PROCESS_PHASES.length - 1) * INCR_Y}px + 100vh + ${BOTTOM_BUFFER_PX}px)`,
-            }}
-          >
-            {PROCESS_PHASES.map((phase, i) => (
-              <CardSticky
-                key={phase.id}
-                index={i + START_INDEX}
-                incrementY={INCR_Y}
-                className="rounded-2xl border bg-background p-8 shadow-md backdrop-blur-md"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="my-6 text-2xl font-bold tracking-tight">{phase.title}</h3>
-                  <div className="text-2xl font-bold text-indigo-500">
-                    {String(i + 1).padStart(2, "0")}
-                  </div>
-                </div>
-                <p className="text-muted-foreground">{phase.description}</p>
-              </CardSticky>
-            ))}
-          </ContainerScroll>
-        </div>
-    </section>
+
 
        {/* -------- Marquee Logo Scroller -------- */}     
       <MarqueeLogoScroller
@@ -232,6 +200,17 @@ export default function Page() {
           </div>
         </div>
       </section>
+
+      {/* -------- Security & Compliance -------- */}
+      <SecurityCompliance />
+
+      {/* -------- Testimonials -------- */}
+      <Testimonials />
+
+      <CTAWithMarquee />
+
+      {/* -------- Footer Hero -------- */}
+       <FooterHero brandWord="WOWW." />
     </div>
   );
 }

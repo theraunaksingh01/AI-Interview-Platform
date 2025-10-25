@@ -10,29 +10,30 @@ import { cn } from "@/lib/utils";
 
 const transitionVariants = {
   item: {
-    hidden: {
-      opacity: 0,
-      filter: "blur(12px)",
-      y: 12,
-    },
+    hidden: { opacity: 0, filter: "blur(12px)", y: 12 },
     visible: {
       opacity: 1,
       filter: "blur(0px)",
       y: 0,
-      transition: {
-        type: "spring",
-        bounce: 0.3,
-        duration: 1.5,
-      },
+      transition: { type: "spring", bounce: 0.3, duration: 1.5 },
     },
   },
 };
+
+/** << Add logos here when you have them. Leave [] to hide the section completely. */
+const logos: { src: string; alt: string }[] = [
+  // Example:
+  // { src: "https://svgl.app/library/github.svg", alt: "GitHub" },
+  // { src: "https://svgl.app/library/notion.svg", alt: "Notion" },
+];
 
 export function HeroSection() {
   return (
     <>
       <HeroHeader />
+
       <main className="overflow-hidden">
+        {/* background radial glows (desktop only) */}
         <div
           aria-hidden
           className="z-2 absolute inset-0 pointer-events-none isolate opacity-50 contain-strict hidden lg:block"
@@ -44,28 +45,16 @@ export function HeroSection() {
 
         <section>
           <div className="relative pt-24 md:pt-36">
+            {/* hero background image — now visible in light mode (subtle) */}
             <AnimatedGroup
               variants={{
-                container: {
-                  visible: {
-                    transition: {
-                      delayChildren: 1,
-                    },
-                  },
-                },
+                container: { visible: { transition: { delayChildren: 1 } } },
                 item: {
-                  hidden: {
-                    opacity: 0,
-                    y: 20,
-                  },
+                  hidden: { opacity: 0, y: 20 },
                   visible: {
                     opacity: 1,
                     y: 0,
-                    transition: {
-                      type: "spring",
-                      bounce: 0.3,
-                      duration: 2,
-                    },
+                    transition: { type: "spring", bounce: 0.3, duration: 2 },
                   },
                 },
               }}
@@ -74,13 +63,19 @@ export function HeroSection() {
               <img
                 src="https://ik.imagekit.io/lrigu76hy/tailark/night-background.jpg?updatedAt=1745733451120"
                 alt="background"
-                className="absolute inset-x-0 top-56 -z-20 hidden lg:top-32 dark:block"
+                className="absolute inset-x-0 top-56 -z-20 lg:top-32 block opacity-[0.12] dark:opacity-100"
                 width={3276}
                 height={4095}
               />
             </AnimatedGroup>
 
-            <div aria-hidden className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--background)_75%)]" />
+            {/* soft horizon gradient */}
+            <div
+              aria-hidden
+              className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--background)_75%)]"
+            />
+
+            {/* copy */}
             <div className="mx-auto max-w-7xl px-6">
               <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
                 <AnimatedGroup variants={transitionVariants}>
@@ -88,7 +83,9 @@ export function HeroSection() {
                     href="#link"
                     className="hover:bg-background dark:hover:border-t-border bg-muted group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 dark:border-t-white/5 dark:shadow-zinc-950"
                   >
-                    <span className="text-foreground text-sm">Introducing Support for AI Models</span>
+                    <span className="text-foreground text-sm">
+                      Introducing Support for AI Models
+                    </span>
                     <span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700" />
 
                     <div className="bg-background group-hover:bg-muted size-6 overflow-hidden rounded-full duration-500">
@@ -107,32 +104,40 @@ export function HeroSection() {
                     Modern Solutions for Customer Engagement
                   </h1>
                   <p className="mx-auto mt-8 max-w-2xl text-balance text-lg">
-                    Highly customizable components for building modern websites and applications that look and feel the way you mean it.
+                    Highly customizable components for building modern websites
+                    and applications that look and feel the way you mean it.
                   </p>
                 </AnimatedGroup>
 
+                {/* CTAs */}
                 <AnimatedGroup
                   variants={{
                     container: {
                       visible: {
-                        transition: {
-                          staggerChildren: 0.05,
-                          delayChildren: 0.75,
-                        },
+                        transition: { staggerChildren: 0.05, delayChildren: 0.75 },
                       },
                     },
                     ...transitionVariants,
                   }}
                   className="mt-12 flex flex-col items-center justify-center gap-2 md:flex-row"
                 >
-                  <div key={1} className="bg-foreground/10 rounded-[14px] border p-0.5">
+                  <div
+                    key={1}
+                    className="bg-foreground/10 rounded-[14px] border p-0.5"
+                  >
                     <Button asChild size="lg" className="rounded-xl px-5 text-base">
                       <Link href="#link">
                         <span className="text-nowrap">Start Building</span>
                       </Link>
                     </Button>
                   </div>
-                  <Button key={2} asChild size="lg" variant="ghost" className="h-10.5 rounded-xl px-5">
+                  <Button
+                    key={2}
+                    asChild
+                    size="lg"
+                    variant="ghost"
+                    className="h-10.5 rounded-xl px-5"
+                  >
                     <Link href="#link">
                       <span className="text-nowrap">Request a demo</span>
                     </Link>
@@ -141,44 +146,70 @@ export function HeroSection() {
               </div>
             </div>
 
+            {/* product image */}
             <AnimatedGroup
               variants={{
                 container: {
                   visible: {
-                    transition: {
-                      staggerChildren: 0.05,
-                      delayChildren: 0.75,
-                    },
+                    transition: { staggerChildren: 0.05, delayChildren: 0.75 },
                   },
                 },
                 ...transitionVariants,
               }}
             >
               <div className="relative -mr-56 mt-8 overflow-hidden px-2 sm:mr-0 sm:mt-12 md:mt-20">
-                <div aria-hidden className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%" />
+                <div
+                  aria-hidden
+                  className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%"
+                />
                 <div className="inset-shadow-2xs ring-background dark:inset-shadow-white/20 bg-background relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1">
-                  <img className="bg-background aspect-15/8 relative hidden rounded-2xl dark:block" src="https://tailark.com//_next/image?url=%2Fmail2.png&w=3840&q=75" alt="app screen" width={2700} height={1440} />
-                  <img className="z-2 border-border/25 aspect-15/8 relative rounded-2xl border dark:hidden" src="https://tailark.com/_next/image?url=%2Fmail2-light.png&w=3840&q=75" alt="app screen" width={2700} height={1440} />
+                  <img
+                    className="bg-background aspect-15/8 relative hidden rounded-2xl dark:block"
+                    src="https://tailark.com//_next/image?url=%2Fmail2.png&w=3840&q=75"
+                    alt="app screen"
+                    width={2700}
+                    height={1440}
+                  />
+                  <img
+                    className="z-2 border-border/25 aspect-15/8 relative rounded-2xl border dark:hidden"
+                    src="https://tailark.com/_next/image?url=%2Fmail2-light.png&w=3840&q=75"
+                    alt="app screen"
+                    width={2700}
+                    height={1440}
+                  />
                 </div>
               </div>
             </AnimatedGroup>
           </div>
         </section>
 
-        <section className="bg-background pb-16 pt-16 md:pb-32">
-          <div className="group relative m-auto max-w-5xl px-6">
-            <div className="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
-              <Link href="/" className="block text-sm duration-150 hover:opacity-75">
-                <span> Meet Our Customers</span>
+        {/* Logos strip — only renders if you provided logos above */}
+        {logos.length > 0 && (
+          <section className="bg-background pb-16 pt-16 md:pb-32">
+            <div className="group relative m-auto max-w-5xl px-6">
+              <div className="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
+                <Link
+                  href="/"
+                  className="block text-sm duration-150 hover:opacity-75"
+                >
+                  <span>Meet Our Customers</span>
+                  <ChevronRight className="ml-1 inline-block size-3" />
+                </Link>
+              </div>
 
-                <ChevronRight className="ml-1 inline-block size-3" />
-              </Link>
+              <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
+                {logos.map((l) => (
+                  <img
+                    key={l.alt}
+                    src={l.src}
+                    alt={l.alt}
+                    className="h-9 w-auto object-contain opacity-70"
+                  />
+                ))}
+              </div>
             </div>
-            <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
-              {/* logos */}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
       </main>
     </>
   );
@@ -196,9 +227,7 @@ const HeroHeader = () => {
   const [isScrolled, setIsScrolled] = React.useState(false);
 
   React.useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -219,11 +248,15 @@ const HeroHeader = () => {
 
   return (
     <header>
-      <nav data-state={menuState ? "active" : undefined} className="fixed z-30 w-full px-2 top-0 left-0">
+      <nav
+        data-state={menuState ? "active" : undefined}
+        className="fixed z-30 w-full px-2 top-0 left-0"
+      >
         <div
           className={cn(
             "mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12",
-            isScrolled && "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5"
+            isScrolled &&
+              "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5"
           )}
         >
           <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
@@ -242,7 +275,12 @@ const HeroHeader = () => {
                 <span className={cn("block", menuState ? "hidden" : "block")}>
                   <Menu className="m-auto size-6" />
                 </span>
-                <span className={cn("absolute inset-0 m-auto size-6", menuState ? "block" : "hidden")}>
+                <span
+                  className={cn(
+                    "absolute inset-0 m-auto size-6",
+                    menuState ? "block" : "hidden"
+                  )}
+                >
                   <X className="m-auto size-6" />
                 </span>
               </button>
@@ -253,7 +291,10 @@ const HeroHeader = () => {
               <ul className="flex gap-8 text-sm">
                 {menuItems.map((item, index) => (
                   <li key={index}>
-                    <Link href={item.href} className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                    <Link
+                      href={item.href}
+                      className="text-muted-foreground hover:text-accent-foreground block duration-150"
+                    >
                       <span>{item.name}</span>
                     </Link>
                   </li>
@@ -261,27 +302,24 @@ const HeroHeader = () => {
               </ul>
             </div>
 
-            {/* Right-side: mobile container + desktop buttons */}
+            {/* Right-side buttons */}
             <div className="bg-background mb-6 hidden w-full flex-wrap items-center justify-end rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent">
-              {/* Mobile (hidden here) - real mobile menu shown below when toggled */}
-              {/* Desktop buttons (lg and up): render based on isScrolled */}
               <div className="hidden lg:flex lg:items-center lg:gap-4">
                 {!isScrolled ? (
                   <>
-                    <Button asChild variant="outline" size="sm" className="">
+                    <Button asChild variant="outline" size="sm">
                       <Link href="#">
                         <span>Login</span>
                       </Link>
                     </Button>
-
-                    <Button asChild size="sm" className="">
+                    <Button asChild size="sm">
                       <Link href="#">
                         <span>Sign Up</span>
                       </Link>
                     </Button>
                   </>
                 ) : (
-                  <Button asChild size="sm" className="">
+                  <Button asChild size="sm">
                     <Link href="#">
                       <span>Get Started</span>
                     </Link>
@@ -292,7 +330,7 @@ const HeroHeader = () => {
           </div>
         </div>
 
-        {/* Mobile menu: only render when menuState is true */}
+        {/* Mobile menu */}
         {menuState && (
           <div className="lg:hidden">
             {/* Overlay */}
@@ -300,14 +338,17 @@ const HeroHeader = () => {
               onClick={() => setMenuState(false)}
               className="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm transition-opacity"
             />
-
             {/* Panel */}
             <div className="fixed inset-x-4 top-20 z-30 rounded-2xl border bg-background p-6 shadow-xl animate-slide-in">
               <div className="space-y-6">
                 <ul className="space-y-4 text-base">
                   {menuItems.map((item, index) => (
                     <li key={index}>
-                      <Link href={item.href} onClick={() => setMenuState(false)} className="block text-lg font-medium">
+                      <Link
+                        href={item.href}
+                        onClick={() => setMenuState(false)}
+                        className="block text-lg font-medium"
+                      >
                         {item.name}
                       </Link>
                     </li>
@@ -315,7 +356,12 @@ const HeroHeader = () => {
                 </ul>
 
                 <div className="flex flex-col gap-3">
-                  <Button asChild variant="outline" size="sm" onClick={() => setMenuState(false)}>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMenuState(false)}
+                  >
                     <Link href="#">
                       <span>Login</span>
                     </Link>
@@ -361,10 +407,22 @@ const HeroHeader = () => {
 
 const Logo = ({ className }: { className?: string }) => {
   return (
-    <svg viewBox="0 0 78 18" fill="none" xmlns="http://www.w3.org/2000/svg" className={cn("h-5 w-auto", className)}>
-      {/* paste your full SVG paths here like in the original */}
+    <svg
+      viewBox="0 0 78 18"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn("h-5 w-auto", className)}
+    >
+      {/* your paths here */}
       <defs>
-        <linearGradient id="logo-gradient" x1="10" y1="0" x2="10" y2="20" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id="logo-gradient"
+          x1="10"
+          y1="0"
+          x2="10"
+          y2="20"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop stopColor="#9B99FE" />
           <stop offset="1" stopColor="#2BC8B7" />
         </linearGradient>

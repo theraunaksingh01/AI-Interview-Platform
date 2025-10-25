@@ -1,3 +1,4 @@
+// src/components/ui/cards-stack.tsx
 "use client"
 
 import * as React from "react"
@@ -10,7 +11,7 @@ interface CardStickyProps extends HTMLMotionProps<"div"> {
   incrementZ?: number
 }
 
-const ContainerScroll = React.forwardRef<
+export const ContainerScroll = React.forwardRef<
   HTMLDivElement,
   React.HTMLProps<HTMLDivElement>
 >(({ children, className, ...props }, ref) => {
@@ -18,7 +19,6 @@ const ContainerScroll = React.forwardRef<
     <div
       ref={ref}
       className={cn("relative w-full", className)}
-      style={{ perspective: "1000px", ...props.style }}
       {...props}
     >
       {children}
@@ -27,12 +27,12 @@ const ContainerScroll = React.forwardRef<
 })
 ContainerScroll.displayName = "ContainerScroll"
 
-const CardSticky = React.forwardRef<HTMLDivElement, CardStickyProps>(
+export const CardSticky = React.forwardRef<HTMLDivElement, CardStickyProps>(
   (
     {
       index,
-      incrementY = 10,
-      incrementZ = 10,
+      incrementY = 160,      // << spacing between pinned cards (adjust freely)
+      incrementZ = 2,         // << z-index step
       children,
       className,
       style,
@@ -40,17 +40,17 @@ const CardSticky = React.forwardRef<HTMLDivElement, CardStickyProps>(
     },
     ref
   ) => {
-    const y = index * incrementY
-    const z = index * incrementZ
+    const top = index * incrementY
+    const zIndex = 10 + index * incrementZ
 
     return (
       <motion.div
         ref={ref}
-        layout="position"
         style={{
-          top: y,
-          z,
+          top,
+          zIndex,                        // << IMPORTANT: use zIndex (not "z")
           backfaceVisibility: "hidden",
+          willChange: "transform, top",
           ...style,
         }}
         className={cn("sticky", className)}
@@ -61,7 +61,4 @@ const CardSticky = React.forwardRef<HTMLDivElement, CardStickyProps>(
     )
   }
 )
-
 CardSticky.displayName = "CardSticky"
-
-export { ContainerScroll, CardSticky }
