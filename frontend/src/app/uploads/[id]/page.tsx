@@ -1,7 +1,7 @@
 // src/app/uploads/[id]/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 
 type Upload = {
@@ -41,6 +41,11 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
   const [err, setErr] = useState<string | null>(null);
   const [retryMsg, setRetryMsg] = useState<string>("");
 
+  // Queue badge state: null = unknown, true = online, false = offline
+  const [queueOnline, setQueueOnline] = useState<boolean | null>(null);
+  const prevQueueOnline = useRef<boolean | null>(null);
+  const autoRetriedOnce = useRef<boolean>(false); // prevent loops
+
   // Fetch once and also return the payload so poller can decide to stop
   const fetchOnce = useCallback(async (): Promise<Upload | null> => {
     try {
@@ -51,7 +56,6 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
 
       const res = await fetch(`${API_BASE}/upload/${idNum}`, {
         headers,
-        
         cache: "no-store",
       });
       if (!res.ok) {
@@ -98,11 +102,11 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
       const res = await fetch(`${API_BASE}/upload/${idNum}/retry`, {
         method: "POST",
         headers,
-        
       });
       const text = await res.text();
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
       setRetryMsg("Re-queued for processing.");
+      autoRetriedOnce.current = true; // avoid immediate repeat auto-retry
       // Kick the poller by fetching immediately
       await fetchOnce();
     } catch (e: any) {
@@ -119,7 +123,6 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
       const res = await fetch(`${API_BASE}/upload/${idNum}`, {
         method: "DELETE",
         headers,
-        
       });
       if (!res.ok) {
         const text = await res.text();
@@ -133,12 +136,56 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
     }
   }
 
+  // ---- Queue badge poller (every ~5s) ----
+  useEffect(() => {
+    let stop = false;
+
+    async function ping() {
+      try {
+        const res = await fetch(`${API_BASE}/ops/queue`, { cache: "no-store" });
+        const j = await res.json().catch(() => ({}));
+        const nowOnline = j?.redis === "online";
+        const prev = prevQueueOnline.current;
+
+        // Detect offline -> online transition and auto-retry if still pending
+        const stillPending = (u?.status === "pending" || u?.status === "processing"); // auto-retry mainly for pending; allow processing safe no-op
+        if (prev === false && nowOnline === true && stillPending && !autoRetriedOnce.current) {
+          // Fire and forget; don't await to avoid blocking the poll loop
+          retry();
+        }
+
+        if (!stop) {
+          prevQueueOnline.current = nowOnline;
+          setQueueOnline(nowOnline);
+        }
+      } catch {
+        if (!stop) {
+          prevQueueOnline.current = false;
+          setQueueOnline(false);
+        }
+      } finally {
+        if (!stop) setTimeout(ping, 5000);
+      }
+    }
+
+    // initialize prev value on first run
+    if (prevQueueOnline.current === null) prevQueueOnline.current = queueOnline;
+
+    ping();
+    return () => {
+      stop = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [u?.status]); // re-evaluate when upload status changes
+
   const pill =
     u?.status === "done"
       ? "bg-green-100 text-green-800"
       : u?.status === "failed"
       ? "bg-red-100 text-red-800"
       : "bg-yellow-100 text-yellow-800";
+
+  const showSpinner = u?.status === "pending" || u?.status === "processing";
 
   return (
     <div className="p-6 space-y-6">
@@ -149,6 +196,22 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
         </Link>
       </div>
 
+      {/* Queue status badge */}
+      <div className="text-xs">
+        Queue:&nbsp;
+        {queueOnline == null ? (
+          "…"
+        ) : queueOnline ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800">
+            online ✅
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800">
+            offline ⛔
+          </span>
+        )}
+      </div>
+
       {loading ? (
         <div>Loading…</div>
       ) : err ? (
@@ -157,7 +220,13 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
         <div className="space-y-4">
           <div className="text-lg font-medium break-words">{u.filename}</div>
           <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${pill}`}>
-            {u.status}
+            <span>{u.status}</span>
+            {showSpinner && (
+              <span
+                className="ml-2 inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"
+                aria-label="loading"
+              />
+            )}
           </div>
 
           <div className="text-sm text-gray-600 space-y-1">

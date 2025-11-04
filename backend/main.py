@@ -6,8 +6,13 @@ If an import fails, the exception is captured and exposed at /__startup_error fo
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api import ops as ops_router
+
 
 app = FastAPI(title="AI Interview Platform API")
+
+app.include_router(ops_router.router)
+
 
 # Read CORS env (simple comma-separated fallback)
 cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
