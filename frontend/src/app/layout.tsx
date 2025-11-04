@@ -1,5 +1,5 @@
 // frontend/src/app/layout.tsx
-import "../app/style/globals.css";
+import "./style/globals.css";
 import { ReactNode } from "react";
 import { HeroSection } from "./components/HeroSection";
 

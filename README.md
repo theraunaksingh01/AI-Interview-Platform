@@ -1,4 +1,5 @@
 # AI Interview Platform
+## Name: Qurio – from “curious” + “query”
 
 A prototype AI-powered interview platform built with FastAPI + Next.js + Docker.
 

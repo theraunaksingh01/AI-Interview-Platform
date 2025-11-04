@@ -1,5 +1,7 @@
 # scripts/create_user_and_attach_role.py
 # Usage: python scripts/create_user_and_attach_role.py alice@example.com S3cr3tPa$$ admin
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import sys
 from db.session import SessionLocal
