@@ -1,3 +1,4 @@
+// src/app/uploads/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -12,9 +13,11 @@ type Upload = {
   created_at?: string | null;
 };
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ||
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:8000").replace(/\/$/, "");
+  "http://127.0.0.1:8000"
+).replace(/\/$/, "");
 
 const ENV_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || "";
 
@@ -50,9 +53,9 @@ export default function UploadsPage() {
       const headers: Record<string, string> = {};
       if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
-      const res = await fetch(`${API_BASE}/uploads/me`, {
+      // ✅ correct endpoint for authed user’s uploads
+      const res = await fetch(`${API_BASE}/upload/me`, {
         headers,
-        credentials: "include",
         cache: "no-store",
       });
 
@@ -60,7 +63,7 @@ export default function UploadsPage() {
         const body = await res.text();
         if (res.status === 401) {
           setDebug(
-            `401 from /uploads/me\nToken present: ${jwt ? "yes" : "no"}\nToken head: ${
+            `401 from /upload/me\nToken present: ${jwt ? "yes" : "no"}\nToken head: ${
               jwt ? jwt.slice(0, 12) + "..." : "(none)"
             }\nBody: ${body}`
           );
@@ -102,7 +105,8 @@ export default function UploadsPage() {
       )}
 
       <section>
-        <UploadCard token={getToken()} onDone={fetchUploads} />
+        {/* UploadCard currently expects only { token }; remove onDone to avoid TS prop mismatch */}
+        <UploadCard token={getToken()} />
       </section>
 
       {loading ? (
@@ -130,29 +134,31 @@ export default function UploadsPage() {
                     : u.status === "failed"
                     ? "bg-red-100 text-red-800"
                     : "bg-yellow-100 text-yellow-800";
-                            
+
                 async function del() {
-                  const jwt =
-                    (typeof window !== "undefined" ? localStorage.getItem("API_TOKEN") || "" : "") ||
-                    process.env.NEXT_PUBLIC_API_TOKEN || "";
-                  const headers: Record<string, string> = {};
-                  if (jwt) headers.Authorization = `Bearer ${jwt}`;
-                  const res = await fetch(
-                    `${(process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "")}/upload/${u.id}`,
-                    { method: "DELETE", headers, credentials: "include" }
-                  );
-                  if (res.ok) {
-                    // remove from UI quickly or refetch
-                    setUploads((prev) => prev.filter((x) => x.id !== u.id));
-                  } else {
-                    alert(`Delete failed: ${res.status} ${await res.text()}`);
+                  try {
+                    const jwt = getToken();
+                    const headers: Record<string, string> = {};
+                    if (jwt) headers.Authorization = `Bearer ${jwt}`;
+
+                    const res = await fetch(`${API_BASE}/upload/${u.id}`, {
+                      method: "DELETE",
+                      headers,
+                    });
+                    if (res.ok) {
+                      setUploads((prev) => prev.filter((x) => x.id !== u.id));
+                    } else {
+                      alert(`Delete failed: ${res.status} ${await res.text()}`);
+                    }
+                  } catch (e: any) {
+                    alert(e?.message || "Delete failed");
                   }
                 }
-              
+
                 return (
                   <li key={u.id} className="border rounded-lg p-4 hover:shadow-sm">
                     <div className="flex items-start justify-between gap-3">
-                      <Link href={`/uploads/${encodeURIComponent(u.id)}`} className="no-underline flex-1">
+                      <Link href={`/uploads/${u.id}`} className="no-underline flex-1">
                         <div className="font-medium truncate">{u.filename}</div>
                         <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs mt-2 ${pill}`}>
                           {u.status}
@@ -174,7 +180,6 @@ export default function UploadsPage() {
                   </li>
                 );
               })}
-              
             </ul>
           )}
         </>

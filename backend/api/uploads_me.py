@@ -1,23 +1,21 @@
-# api/uploads_me.py
-from fastapi import APIRouter, Depends
+# backend/api/uploads_me.py  
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from api.deps import get_current_user, get_db
-from db import models
-from typing import List
+from typing import Optional, Literal, List
+from api.deps import get_db, get_current_user
+from db.models import Upload
+from .uploads import UploadOut
 
-router = APIRouter(prefix="/uploads", tags=["uploads"])
+router = APIRouter(prefix="/upload", tags=["upload"])
 
-@router.get("/me", response_model=List[dict])
-def list_my_uploads(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
-    uploads = db.query(models.Upload).filter(models.Upload.user_id == current_user.id).order_by(models.Upload.created_at.desc()).all()
-    return [
-        {
-            "id": u.id,
-            "key": u.key,
-            "filename": u.filename,
-            "content_type": u.content_type,
-            "size": u.size,
-            "created_at": u.created_at.isoformat() if u.created_at else None,
-        }
-        for u in uploads
-    ]
+@router.get("/me", response_model=List[UploadOut])
+def list_my_uploads(
+    db: Session = Depends(get_db),
+    user = Depends(get_current_user),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort: Literal["created_desc", "created_asc"] = "created_desc",
+):
+    q = db.query(Upload).filter(Upload.user_id == user.id)
+    q = q.order_by(Upload.created_at.desc() if sort == "created_desc" else Upload.created_at.asc())
+    return q.limit(limit).offset(offset).all()
