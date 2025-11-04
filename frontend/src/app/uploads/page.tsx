@@ -130,22 +130,51 @@ export default function UploadsPage() {
                     : u.status === "failed"
                     ? "bg-red-100 text-red-800"
                     : "bg-yellow-100 text-yellow-800";
+                            
+                async function del() {
+                  const jwt =
+                    (typeof window !== "undefined" ? localStorage.getItem("API_TOKEN") || "" : "") ||
+                    process.env.NEXT_PUBLIC_API_TOKEN || "";
+                  const headers: Record<string, string> = {};
+                  if (jwt) headers.Authorization = `Bearer ${jwt}`;
+                  const res = await fetch(
+                    `${(process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "")}/upload/${u.id}`,
+                    { method: "DELETE", headers, credentials: "include" }
+                  );
+                  if (res.ok) {
+                    // remove from UI quickly or refetch
+                    setUploads((prev) => prev.filter((x) => x.id !== u.id));
+                  } else {
+                    alert(`Delete failed: ${res.status} ${await res.text()}`);
+                  }
+                }
+              
                 return (
                   <li key={u.id} className="border rounded-lg p-4 hover:shadow-sm">
-                    <Link href={`/uploads/${encodeURIComponent(u.id)}`} className="no-underline">
-                      <div className="font-medium truncate">{u.filename}</div>
-                      <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs mt-2 ${pill}`}>
-                        {u.status}
-                      </div>
-                      {u.created_at && (
-                        <div className="text-xs text-gray-500 mt-2">
-                          Created: {new Date(u.created_at).toLocaleString()}
+                    <div className="flex items-start justify-between gap-3">
+                      <Link href={`/uploads/${encodeURIComponent(u.id)}`} className="no-underline flex-1">
+                        <div className="font-medium truncate">{u.filename}</div>
+                        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs mt-2 ${pill}`}>
+                          {u.status}
                         </div>
-                      )}
-                    </Link>
+                        {u.created_at && (
+                          <div className="text-xs text-gray-500 mt-2">
+                            Created: {new Date(u.created_at).toLocaleString()}
+                          </div>
+                        )}
+                      </Link>
+                      <button
+                        onClick={del}
+                        className="text-xs border rounded px-2 py-1 hover:bg-gray-50"
+                        title="Delete"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </li>
                 );
               })}
+              
             </ul>
           )}
         </>

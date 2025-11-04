@@ -12,8 +12,13 @@ from core.config import settings
 from core.s3_client import get_s3_client
 from db.models import Upload, UploadStatus
 from tasks.transcribe import transcribe_upload
+import logging
+
 
 router = APIRouter(prefix="/upload", tags=["upload"])
+logger = logging.getLogger("uploads")
+
+
 
 # ---- validation policy (tweak as you like)
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50MB
@@ -129,8 +134,9 @@ async def proxy_upload(
         db.commit()
         db.refresh(upload)
     except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Enqueue failed: {exc}")
+        # db.rollback()
+        # raise HTTPException(status_code=500, detail=f"Enqueue failed: {exc}")
+        pass
 
     return upload
 
@@ -175,20 +181,29 @@ def retry_upload(
     if not upload:
         raise HTTPException(status_code=404, detail="Not found")
 
-    if str(upload.status) == (UploadStatus.done.value if hasattr(UploadStatus, "done") else "done"):
+    # If already done, block retry (optional: allow retry-any)
+    done_value = UploadStatus.done.value if hasattr(UploadStatus, "done") else "done"
+    pending_value = UploadStatus.pending.value if hasattr(UploadStatus, "pending") else "pending"
+
+    if str(upload.status) == done_value:
         raise HTTPException(status_code=400, detail="Already processed")
 
-    upload.status = UploadStatus.pending.value if hasattr(UploadStatus, "pending") else "pending"
+    # Reset status and clear any previous job id
+    upload.status = pending_value
     upload.processor_job_id = None
     db.add(upload)
     db.commit()
     db.refresh(upload)
 
-    async_result = transcribe_upload.delay(upload.id)
-    upload.processor_job_id = async_result.id
-    db.add(upload)
-    db.commit()
-    db.refresh(upload)
+    # Try to enqueue; if it fails, DO NOT raise—return pending so UI can retry later
+    try:
+        async_result = transcribe_upload.delay(upload.id)
+        upload.processor_job_id = async_result.id
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+    except Exception as exc:
+        logger.exception("Enqueue failed for upload %s: %s", upload.id, exc)
 
     return upload
 
