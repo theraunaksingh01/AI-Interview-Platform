@@ -1,35 +1,35 @@
 # backend/api/uploads.py
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import uuid
+import logging
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func, desc, asc
 
 from api.deps import get_db, get_current_user
 from core.config import settings
 from core.s3_client import get_s3_client
 from db.models import Upload, UploadStatus
 from tasks.transcribe import transcribe_upload
-import logging
 
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 logger = logging.getLogger("uploads")
 
-
-
-# ---- validation policy (tweak as you like)
+# ---- Validation policy ----
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50MB
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "text/plain",
-    "audio/mpeg",           # .mp3
-    "audio/wav",            # .wav
+    "audio/mpeg",
+    "audio/wav",
     "audio/x-wav",
-    "video/mp4",            # .mp4
-    "application/octet-stream",  # fallback; allow in dev
+    "video/mp4",
+    "application/octet-stream",
 }
 
 class PresignRequest(BaseModel):
@@ -57,8 +57,9 @@ class UploadOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+# ---- utility ----
 def _require_allowed_type(ct: Optional[str]):
-    # allow empty type in dev
     if not ct:
         return
     if ct not in ALLOWED_CONTENT_TYPES:
@@ -67,6 +68,10 @@ def _require_allowed_type(ct: Optional[str]):
             detail=f"Unsupported content-type '{ct}'. Allowed: {sorted(ALLOWED_CONTENT_TYPES)}",
         )
 
+
+# =====================================================
+# POST /upload/proxy  (proxy upload → DB + Celery queue)
+# =====================================================
 @router.post("/proxy", response_model=UploadOut)
 async def proxy_upload(
     file: UploadFile = File(...),
@@ -81,13 +86,12 @@ async def proxy_upload(
 
     _require_allowed_type(file.content_type)
 
-    # Read with max limit
     data = await file.read()
     await file.close()
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large ({len(data)} bytes). Max allowed is {MAX_UPLOAD_BYTES} bytes.",
+            detail=f"File too large ({len(data)} bytes). Max is {MAX_UPLOAD_BYTES} bytes.",
         )
 
     safe_folder = (folder.strip("/") + "/") if folder else ""
@@ -95,7 +99,7 @@ async def proxy_upload(
     safe_name = (file.filename or "upload.bin").replace(" ", "_")
     key = f"{safe_folder}{datetime.utcnow().strftime('%Y%m%d')}/{unique_id}_{safe_name}"
 
-    # Put to S3/MinIO
+    # upload to S3
     try:
         put_kwargs = {"Bucket": bucket, "Key": key, "Body": data}
         if file.content_type:
@@ -104,7 +108,7 @@ async def proxy_upload(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Upload to storage failed: {exc}")
 
-    # Persist
+    # Save DB record
     try:
         upload = Upload(
             user_id=user.id,
@@ -119,14 +123,13 @@ async def proxy_upload(
         db.refresh(upload)
     except Exception as exc:
         db.rollback()
-        # best-effort cleanup
         try:
             s3.delete_object(Bucket=bucket, Key=key)
         except Exception:
             pass
         raise HTTPException(status_code=500, detail=f"DB persist failed: {exc}")
 
-    # Queue background job
+    # Queue Celery job
     try:
         async_result = transcribe_upload.delay(upload.id)
         upload.processor_job_id = async_result.id
@@ -134,24 +137,46 @@ async def proxy_upload(
         db.commit()
         db.refresh(upload)
     except Exception as exc:
-        # db.rollback()
-        # raise HTTPException(status_code=500, detail=f"Enqueue failed: {exc}")
-        pass
+        logger.exception("Failed to enqueue: %s", exc)
 
     return upload
 
-# ---- IMPORTANT: keep /me BEFORE {upload_id:int} to avoid collisions
-@router.get("/me", response_model=List[UploadOut])
+
+# =====================================================
+# GET /upload/me (pagination + sorting)
+# =====================================================
+@router.get("/me")
 def list_my_uploads(
-    status: Optional[UploadStatus] = Query(default=None, description="Filter by status"),
     db: Session = Depends(get_db),
     user = Depends(get_current_user),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort: str = Query("created_at"),
+    order: str = Query("desc"),
 ):
-    q = db.query(Upload).filter(Upload.user_id == user.id)
-    if status:
-        q = q.filter(Upload.status == (status.value if hasattr(status, "value") else str(status)))
-    return q.order_by(Upload.created_at.desc()).all()
+    sort_col = {
+        "created_at": Upload.created_at,
+        "status": Upload.status,
+        "size": Upload.size,
+    }.get(sort, Upload.created_at)
+    sort_dir = desc if order.lower() == "desc" else asc
 
+    base_q = db.query(Upload).filter(Upload.user_id == user.id)
+    total = db.query(func.count()).select_from(base_q.subquery()).scalar()
+
+    items = (
+        base_q.order_by(sort_dir(sort_col))
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+    return {"items": items, "total": total}
+
+
+# =====================================================
+# GET /upload/{id}
+# =====================================================
 @router.get("/{upload_id:int}", response_model=UploadOut)
 def get_upload(
     upload_id: int,
@@ -165,8 +190,13 @@ def get_upload(
     )
     if not upload:
         raise HTTPException(status_code=404, detail="Not found")
+
     return upload
 
+
+# =====================================================
+# POST /upload/{id}/retry
+# =====================================================
 @router.post("/{upload_id:int}/retry", response_model=UploadOut)
 def retry_upload(
     upload_id: int,
@@ -181,21 +211,18 @@ def retry_upload(
     if not upload:
         raise HTTPException(status_code=404, detail="Not found")
 
-    # If already done, block retry (optional: allow retry-any)
     done_value = UploadStatus.done.value if hasattr(UploadStatus, "done") else "done"
     pending_value = UploadStatus.pending.value if hasattr(UploadStatus, "pending") else "pending"
 
     if str(upload.status) == done_value:
         raise HTTPException(status_code=400, detail="Already processed")
 
-    # Reset status and clear any previous job id
     upload.status = pending_value
     upload.processor_job_id = None
     db.add(upload)
     db.commit()
     db.refresh(upload)
 
-    # Try to enqueue; if it fails, DO NOT raise—return pending so UI can retry later
     try:
         async_result = transcribe_upload.delay(upload.id)
         upload.processor_job_id = async_result.id
@@ -203,19 +230,20 @@ def retry_upload(
         db.commit()
         db.refresh(upload)
     except Exception as exc:
-        logger.exception("Enqueue failed for upload %s: %s", upload.id, exc)
+        logger.exception("Retry enqueue failed: %s", exc)
 
     return upload
 
-@router.delete("/{upload_id:int}", status_code=204)
+
+# =====================================================
+# DELETE /upload/{id}  ✅ RETURN 200 JSON (for tests)
+# =====================================================
+@router.delete("/{upload_id:int}", response_model=dict)
 def delete_upload(
     upload_id: int,
     db: Session = Depends(get_db),
     user = Depends(get_current_user),
 ):
-    """
-    Delete the DB row and the associated S3 object (best-effort).
-    """
     s3 = get_s3_client()
     bucket = settings.s3_bucket if hasattr(settings, "s3_bucket") else settings.S3_BUCKET
 
@@ -228,20 +256,14 @@ def delete_upload(
         raise HTTPException(status_code=404, detail="Not found")
 
     key = upload.key
-    try:
-        db.delete(upload)
-        db.commit()
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"DB delete failed: {exc}")
 
-    # best-effort S3 delete (don't fail request if storage delete fails)
+    db.delete(upload)
+    db.commit()
+
     try:
         if bucket and key:
             s3.delete_object(Bucket=bucket, Key=key)
     except Exception:
-        pass
+        pass  # don't break delete flow if storage fails
 
-    return
-
-
+    return JSONResponse({"deleted": True}, status_code=200)

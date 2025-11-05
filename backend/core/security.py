@@ -1,50 +1,59 @@
+# backend/core/security.py
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from jose import jwt
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from jose import jwt, JWTError
+
 from core.config import settings
 
-# Use pbkdf2_sha256 to avoid bcrypt-related issues
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+JWT_SECRET = getattr(settings, "SECRET_KEY", getattr(settings, "JWT_SECRET", "change-me"))
+JWT_ALGORITHM = getattr(settings, "JWT_ALGORITHM", "HS256")
+
+# ---- TEST MODE (plaintext passwords) ----
+# If set, we avoid crypto backends entirely in tests to keep them deterministic.
+TEST_PLAINTEXT = os.getenv("TEST_PLAINTEXT_PASSWORDS", "0") == "1"
+
+if TEST_PLAINTEXT:
+    # Dummy “hash”: prefix so we still store something that looks hashed
+    def get_password_hash(password: str) -> str:
+        return f"plain::{password}"
+
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        return hashed_password == f"plain::{plain_password}"
+else:
+    # Production/dev: PBKDF2-SHA256
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+    def get_password_hash(password: str) -> str:
+        return pwd_context.hash(password)
+
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        try:
+            return pwd_context.verify(plain_password, hashed_password)
+        except Exception:
+            return False
 
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+# Token expiry (minutes) default from settings, with safe fallback
+ACCESS_EXPIRE_MINUTES = int(getattr(settings, "ACCESS_TOKEN_EXPIRE_MINUTES", 15))
 
 
 def create_access_token(
     subject: str,
-    data: Optional[Dict[str, Any]] = None,
+    expires_minutes: Optional[int] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
-    to_encode = {"sub": subject}
-    if data:
-        to_encode.update(data)
+    """
+    Create a JWT. Supports both 'expires_minutes' and 'expires_delta' for compatibility.
+    """
+    if expires_delta is not None:
+        exp = datetime.now(timezone.utc) + expires_delta
+    else:
+        exp = datetime.now(timezone.utc) + timedelta(
+            minutes=expires_minutes or ACCESS_EXPIRE_MINUTES
+        )
 
-    expire = datetime.utcnow() + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    to_encode.update({"exp": expire})
-
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
-
-def create_refresh_token(
-    subject: str,
-    expires_delta: Optional[timedelta] = None,
-) -> str:
-    expires_delta = expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    return create_access_token(
-        subject, data={"type": "refresh"}, expires_delta=expires_delta
-    )
-
-
-def decode_token(token: str) -> Dict[str, Any]:
-    try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-    except JWTError as e:
-        raise e
+    to_encode = {"sub": str(subject), "exp": exp}
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
