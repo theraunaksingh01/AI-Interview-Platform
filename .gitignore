@@ -223,3 +223,7 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Ignore MinIO storage
+minio_data/
+.minio.sys/
+

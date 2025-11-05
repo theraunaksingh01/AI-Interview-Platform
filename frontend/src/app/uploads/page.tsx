@@ -1,9 +1,9 @@
-// src/app/uploads/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import UploadCard from "../components/ui/UploadCard";
+import { requestJSON } from "@/lib/http";
 
 type Upload = {
   id: number;
@@ -50,31 +50,20 @@ export default function UploadsPage() {
     setDebug("");
     try {
       const jwt = getToken();
-      const headers: Record<string, string> = {};
-      if (jwt) headers.Authorization = `Bearer ${jwt}`;
-
-      // ✅ correct endpoint for authed user’s uploads
-      const res = await fetch(`${API_BASE}/upload/me`, {
-        headers,
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        const body = await res.text();
-        if (res.status === 401) {
-          setDebug(
-            `401 from /upload/me\nToken present: ${jwt ? "yes" : "no"}\nToken head: ${
-              jwt ? jwt.slice(0, 12) + "..." : "(none)"
-            }\nBody: ${body}`
-          );
-        }
-        throw new Error(`HTTP ${res.status}: ${body}`);
-      }
-
-      const data = (await res.json()) as Upload[];
+      const data = await requestJSON<Upload[]>(
+        `${API_BASE}/upload/me`,
+        {},
+        { withAuth: true }
+      );
       setUploads(data);
     } catch (e: any) {
-      setErr(e?.message ?? "Failed to load uploads");
+      const msg = e?.message || "Failed to load uploads";
+      setErr(msg);
+      // If it was 401, show quick debug
+      if (msg.startsWith("HTTP 401")) {
+        const head = (getToken() || "").slice(0, 12);
+        setDebug(`401 from /upload/me\nToken present: ${getToken() ? "yes" : "no"}\nToken head: ${head ? head + "..." : "(none)"}`);
+      }
       setUploads(demoData);
     } finally {
       setLoading(false);
@@ -105,8 +94,7 @@ export default function UploadsPage() {
       )}
 
       <section>
-        {/* UploadCard currently expects only { token }; remove onDone to avoid TS prop mismatch */}
-        <UploadCard token={getToken()} />
+        <UploadCard token={getToken()} onDone={fetchUploads} />
       </section>
 
       {loading ? (
@@ -137,19 +125,12 @@ export default function UploadsPage() {
 
                 async function del() {
                   try {
-                    const jwt = getToken();
-                    const headers: Record<string, string> = {};
-                    if (jwt) headers.Authorization = `Bearer ${jwt}`;
-
-                    const res = await fetch(`${API_BASE}/upload/${u.id}`, {
-                      method: "DELETE",
-                      headers,
-                    });
-                    if (res.ok) {
-                      setUploads((prev) => prev.filter((x) => x.id !== u.id));
-                    } else {
-                      alert(`Delete failed: ${res.status} ${await res.text()}`);
-                    }
+                    await requestJSON(
+                      `${API_BASE}/upload/${u.id}`,
+                      { method: "DELETE" },
+                      { withAuth: true }
+                    );
+                    setUploads((prev) => prev.filter((x) => x.id !== u.id));
                   } catch (e: any) {
                     alert(e?.message || "Delete failed");
                   }
@@ -158,7 +139,7 @@ export default function UploadsPage() {
                 return (
                   <li key={u.id} className="border rounded-lg p-4 hover:shadow-sm">
                     <div className="flex items-start justify-between gap-3">
-                      <Link href={`/uploads/${u.id}`} className="no-underline flex-1">
+                      <Link href={`/uploads/${encodeURIComponent(u.id)}`} className="no-underline flex-1">
                         <div className="font-medium truncate">{u.filename}</div>
                         <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs mt-2 ${pill}`}>
                           {u.status}

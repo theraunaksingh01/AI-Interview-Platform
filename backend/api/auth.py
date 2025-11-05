@@ -11,7 +11,9 @@ from api import deps
 from core import security
 from core.config import settings
 from db import models as db_models
-from models.user import UserOut  # assumes you already have this
+from models.user import UserOut  
+from datetime import timedelta
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,6 +28,11 @@ class Token(BaseModel):
 class LoginJSON(BaseModel):
     email: EmailStr
     password: str
+
+
+class TokenOut(Token):  
+    pass
+
 
 
 # ---------- Helpers ----------
@@ -101,3 +108,20 @@ def read_myself(current_user: db_models.User = Depends(deps.get_current_user)):
 @router.get("/admin-only")
 def admin_only(user: db_models.User = Depends(deps.require_roles("admin"))):
     return {"msg": f"Hello admin {user.email}"}
+
+
+@router.post("/refresh", response_model=TokenOut)
+def refresh_access(current_user: db_models.User = Depends(deps.get_current_user)):
+    """
+    Issues a fresh short-lived access token for the already-authenticated user.
+    Client calls this when token is about to expire.
+    """
+    access_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_access = security.create_access_token(
+        subject=str(current_user.id), expires_delta=access_expires
+    )
+    return TokenOut(
+        access_token=new_access,
+        token_type="bearer",
+        expires_in=int(access_expires.total_seconds()),
+    )

@@ -7,11 +7,19 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api import ops as ops_router
+from core.request_id import RequestIDMiddleware
+from core.logging import setup_json_logging
+
 
 
 app = FastAPI(title="AI Interview Platform API")
 
 app.include_router(ops_router.router)
+
+app.add_middleware(RequestIDMiddleware)
+
+setup_json_logging()
+
 
 
 # Read CORS env (simple comma-separated fallback)

@@ -1,8 +1,8 @@
-// src/app/uploads/[id]/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { requestJSON } from "@/lib/http";
 
 type Upload = {
   id: number;
@@ -20,13 +20,7 @@ const API_BASE = (
   "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
-const ENV_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || "";
-const getToken = () =>
-  (typeof window !== "undefined" ? localStorage.getItem("API_TOKEN") || "" : "") ||
-  ENV_TOKEN;
-
 export default function UploadDetailPage({ params }: { params: { id: string } }) {
-  // Guard: /uploads/13 (no brackets). If not a number, show a friendly message.
   const idNum = Number(params.id);
   if (Number.isNaN(idNum)) {
     return (
@@ -41,28 +35,19 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
   const [err, setErr] = useState<string | null>(null);
   const [retryMsg, setRetryMsg] = useState<string>("");
 
-  // Queue badge state: null = unknown, true = online, false = offline
+  // Queue badge state
   const [queueOnline, setQueueOnline] = useState<boolean | null>(null);
   const prevQueueOnline = useRef<boolean | null>(null);
-  const autoRetriedOnce = useRef<boolean>(false); // prevent loops
+  const autoRetriedOnce = useRef<boolean>(false);
 
-  // Fetch once and also return the payload so poller can decide to stop
   const fetchOnce = useCallback(async (): Promise<Upload | null> => {
     try {
       setErr(null);
-      const jwt = getToken();
-      const headers: Record<string, string> = {};
-      if (jwt) headers.Authorization = `Bearer ${jwt}`;
-
-      const res = await fetch(`${API_BASE}/upload/${idNum}`, {
-        headers,
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`HTTP ${res.status}: ${body}`);
-      }
-      const data = (await res.json()) as Upload;
+      const data = await requestJSON<Upload>(
+        `${API_BASE}/upload/${idNum}`,
+        {},
+        { withAuth: true }
+      );
       setU(data);
       return data;
     } catch (e: any) {
@@ -73,41 +58,26 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
     }
   }, [idNum]);
 
-  // Poll until status is done/failed
+  // Poll status
   useEffect(() => {
     let stop = false;
-
     async function tick() {
       const data = await fetchOnce();
       const s = (data?.status || "").toString();
-      const finished = s === "done" || s === "failed";
-      if (!stop && !finished) {
+      if (!stop && s !== "done" && s !== "failed") {
         setTimeout(tick, 2000);
       }
     }
-
     tick();
-    return () => {
-      stop = true;
-    };
+    return () => { stop = true; };
   }, [fetchOnce]);
 
   async function retry() {
     setRetryMsg("");
     try {
-      const jwt = getToken();
-      const headers: Record<string, string> = {};
-      if (jwt) headers.Authorization = `Bearer ${jwt}`;
-
-      const res = await fetch(`${API_BASE}/upload/${idNum}/retry`, {
-        method: "POST",
-        headers,
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+      await requestJSON(`${API_BASE}/upload/${idNum}/retry`, { method: "POST" }, { withAuth: true });
       setRetryMsg("Re-queued for processing.");
-      autoRetriedOnce.current = true; // avoid immediate repeat auto-retry
-      // Kick the poller by fetching immediately
+      autoRetriedOnce.current = true;
       await fetchOnce();
     } catch (e: any) {
       setRetryMsg(e?.message || "Retry failed.");
@@ -116,41 +86,28 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
 
   async function deleteIt() {
     try {
-      const jwt = getToken();
-      const headers: Record<string, string> = {};
-      if (jwt) headers.Authorization = `Bearer ${jwt}`;
-
-      const res = await fetch(`${API_BASE}/upload/${idNum}`, {
-        method: "DELETE",
-        headers,
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        alert(`Delete failed: ${res.status} ${text}`);
-        return;
-      }
-      // Navigate back to list
+      await requestJSON(`${API_BASE}/upload/${idNum}`, { method: "DELETE" }, { withAuth: true });
       window.location.href = "/uploads";
     } catch (e: any) {
       alert(e?.message || "Delete failed");
     }
   }
 
-  // ---- Queue badge poller (every ~5s) ----
+  // Queue badge poller
   useEffect(() => {
     let stop = false;
-
     async function ping() {
       try {
-        const res = await fetch(`${API_BASE}/ops/queue`, { cache: "no-store" });
-        const j = await res.json().catch(() => ({}));
+        const j = await requestJSON<{ redis?: "online" | "offline" }>(
+          `${API_BASE}/ops/queue`,
+          { cache: "no-store" as any }, // satisfies TS for RequestInit
+          {}
+        );
         const nowOnline = j?.redis === "online";
         const prev = prevQueueOnline.current;
 
-        // Detect offline -> online transition and auto-retry if still pending
-        const stillPending = (u?.status === "pending" || u?.status === "processing"); // auto-retry mainly for pending; allow processing safe no-op
+        const stillPending = u?.status === "pending" || u?.status === "processing";
         if (prev === false && nowOnline === true && stillPending && !autoRetriedOnce.current) {
-          // Fire and forget; don't await to avoid blocking the poll loop
           retry();
         }
 
@@ -168,15 +125,12 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
       }
     }
 
-    // initialize prev value on first run
     if (prevQueueOnline.current === null) prevQueueOnline.current = queueOnline;
-
     ping();
-    return () => {
-      stop = true;
-    };
+    return () => { stop = true; };
+    // re-run when status flips to finished/pending again
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [u?.status]); // re-evaluate when upload status changes
+  }, [u?.status]);
 
   const pill =
     u?.status === "done"
@@ -230,9 +184,7 @@ export default function UploadDetailPage({ params }: { params: { id: string } })
           </div>
 
           <div className="text-sm text-gray-600 space-y-1">
-            {u.created_at && (
-              <div>Created: {new Date(u.created_at).toLocaleString()}</div>
-            )}
+            {u.created_at && <div>Created: {new Date(u.created_at).toLocaleString()}</div>}
             {u.size != null && <div>Size: {u.size} bytes</div>}
             {u.content_type && <div>Type: {u.content_type}</div>}
           </div>
