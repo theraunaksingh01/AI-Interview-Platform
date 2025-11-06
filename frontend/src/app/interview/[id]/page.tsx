@@ -1,156 +1,120 @@
+// frontend/src/app/interview/[id]/page.tsx
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-export default function InterviewPage() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [recording, setRecording] = useState(false);
-  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+type InterviewQuestion = {
+  id: number;
+  question_text: string;
+  type: "voice" | "code";
+  time_limit_seconds: number;
+};
 
-  const { id: interviewId } = useParams() as { id: string };
+export default function InterviewFlowPage() {
+  const { id } = useParams() as { id: string };
+  const API = process.env.NEXT_PUBLIC_API_URL!;
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [step, setStep] = useState(0);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  async function startRecording() {
-  // 1) Enumerate devices once
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const mics = devices.filter(d => d.kind === "audioinput");
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || ""
+      : "";
 
-  // Pick the first mic (or build a dropdown from `mics` to choose)
-  const deviceId = mics[0]?.deviceId;
-
-  const constraints: MediaStreamConstraints = {
-    video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-    audio: {
-      deviceId: deviceId ? { exact: deviceId } : undefined,
-      echoCancellation: true,
-      noiseSuppression: true,
-      channelCount: 1,
-      sampleRate: 48000,
-    } as MediaTrackConstraints,
-  };
-
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-  if (videoRef.current) {
-    videoRef.current.srcObject = stream;
-    await videoRef.current.play();
-  }
-
-  // Prefer a mimeType that guarantees Opus audio
-  const mimeCandidates = [
-    "video/webm;codecs=vp8,opus",
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=opus",
-    "video/webm"
-  ];
-  const mimeType = mimeCandidates.find(t => MediaRecorder.isTypeSupported(t)) || "";
-
-  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-
-  const chunks: BlobPart[] = [];
-  recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-
-  recorder.onstop = () => {
-    const blob = new Blob(chunks, { type: mimeType || "video/webm" });
-    setRecordedBlob(blob);
-    // stop tracks so the camera/mic turn off
-    stream.getTracks().forEach((t) => t.stop());
-  };
-
-  recorder.start(); // single blob; (later we can chunk)
-  mediaRecorderRef.current = recorder;
-  setRecording(true);
-}
-
-
-  function stopRecording() {
-    mediaRecorderRef?.current?.stop();
-    setRecording(false);
-  }
-
-  // NEW: Upload via multipart/form-data -> /upload/proxy (NO presign)
-  async function uploadToBackend() {
-    if (!recordedBlob) return;
-
-    const API = process.env.NEXT_PUBLIC_API_URL;
-    const token = localStorage.getItem("access_token");
-
-    if (!API) {
-      alert("❌ NEXT_PUBLIC_API_URL not set");
-      return;
-    }
-    if (!token) {
-      alert("❌ Not logged in. Token missing.");
-      return;
-    }
-
+  async function load() {
     try {
-      const file = new File(
-        [recordedBlob],
-        `interview-${Date.now()}.webm`,
-        { type: "video/webm" }
-      );
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", `interview/${interviewId}`);
-
-      const uploadRes = await fetch(`${API}/upload/proxy`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // ❗ DO NOT SET "Content-Type" manually when using FormData
-        },
-        body: formData,
+      setLoading(true);
+      setErr(null);
+      const res = await fetch(`${API}/interview/questions/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-
-      const json = await uploadRes.json();
-      if (!uploadRes.ok) {
-        console.error("Upload failed:", json);
-        alert(`❌ Upload failed: ${json.detail}`);
-        return;
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`HTTP ${res.status}: ${txt}`);
       }
-
-      console.log("✅ Proxy upload success:", json);
-      alert(`✅ Uploaded!\nUpload ID: ${json.id}\nKey: ${json.key}`);
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("❌ Error uploading. Check console.");
+      const json = (await res.json()) as InterviewQuestion[];
+      setQuestions(json);
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+      setQuestions([]);
+    } finally {
+      setLoading(false);
     }
   }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const question = questions[step];
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>Interview Recording</h1>
+      <div style={{ marginBottom: 12 }}>
+        <a href="/uploads" style={{ textDecoration: "underline" }}>
+          ← Back to Uploads
+        </a>
+      </div>
 
-      <video ref={videoRef} style={{ width: "500px", borderRadius: "8px" }} />
+      {loading && <div>Loading interview questions…</div>}
 
-      <br />
-
-      {!recording && (
-        <button onClick={startRecording} style={btnStyle}>
-          🎤 Start Recording
-        </button>
+      {!loading && err && (
+        <div style={{ background: "#fff7ed", padding: 12, borderRadius: 6, marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Couldn’t load questions</div>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>{err}</pre>
+          {!token && (
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              Tip: Log in first so localStorage has <code>access_token</code>.
+            </div>
+          )}
+          <button
+            onClick={load}
+            style={{ marginTop: 8, padding: "6px 12px", borderRadius: 6 }}
+          >
+            Retry
+          </button>
+        </div>
       )}
 
-      {recording && (
-        <button onClick={stopRecording} style={btnStopStyle}>
-          ⏹ Stop Recording
-        </button>
+      {!loading && !err && !question && (
+        <div>No questions found for this interview.</div>
       )}
 
-      {recordedBlob && (
+      {!loading && !err && question && (
         <>
-          <h3>Recorded Preview</h3>
-          <video
-            src={URL.createObjectURL(recordedBlob)}
-            controls
-            style={{ width: "500px", marginTop: 10 }}
-          />
+          <h1>Question {step + 1}</h1>
+          <p style={{ fontSize: "18px" }}>{question.question_text}</p>
 
-          <button onClick={uploadToBackend} style={btnUploadStyle}>
-            ⬆ Upload to Backend
+          {question.type === "voice" ? (
+            <a href={`/interview/${id}/record?question=${question.id}`}>
+              <button style={btn}>🎤 Start Recording</button>
+            </a>
+          ) : (
+            <a href={`/interview/${id}/code?question=${question.id}`}>
+              <button style={btn}>💻 Start Coding</button>
+            </a>
+          )}
+
+          <br />
+          <br />
+
+          <button
+            disabled={step === 0}
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            style={navBtn}
+          >
+            ← Previous
+          </button>
+          <button
+            disabled={step >= questions.length - 1}
+            onClick={() => setStep((s) => Math.min(questions.length - 1, s + 1))}
+            style={navBtn}
+          >
+            Next →
           </button>
         </>
       )}
@@ -158,27 +122,11 @@ export default function InterviewPage() {
   );
 }
 
-const btnStyle = {
-  padding: "10px 20px",
-  background: "green",
-  color: "white",
-  border: "none",
-  borderRadius: "5px",
-};
-
-const btnStopStyle = {
-  padding: "10px 20px",
-  background: "red",
-  color: "white",
-  border: "none",
-  borderRadius: "5px",
-};
-
-const btnUploadStyle = {
+const btn = {
   padding: "10px 20px",
   background: "blue",
   color: "white",
-  border: "none",
-  borderRadius: "5px",
-  marginTop: "10px",
+  borderRadius: "6px",
 };
+
+const navBtn = { padding: "6px 12px", marginRight: "10px" };

@@ -18,7 +18,7 @@ from api import transcribe
 from api import uploads_me, uploads
 from api import transcribe_upload
 from api import score
-
+from api import interview
 
 
 
@@ -33,6 +33,8 @@ app.include_router(transcribe.router)
 app.include_router(transcribe_upload.router)
 
 app.include_router(score.router)
+
+app.include_router(interview.router)
 
 
 app.include_router(uploads.router)
