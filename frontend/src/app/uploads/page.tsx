@@ -1,3 +1,4 @@
+// frontend/src/app/uploads/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -21,10 +22,13 @@ const API_BASE = (
 
 const ENV_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || "";
 
+// Read token from localStorage or env; prefer `access_token`, then legacy `API_TOKEN`.
 const getToken = () => {
   if (typeof window !== "undefined") {
-    const ls = localStorage.getItem("API_TOKEN");
-    if (ls) return ls;
+    const access = localStorage.getItem("access_token");
+    if (access) return access;
+    const legacy = localStorage.getItem("API_TOKEN");
+    if (legacy) return legacy;
   }
   return ENV_TOKEN;
 };
@@ -49,21 +53,31 @@ export default function UploadsPage() {
     setErr(null);
     setDebug("");
     try {
-      const jwt = getToken();
-      const data = await requestJSON<Upload[]>(
+      // Your backend exposes GET /upload/me (singular) returning {items,total}
+      // If you later switch to /uploads/me, just change the path here.
+      const data = await requestJSON<any>(
         `${API_BASE}/upload/me`,
         {},
         { withAuth: true }
       );
-      setUploads(data);
+
+      // Normalize to array for rendering
+      const list: Upload[] = Array.isArray(data) ? data : (data?.items ?? []);
+      setUploads(list);
     } catch (e: any) {
       const msg = e?.message || "Failed to load uploads";
       setErr(msg);
-      // If it was 401, show quick debug
-      if (msg.startsWith("HTTP 401")) {
-        const head = (getToken() || "").slice(0, 12);
-        setDebug(`401 from /upload/me\nToken present: ${getToken() ? "yes" : "no"}\nToken head: ${head ? head + "..." : "(none)"}`);
+
+      // Helpful debug on auth errors
+      if (msg.startsWith("HTTP 401") || /401/.test(msg)) {
+        const tok = getToken() || "";
+        const head = tok.slice(0, 12);
+        setDebug(
+          `401 from /upload/me\nToken present: ${tok ? "yes" : "no"}\nToken head: ${head ? head + "..." : "(none)"}`
+        );
       }
+
+      // Fallback demo items so UI doesn't break
       setUploads(demoData);
     } finally {
       setLoading(false);
@@ -73,6 +87,8 @@ export default function UploadsPage() {
   useEffect(() => {
     fetchUploads();
   }, [fetchUploads]);
+
+  const tokenPresent = !!getToken();
 
   return (
     <div className="p-6 space-y-6">
@@ -86,14 +102,15 @@ export default function UploadsPage() {
         </button>
       </header>
 
-      {!getToken() && (
+      {!tokenPresent && (
         <p className="text-xs text-amber-600">
-          No token found. Run{" "}
-          <code>localStorage.setItem("API_TOKEN", "YOUR_JWT")</code> in the console and refresh.
+          No token found. Log in via your app, or run{" "}
+          <code>localStorage.setItem("access_token", "YOUR_JWT")</code> in the console and refresh.
         </p>
       )}
 
       <section>
+        {/* Pass whichever token we found so UploadCard can use it */}
         <UploadCard token={getToken()} onDone={fetchUploads} />
       </section>
 
@@ -111,11 +128,11 @@ export default function UploadsPage() {
             <pre className="text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">{debug}</pre>
           )}
 
-          {uploads.length === 0 ? (
+          {(uploads ?? []).length === 0 ? (
             <p>No uploads yet.</p>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {uploads.map((u) => {
+              {(uploads ?? []).map((u) => {
                 const pill =
                   u.status === "done"
                     ? "bg-green-100 text-green-800"
@@ -139,9 +156,14 @@ export default function UploadsPage() {
                 return (
                   <li key={u.id} className="border rounded-lg p-4 hover:shadow-sm">
                     <div className="flex items-start justify-between gap-3">
-                      <Link href={`/uploads/${encodeURIComponent(u.id)}`} className="no-underline flex-1">
+                      <Link
+                        href={`/uploads/${encodeURIComponent(u.id)}`}
+                        className="no-underline flex-1"
+                      >
                         <div className="font-medium truncate">{u.filename}</div>
-                        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs mt-2 ${pill}`}>
+                        <div
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs mt-2 ${pill}`}
+                        >
                           {u.status}
                         </div>
                         {u.created_at && (

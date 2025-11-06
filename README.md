@@ -9,3 +9,13 @@ A prototype AI-powered interview platform built with FastAPI + Next.js + Docker.
 - Run `docker compose up -d` inside `infra/`
 - Frontend: Next.js in `/frontend`
 - Backend: FastAPI in `/backend`
+
+## Environment
+.venv311/Scripts/Activate.ps1
+
+## Uvicorn start
+uvicorn main:app --reload --port 8000
+
+Celery Start
+celery -A celery_app.app worker -l info -P solo
+

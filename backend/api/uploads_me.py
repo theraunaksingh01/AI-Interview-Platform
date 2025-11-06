@@ -6,7 +6,7 @@ from api.deps import get_db, get_current_user
 from db.models import Upload
 from .uploads import UploadOut
 
-router = APIRouter(prefix="/upload", tags=["upload"])
+router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 @router.get("/me", response_model=List[UploadOut])
 def list_my_uploads(

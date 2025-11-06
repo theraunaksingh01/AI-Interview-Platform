@@ -30,6 +30,8 @@ ALLOWED_CONTENT_TYPES = {
     "audio/x-wav",
     "video/mp4",
     "application/octet-stream",
+    "video/webm",      
+    "audio/webm",  
 }
 
 class PresignRequest(BaseModel):

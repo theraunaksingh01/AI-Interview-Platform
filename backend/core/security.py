@@ -3,10 +3,12 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import jwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 
 from core.config import settings
+
+
 
 JWT_SECRET = getattr(settings, "SECRET_KEY", getattr(settings, "JWT_SECRET", "change-me"))
 JWT_ALGORITHM = getattr(settings, "JWT_ALGORITHM", "HS256")
@@ -57,3 +59,19 @@ def create_access_token(
 
     to_encode = {"sub": str(subject), "exp": exp}
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_token(token: str) -> dict:
+    """
+    Decode and validate a JWT. Raises JWTError on invalid/expired tokens.
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            options={"verify_aud": False},  # we don't use 'aud'
+        )
+        return payload
+    except JWTError as e:
+        # Let the dependency convert this into a 401
+        raise e

@@ -9,6 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from api import ops as ops_router
 from core.request_id import RequestIDMiddleware
 from core.logging import setup_json_logging
+from api import responses
+from db.init_db import init_db
+from db.session import Base, engine
+from db import models as db_models        
+from models.responses import Responses
+from api import transcribe
+from api import uploads_me, uploads
+
 
 
 
@@ -16,9 +24,22 @@ app = FastAPI(title="AI Interview Platform API")
 
 app.include_router(ops_router.router)
 
+app.include_router(responses.router)
+
+app.include_router(transcribe.router)
+
+app.include_router(uploads.router)
+
+app.include_router(uploads_me.router)
+
+init_db()
+
+
 app.add_middleware(RequestIDMiddleware)
 
 setup_json_logging()
+
+Base.metadata.create_all(bind=engine)
 
 
 
