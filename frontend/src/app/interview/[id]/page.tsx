@@ -12,30 +12,57 @@ export default function InterviewPage() {
   const { id: interviewId } = useParams() as { id: string };
 
   async function startRecording() {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
+  // 1) Enumerate devices once
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const mics = devices.filter(d => d.kind === "audioinput");
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-    }
+  // Pick the first mic (or build a dropdown from `mics` to choose)
+  const deviceId = mics[0]?.deviceId;
 
-    const chunks: BlobPart[] = [];
-    const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+  const constraints: MediaStreamConstraints = {
+    video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: {
+      deviceId: deviceId ? { exact: deviceId } : undefined,
+      echoCancellation: true,
+      noiseSuppression: true,
+      channelCount: 1,
+      sampleRate: 48000,
+    } as MediaTrackConstraints,
+  };
 
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: "video/webm" });
-      setRecordedBlob(blob);
-      stream.getTracks().forEach((t) => t.stop());
-    };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-    recorder.start();
-    mediaRecorderRef.current = recorder;
-    setRecording(true);
+  if (videoRef.current) {
+    videoRef.current.srcObject = stream;
+    await videoRef.current.play();
   }
+
+  // Prefer a mimeType that guarantees Opus audio
+  const mimeCandidates = [
+    "video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=opus",
+    "video/webm"
+  ];
+  const mimeType = mimeCandidates.find(t => MediaRecorder.isTypeSupported(t)) || "";
+
+  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+  const chunks: BlobPart[] = [];
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: mimeType || "video/webm" });
+    setRecordedBlob(blob);
+    // stop tracks so the camera/mic turn off
+    stream.getTracks().forEach((t) => t.stop());
+  };
+
+  recorder.start(); // single blob; (later we can chunk)
+  mediaRecorderRef.current = recorder;
+  setRecording(true);
+}
+
 
   function stopRecording() {
     mediaRecorderRef?.current?.stop();

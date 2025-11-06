@@ -15,6 +15,7 @@ from .session import Base
 
 import enum
 from sqlalchemy.types import Enum as SAEnum
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 # association table between users and roles
@@ -76,6 +77,7 @@ class Upload(Base):
     status = Column(SAEnum(UploadStatus, native_enum=False), nullable=False, server_default="pending")
     processor_job_id = Column(String(255), nullable=True, index=True)
     transcript = Column(Text, nullable=True)
+    ai_feedback = Column(JSONB, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

@@ -53,6 +53,7 @@ class UploadOut(BaseModel):
     status: str
     processor_job_id: Optional[str] = None
     transcript: Optional[str] = None
+    ai_feedback: Optional[dict] = None
     created_at: datetime
     updated_at: datetime
 

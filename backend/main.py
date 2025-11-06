@@ -16,6 +16,8 @@ from db import models as db_models
 from models.responses import Responses
 from api import transcribe
 from api import uploads_me, uploads
+from api import transcribe_upload
+from api import score
 
 
 
@@ -27,6 +29,11 @@ app.include_router(ops_router.router)
 app.include_router(responses.router)
 
 app.include_router(transcribe.router)
+
+app.include_router(transcribe_upload.router)
+
+app.include_router(score.router)
+
 
 app.include_router(uploads.router)
 

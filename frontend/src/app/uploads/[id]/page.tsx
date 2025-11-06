@@ -1,224 +1,125 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
-import { requestJSON } from "@/lib/http";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+
+type Feedback = {
+  communication: number;
+  technical: number;
+  completeness: number;
+  red_flags: string[];
+  summary: string;
+};
 
 type Upload = {
   id: number;
   filename: string;
-  status: "pending" | "processing" | "done" | "failed" | string;
+  status: string;
   transcript?: string | null;
-  created_at?: string | null;
-  size?: number | null;
-  content_type?: string | null;
+  ai_feedback?: Feedback | null;
 };
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:8000"
-).replace(/\/$/, "");
-
-export default function UploadDetailPage({ params }: { params: { id: string } }) {
-  const idNum = Number(params.id);
-  if (Number.isNaN(idNum)) {
-    return (
-      <div className="p-6">
-        Invalid ID in URL. Use <code>/uploads/13</code> (no brackets).
-      </div>
-    );
-  }
-
-  const [u, setU] = useState<Upload | null>(null);
+export default function UploadDetail() {
+  const { id } = useParams() as { id: string };
+  const [data, setData] = useState<Upload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [retryMsg, setRetryMsg] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const API = process.env.NEXT_PUBLIC_API_URL!;
 
-  // Queue badge state
-  const [queueOnline, setQueueOnline] = useState<boolean | null>(null);
-  const prevQueueOnline = useRef<boolean | null>(null);
-  const autoRetriedOnce = useRef<boolean>(false);
-
-  const fetchOnce = useCallback(async (): Promise<Upload | null> => {
-    try {
-      setErr(null);
-      const data = await requestJSON<Upload>(
-        `${API_BASE}/upload/${idNum}`,
-        {},
-        { withAuth: true }
-      );
-      setU(data);
-      return data;
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load");
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [idNum]);
-
-  // Poll status
-  useEffect(() => {
-    let stop = false;
-    async function tick() {
-      const data = await fetchOnce();
-      const s = (data?.status || "").toString();
-      if (!stop && s !== "done" && s !== "failed") {
-        setTimeout(tick, 2000);
-      }
-    }
-    tick();
-    return () => { stop = true; };
-  }, [fetchOnce]);
-
-  async function retry() {
-    setRetryMsg("");
-    try {
-      await requestJSON(`${API_BASE}/upload/${idNum}/retry`, { method: "POST" }, { withAuth: true });
-      setRetryMsg("Re-queued for processing.");
-      autoRetriedOnce.current = true;
-      await fetchOnce();
-    } catch (e: any) {
-      setRetryMsg(e?.message || "Retry failed.");
-    }
+  async function fetchUpload() {
+    setLoading(true);
+    const token = localStorage.getItem("access_token") || "";
+    const res = await fetch(`${API}/upload/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json();
+    setData(json);
+    setLoading(false);
   }
 
-  async function deleteIt() {
-    try {
-      await requestJSON(`${API_BASE}/upload/${idNum}`, { method: "DELETE" }, { withAuth: true });
-      window.location.href = "/uploads";
-    } catch (e: any) {
-      alert(e?.message || "Delete failed");
+  async function scoreNow() {
+    setBusy(true);
+    const token = localStorage.getItem("access_token") || "";
+    const res = await fetch(`${API}/score/upload/${id}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      alert(`Scoring failed: ${res.status}`);
     }
+    await fetchUpload(); // refresh to show new ai_feedback
+    setBusy(false);
   }
 
-  // Queue badge poller
   useEffect(() => {
-    let stop = false;
-    async function ping() {
-      try {
-        const j = await requestJSON<{ redis?: "online" | "offline" }>(
-          `${API_BASE}/ops/queue`,
-          { cache: "no-store" as any }, // satisfies TS for RequestInit
-          {}
-        );
-        const nowOnline = j?.redis === "online";
-        const prev = prevQueueOnline.current;
-
-        const stillPending = u?.status === "pending" || u?.status === "processing";
-        if (prev === false && nowOnline === true && stillPending && !autoRetriedOnce.current) {
-          retry();
-        }
-
-        if (!stop) {
-          prevQueueOnline.current = nowOnline;
-          setQueueOnline(nowOnline);
-        }
-      } catch {
-        if (!stop) {
-          prevQueueOnline.current = false;
-          setQueueOnline(false);
-        }
-      } finally {
-        if (!stop) setTimeout(ping, 5000);
-      }
-    }
-
-    if (prevQueueOnline.current === null) prevQueueOnline.current = queueOnline;
-    ping();
-    return () => { stop = true; };
-    // re-run when status flips to finished/pending again
+    fetchUpload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [u?.status]);
+  }, [id]);
 
-  const pill =
-    u?.status === "done"
-      ? "bg-green-100 text-green-800"
-      : u?.status === "failed"
-      ? "bg-red-100 text-red-800"
-      : "bg-yellow-100 text-yellow-800";
+  if (loading) return <div className="p-6">Loading…</div>;
+  if (!data) return <div className="p-6">Not found</div>;
 
-  const showSpinner = u?.status === "pending" || u?.status === "processing";
+  const fb = data.ai_feedback;
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Upload #{idNum}</h1>
-        <Link href="/uploads" className="text-sm underline">
-          ← Back to uploads
-        </Link>
+      <h1 className="text-2xl font-bold">Upload #{data.id}</h1>
+      <div className="mt-2">
+      <a
+        href="/uploads"
+        className="text-sm underline text-blue-600 hover:text-blue-800"
+      >
+        ← Back to Uploads
+      </a>
+      </div>
+      <div className="text-sm text-gray-600">
+        File: <b>{data.filename}</b> • Status: <b>{data.status}</b>
       </div>
 
-      {/* Queue status badge */}
-      <div className="text-xs">
-        Queue:&nbsp;
-        {queueOnline == null ? (
-          "…"
-        ) : queueOnline ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800">
-            online ✅
-          </span>
+      <div className="space-x-2">
+        <button
+          onClick={scoreNow}
+          disabled={busy}
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          {busy ? "Scoring…" : "Score now"}
+        </button>
+        <button
+          onClick={fetchUpload}
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <section className="border rounded p-4">
+        <h2 className="font-semibold mb-2">Transcript</h2>
+        {data.transcript ? (
+          <p className="whitespace-pre-wrap text-sm">{data.transcript}</p>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800">
-            offline ⛔
-          </span>
+          <p className="text-sm text-gray-500">No transcript yet.</p>
         )}
-      </div>
+      </section>
 
-      {loading ? (
-        <div>Loading…</div>
-      ) : err ? (
-        <p className="text-sm text-red-600">{err}</p>
-      ) : u ? (
-        <div className="space-y-4">
-          <div className="text-lg font-medium break-words">{u.filename}</div>
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${pill}`}>
-            <span>{u.status}</span>
-            {showSpinner && (
-              <span
-                className="ml-2 inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"
-                aria-label="loading"
-              />
-            )}
-          </div>
-
-          <div className="text-sm text-gray-600 space-y-1">
-            {u.created_at && <div>Created: {new Date(u.created_at).toLocaleString()}</div>}
-            {u.size != null && <div>Size: {u.size} bytes</div>}
-            {u.content_type && <div>Type: {u.content_type}</div>}
-          </div>
-
-          <div className="flex gap-2">
-            {(u.status === "failed" || u.status === "pending" || u.status === "processing") && (
-              <button
-                onClick={retry}
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-              >
-                Retry processing
-              </button>
-            )}
-            <button
-              onClick={deleteIt}
-              className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-            >
-              Delete
-            </button>
-          </div>
-          {retryMsg && <p className="text-sm text-gray-700">{retryMsg}</p>}
-
-          {u.transcript && (
+      <section className="border rounded p-4">
+        <h2 className="font-semibold mb-2">AI Evaluation</h2>
+        {fb ? (
+          <div className="space-y-1 text-sm">
+            <div>Communication: <b>{fb.communication}</b>/10</div>
+            <div>Technical: <b>{fb.technical}</b>/10</div>
+            <div>Completeness: <b>{fb.completeness}</b>/10</div>
             <div>
-              <h2 className="text-base font-semibold mb-2">Transcript</h2>
-              <pre className="whitespace-pre-wrap rounded bg-gray-50 p-3 text-sm">
-                {u.transcript}
-              </pre>
+              Red flags:{" "}
+              {fb.red_flags?.length ? fb.red_flags.join(", ") : "None"}
             </div>
-          )}
-        </div>
-      ) : (
-        <p>Not found.</p>
-      )}
+            <div className="text-gray-600 mt-2">{fb.summary}</div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Not scored yet. Click <b>Score now</b>.
+          </p>
+        )}
+      </section>
     </div>
   );
 }
