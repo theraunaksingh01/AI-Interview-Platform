@@ -72,54 +72,83 @@ export default function InterviewPage() {
 
   // NEW: Upload via multipart/form-data -> /upload/proxy (NO presign)
   async function uploadToBackend() {
-    if (!recordedBlob) return;
+  if (!recordedBlob) return;
 
-    const API = process.env.NEXT_PUBLIC_API_URL;
-    const token = localStorage.getItem("access_token");
+  const API = process.env.NEXT_PUBLIC_API_URL!;
+  const token = localStorage.getItem("access_token") || "";
+  const questionId = new URLSearchParams(window.location.search).get("question");
 
-    if (!API) {
-      alert("❌ NEXT_PUBLIC_API_URL not set");
+  if (!token) { alert("Not logged in"); return; }
+  if (!questionId) { alert("Missing question id"); return; }
+
+  try {
+    // 1) Upload video (proxy multipart)
+    const file = new File([recordedBlob], `interview-${Date.now()}.webm`, { type: "video/webm" });
+    const form = new FormData();
+    form.append("file", file);
+    form.append("folder", `interview/${interviewId}`);
+
+    const uploadRes = await fetch(`${API}/upload/proxy`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const uploadJson = await uploadRes.json();
+    if (!uploadRes.ok) {
+      console.error("Upload failed:", uploadJson);
+      alert(`Upload failed: ${uploadJson.detail || uploadRes.status}`);
       return;
     }
-    if (!token) {
-      alert("❌ Not logged in. Token missing.");
+    const uploadId = uploadJson.id as number;
+
+    // 2) Save answer row (link question_id -> upload_id)
+    const ansRes = await fetch(`${API}/interview/answer`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question_id: Number(questionId),
+        upload_id: uploadId,
+      }),
+    });
+    if (!ansRes.ok) {
+      const t = await ansRes.text();
+      console.error("Save answer failed:", t);
+      alert(`Save answer failed: ${t}`);
       return;
     }
 
-    try {
-      const file = new File(
-        [recordedBlob],
-        `interview-${Date.now()}.webm`,
-        { type: "video/webm" }
-      );
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", `interview/${interviewId}`);
-
-      const uploadRes = await fetch(`${API}/upload/proxy`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // ❗ DO NOT SET "Content-Type" manually when using FormData
-        },
-        body: formData,
-      });
-
-      const json = await uploadRes.json();
-      if (!uploadRes.ok) {
-        console.error("Upload failed:", json);
-        alert(`❌ Upload failed: ${json.detail}`);
-        return;
-      }
-
-      console.log("✅ Proxy upload success:", json);
-      alert(`✅ Uploaded!\nUpload ID: ${json.id}\nKey: ${json.key}`);
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("❌ Error uploading. Check console.");
+    // 3) Transcribe (sync) — or use enqueue endpoint if you prefer background
+    const tr = await fetch(`${API}/transcribe/upload/${uploadId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const trJson = await tr.json();
+    if (!tr.ok) {
+      console.warn("Transcribe failed", trJson);
+      // not fatal — continue to scoring if transcript may still exist
     }
+
+    // 4) Score (works even for empty transcript)
+    const sc = await fetch(`${API}/score/upload/${uploadId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!sc.ok) {
+      const txt = await sc.text();
+      console.warn("Scoring failed:", txt);
+    }
+
+    alert("✅ Saved answer, transcribed & scored. Returning to questions…");
+    // 5) Go back to interview flow
+    window.location.href = `/interview/${interviewId}`;
+  } catch (err) {
+    console.error(err);
+    alert("Error uploading/saving. See console.");
   }
+}
 
   return (
     <div style={{ padding: 20 }}>
