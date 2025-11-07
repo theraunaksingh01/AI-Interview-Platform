@@ -1,3 +1,4 @@
+// frontend/src/app/interview/[id]/code/page.tsx
 "use client";
 
 import dynamic from "next/dynamic";
@@ -12,6 +13,16 @@ type InterviewQuestion = {
   question_text: string;
   type: "voice" | "code";
   time_limit_seconds: number;
+};
+
+type GradeResult = {
+  ok: boolean;
+  exit_code: number;
+  stdout: string;
+  stderr: string;
+  correctness: number;
+  total: number;
+  passed: number;
 };
 
 const DEFAULT_SNIPPETS: Record<Lang, string> = {
@@ -58,7 +69,7 @@ export default function CodingPage() {
   const [question, setQuestion] = useState<InterviewQuestion | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
-  const [runOutput, setRunOutput] = useState<string>(""); // console output pane
+  const [runOutput, setRunOutput] = useState<string>(""); // console output (local JS)
   const [running, setRunning] = useState(false);
 
   // -------- Helpers --------
@@ -105,7 +116,7 @@ export default function CodingPage() {
   useEffect(() => {
     if (secondsLeft === null) return;
     if (secondsLeft <= 0) {
-      // Auto-save when time is up
+      // Auto-grade + save when time is up
       if (!busy) saveAndContinue(true);
       return;
     }
@@ -120,7 +131,7 @@ export default function CodingPage() {
     if (!hasUserEdited.current) setCode(DEFAULT_SNIPPETS[lang]);
   }, [lang]);
 
-  // -------- Save answer --------
+  // -------- Grade -> Save answer -> Persist flags -> Return --------
   async function saveAndContinue(auto = false) {
     if (!questionId) {
       alert("Missing question id in URL.");
@@ -132,36 +143,60 @@ export default function CodingPage() {
     }
     setBusy(true);
     try {
-      const res = await fetch(`${API}/interview/answer`, {
+      // 1) Grade on server (Docker runner with hidden tests)
+      const gradeRes = await fetch(`${API}/code/grade`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ lang, code, question_id: Number(questionId) }),
+      });
+      const grade: GradeResult = await gradeRes.json();
+      if (!gradeRes.ok) {
+        throw new Error(`Grading failed: HTTP ${gradeRes.status} ${JSON.stringify(grade)}`);
+      }
+
+      // 2) Save answer with code + output + test_results
+      const ansRes = await fetch(`${API}/interview/answer`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           question_id: Number(questionId),
           code_answer: code,
+          code_output: grade.stdout || "",
+          test_results: grade, // JSONB on backend
         }),
       });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Save failed: ${res.status} ${txt}`);
+      if (!ansRes.ok) {
+        const t = await ansRes.text();
+        throw new Error(`Save answer failed: ${t}`);
       }
-      if (!auto) alert("✅ Code saved. Returning to questions…");
+
+      // 3) Persist anti-cheat flags (if any)
+      if (flagsRef.current.length) {
+        await fetch(`${API}/interview/flags`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ question_id: Number(questionId), flags: flagsRef.current }),
+        });
+      }
+
+      if (!auto) {
+        alert(`✅ Saved & graded (Correctness ${grade.correctness}%). Returning to questions…`);
+      }
       window.location.href = `/interview/${interviewId}`;
     } catch (e: any) {
       console.error(e);
-      alert(e?.message || "Save failed");
+      alert(e?.message || "Save/grade failed");
     } finally {
       setBusy(false);
     }
   }
 
-  // -------- JS Runner (sandboxed iframe) --------
+  // -------- Local JS Runner (sandboxed iframe) --------
   function runJavaScript(codeToRun: string) {
     setRunning(true);
     setRunOutput("");
-    // Create sandboxed iframe
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
-    // sandbox: allow-scripts only (no same-origin, no top nav)
     iframe.setAttribute("sandbox", "allow-scripts");
     document.body.appendChild(iframe);
 
@@ -224,7 +259,7 @@ export default function CodingPage() {
     if (lang === "javascript") {
       runJavaScript(code);
     } else {
-      alert("Python run is disabled in browser.\n(Add server runner or Pyodide next.)");
+      alert("Python run is disabled in browser.\n(Server runner handles it during grading.)");
     }
   }
 
@@ -284,7 +319,7 @@ export default function CodingPage() {
             background: busy ? "#f3f4f6" : "white",
           }}
         >
-          {busy ? "Saving…" : "Save & Continue →"}
+          {busy ? "Saving…" : "Save, Grade & Continue →"}
         </button>
       </div>
     ),
@@ -346,7 +381,7 @@ export default function CodingPage() {
         />
       </div>
 
-      {/* Output pane */}
+      {/* Output pane (local JS run) */}
       <div
         style={{
           marginTop: 10,
@@ -359,9 +394,7 @@ export default function CodingPage() {
         }}
       >
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Run Output</div>
-        <div style={{ fontSize: 13, color: "#111827" }}>
-          {runOutput || "—"}
-        </div>
+        <div style={{ fontSize: 13, color: "#111827" }}>{runOutput || "—"}</div>
       </div>
     </div>
   );

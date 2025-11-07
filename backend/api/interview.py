@@ -1,37 +1,56 @@
 # backend/api/interview.py
+from __future__ import annotations
+import json
+from uuid import UUID
+from typing import Optional, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from uuid import UUID
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from api.deps import get_db, get_current_user
-from tasks.transcribe import transcribe_upload  
-
+from sqlalchemy import text, bindparam
+from sqlalchemy.dialects.postgresql import JSONB
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
+# ---------------------------
+# Start + Seed + Questions
+# ---------------------------
+
 @router.post("/start")
 def start_interview(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    res = db.execute(
-        text("""
-            INSERT INTO interviews (user_id, status)
-            VALUES (:user_id, 'recording')
-            RETURNING id
-        """),
-        {"user_id": int(user.id)},
-    )
-    interview_id = res.scalar_one()
-    db.commit()
-    return {"interview_id": str(interview_id)}
+    """
+    Creates a new interview row and returns its UUID.
+    NOTE: If your interviews.user_id column is UUID but users.id is INT,
+    you should either:
+      - make interviews.user_id INT, or
+      - store user.email instead, or
+      - map user.id to a UUID elsewhere.
+    This version assumes interviews.user_id is INT.
+    """
+    try:
+        res = db.execute(
+            text("""
+                INSERT INTO interviews (user_id, status)
+                VALUES (:user_id, 'recording')
+                RETURNING id
+            """),
+            {"user_id": int(user.id)},
+        )
+        interview_id = res.scalar_one()
+        db.commit()
+        return {"interview_id": str(interview_id)}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"/interview/start failed: {e}")
 
 @router.post("/seed/{interview_id}")
 def seed_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
     exists = db.execute(text("SELECT 1 FROM interviews WHERE id = :id"), {"id": str(interview_id)}).scalar()
     if not exists:
         raise HTTPException(status_code=404, detail="Interview not found")
-
     db.execute(
         text("""
             INSERT INTO interview_questions (interview_id, question_text, type, time_limit_seconds)
@@ -57,43 +76,133 @@ def get_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depend
     ).mappings().all()
     return [dict(r) for r in rows]
 
-# ---------- NEW: save answer (video or code) ----------
+# ---------------------------
+# Record answer (video/code)
+# ---------------------------
+
 class RecordAnswer(BaseModel):
     question_id: int
-    upload_id: int | None = None   # for voice answers
-    code_answer: str | None = None # for code answers
+    upload_id: Optional[int] = None          # for voice answers
+    code_answer: Optional[str] = None        # for code answers
+    # NEW fields for grading results from /code/grade:
+    code_output: Optional[str] = None
+    test_results: Optional[dict[str, Any]] = None
 
 @router.post("/answer")
 def record_answer(payload: RecordAnswer, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # ensure question exists
-    q = db.execute(
-        text("SELECT id, type FROM interview_questions WHERE id = :qid"),
+    # Ensure question exists
+    qid = db.execute(
+        text("SELECT id FROM interview_questions WHERE id = :qid"),
         {"qid": payload.question_id}
-    ).mappings().first()
-    if not q:
+    ).scalar()
+    if not qid:
         raise HTTPException(status_code=404, detail="Question not found")
 
+    # Insert answer with optional grading fields
     db.execute(
         text("""
-            INSERT INTO interview_answers (interview_question_id, upload_id, code_answer)
-            VALUES (:qid, :uid, :code)
+          INSERT INTO interview_answers
+            (interview_question_id, upload_id, code_answer, code_output, test_results)
+          VALUES
+            (:qid, :uid, :code, :out, CAST(:tests AS jsonb))
         """),
-        {"qid": payload.question_id, "uid": payload.upload_id, "code": payload.code_answer},
+        {
+            "qid": payload.question_id,
+            "uid": payload.upload_id,
+            "code": payload.code_answer,
+            "out": payload.code_output,
+            "tests": json.dumps(payload.test_results) if payload.test_results is not None else None,
+        },
     )
     db.commit()
     return {"ok": True}
 
-# ---------- OPTIONAL: simple report ----------
+# ---------------------------
+# Persist anti-cheat flags
+# ---------------------------
+class FlagsIn(BaseModel):
+    question_id: int
+    flags: List[str]
+
+@router.post("/flags")
+def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    # 1) detect FK column
+    qcol = db.execute(text("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'interview_answers'
+          AND column_name IN ('interview_question_id','question_id')
+        LIMIT 1
+    """)).scalar()
+    if not qcol:
+        raise HTTPException(500, "interview_answers missing FK column")
+
+    # 2) detect ordering column
+    has_created_at = db.execute(text("""
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'interview_answers' AND column_name = 'created_at'
+        LIMIT 1
+    """)).scalar() is not None
+    order_clause = "created_at DESC NULLS LAST" if has_created_at else "id DESC"
+
+    # 3) latest answer id
+    answer_id = db.execute(
+        text(f"""
+            SELECT id FROM interview_answers
+            WHERE {qcol} = :qid
+            ORDER BY {order_clause}
+            LIMIT 1
+        """),
+        {"qid": payload.question_id}
+    ).scalar()
+    if not answer_id:
+        raise HTTPException(404, "No answer found to attach flags (save an answer first)")
+
+    # 4) read current flags
+    cur = db.execute(text("SELECT cheat_flags FROM interview_answers WHERE id = :aid"), {"aid": answer_id}).scalar()
+    try:
+        cur_list = json.loads(cur) if isinstance(cur, str) else (cur or [])
+    except Exception:
+        cur_list = []
+    if not isinstance(cur_list, list):
+        cur_list = []
+
+    # 5) merge & dedupe
+    merged = list(dict.fromkeys([*cur_list, *payload.flags]))
+
+    # 6) overwrite with bound JSONB (NO ::jsonb, NO ||)
+    upd = text("UPDATE interview_answers SET cheat_flags = :merged WHERE id = :aid RETURNING id")
+    upd = upd.bindparams(bindparam("merged", type_=JSONB))
+    updated_id = db.execute(upd, {"merged": merged, "aid": answer_id}).scalar()
+    db.commit()
+
+    if not updated_id:
+        raise HTTPException(500, "Failed to update cheat_flags")
+
+    return {"ok": True, "answer_id": int(updated_id), "cheat_flags": merged}
+
+# ---------------------------
+# (Optional) Simple report
+# ---------------------------
+
 @router.get("/report/{interview_id}")
 def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
     rows = db.execute(
         text("""
-            SELECT q.id as question_id, q.type, q.question_text,
-                   a.upload_id, a.code_answer, a.transcript, a.ai_feedback, a.red_flags, a.created_at
+            SELECT
+              q.id AS question_id, q.type, q.question_text, q.time_limit_seconds,
+              a.id AS answer_id, a.upload_id, a.code_answer, a.code_output,
+              a.test_results, a.cheat_flags, a.transcript, a.ai_feedback, a.created_at
             FROM interview_questions q
-            LEFT JOIN interview_answers a ON a.interview_question_id = q.id
+            LEFT JOIN LATERAL (
+              SELECT * FROM interview_answers a2
+              WHERE a2.interview_question_id = q.id
+              ORDER BY a2.created_at DESC NULLS LAST
+              LIMIT 1
+            ) a ON TRUE
             WHERE q.interview_id = :id
-            ORDER BY q.id ASC, a.created_at ASC
+            ORDER BY q.id ASC
         """),
         {"id": str(interview_id)}
     ).mappings().all()

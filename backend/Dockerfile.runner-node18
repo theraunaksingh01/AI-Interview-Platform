@@ -1,0 +1,4 @@
+FROM node:18-alpine
+WORKDIR /usr/src/app
+USER node
+CMD ["node", "/usr/src/app/main.js"]
