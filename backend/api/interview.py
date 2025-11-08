@@ -16,6 +16,7 @@ from core.config import settings
 from core.s3_client import get_s3_client
 from tasks.report_pdf import generate_pdf
 from tasks.score_interview import score_interview
+from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/interview", tags=["interview"])
@@ -56,6 +57,15 @@ def seed_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depen
     exists = db.execute(text("SELECT 1 FROM interviews WHERE id = :id"), {"id": str(interview_id)}).scalar()
     if not exists:
         raise HTTPException(status_code=404, detail="Interview not found")
+
+    already = db.execute(
+        text("SELECT COUNT(*) FROM interview_questions WHERE interview_id=:id"),
+        {"id": str(interview_id)}
+    ).scalar() or 0
+
+    if already > 0:
+        return {"ok": True, "seeded": False, "total": int(already)}  # no-op
+
     db.execute(
         text("""
             INSERT INTO interview_questions (interview_id, question_text, type, time_limit_seconds)
@@ -66,7 +76,8 @@ def seed_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depen
         {"id": str(interview_id)},
     )
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "seeded": True}
+
 
 @router.get("/questions/{interview_id}")
 def get_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -186,6 +197,45 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
         raise HTTPException(500, "Failed to update cheat_flags")
 
     return {"ok": True, "answer_id": int(updated_id), "cheat_flags": merged}
+
+
+class ProgressOut(BaseModel):
+    total: int
+    answered: int
+    percent: int
+
+@router.get("/progress/{interview_id}", response_model=ProgressOut)
+def interview_progress(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    # total questions
+    total = db.execute(
+        text("SELECT COUNT(*) FROM interview_questions WHERE interview_id = :iid"),
+        {"iid": str(interview_id)}
+    ).scalar() or 0
+
+    # answered questions (count a question if latest answer has either upload_id (voice) OR code_answer)
+    answered = db.execute(
+        text("""
+        WITH latest AS (
+          SELECT q.id AS qid,
+                 (SELECT a1.id
+                  FROM interview_answers a1
+                  WHERE a1.interview_question_id = q.id
+                  ORDER BY a1.created_at DESC NULLS LAST, a1.id DESC
+                  LIMIT 1) AS aid
+          FROM interview_questions q
+          WHERE q.interview_id = :iid
+        )
+        SELECT COUNT(*)
+        FROM latest L
+        JOIN interview_answers A ON A.id = L.aid
+        WHERE (A.upload_id IS NOT NULL) OR (A.code_answer IS NOT NULL AND length(A.code_answer) > 0)
+        """),
+        {"iid": str(interview_id)}
+    ).scalar() or 0
+
+    pct = int(round(100 * (answered / total), 0)) if total else 0
+    return {"total": total, "answered": answered, "percent": pct}
+
 
 # ---------------------------
 # (Optional) Simple report

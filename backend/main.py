@@ -36,7 +36,6 @@ app.include_router(score.router)
 
 app.include_router(interview.router)
 
-
 app.include_router(uploads.router)
 
 app.include_router(uploads_me.router)

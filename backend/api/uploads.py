@@ -28,10 +28,10 @@ ALLOWED_CONTENT_TYPES = {
     "audio/mpeg",
     "audio/wav",
     "audio/x-wav",
+    "audio/webm",
     "video/mp4",
-    "application/octet-stream",
-    "video/webm",      
-    "audio/webm",  
+    "video/webm",
+    "application/octet-stream",  
 }
 
 class PresignRequest(BaseModel):
@@ -62,10 +62,14 @@ class UploadOut(BaseModel):
 
 
 # ---- utility ----
+def _base_ct(ct: Optional[str]) -> Optional[str]:
+    return ct.split(";", 1)[0].strip().lower() if ct else None
+
 def _require_allowed_type(ct: Optional[str]):
-    if not ct:
+    base = _base_ct(ct)
+    if not base:
         return
-    if ct not in ALLOWED_CONTENT_TYPES:
+    if base not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported content-type '{ct}'. Allowed: {sorted(ALLOWED_CONTENT_TYPES)}",
@@ -88,6 +92,8 @@ async def proxy_upload(
         raise HTTPException(status_code=500, detail="S3 bucket not configured")
 
     _require_allowed_type(file.content_type)
+    base_ct = _base_ct(file.content_type)
+
 
     data = await file.read()
     await file.close()
@@ -105,8 +111,8 @@ async def proxy_upload(
     # upload to S3
     try:
         put_kwargs = {"Bucket": bucket, "Key": key, "Body": data}
-        if file.content_type:
-            put_kwargs["ContentType"] = file.content_type
+        if base_ct:
+            put_kwargs["ContentType"] = base_ct
         s3.put_object(**put_kwargs)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Upload to storage failed: {exc}")
@@ -117,7 +123,7 @@ async def proxy_upload(
             user_id=user.id,
             key=key,
             filename=safe_name,
-            content_type=file.content_type,
+            content_type=base_ct,
             size=len(data),
             status=UploadStatus.pending.value if hasattr(UploadStatus, "pending") else "pending",
         )
