@@ -21,4 +21,3 @@ celery -A celery_app.app worker -l info -P solo
 
 Store the token in the browser for the frontend to use
 localStorage.setItem('access_token', '<PASTE_ACCESS_TOKEN_HERE>');
-

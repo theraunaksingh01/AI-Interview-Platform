@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 from api.deps import get_db, get_current_user
 from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import JSONB
+from core.config import settings
+from core.s3_client import get_s3_client
+from tasks.report_pdf import generate_pdf
+from tasks.score_interview import score_interview
+
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
@@ -207,3 +212,46 @@ def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_c
         {"id": str(interview_id)}
     ).mappings().all()
     return [dict(r) for r in rows]
+
+@router.post("/score/{interview_id}")
+def score_now(interview_id: UUID, user=Depends(get_current_user)):
+    """
+    Queue AI scoring for this interview (LLM + aggregation).
+    Requires Celery worker to be running.
+    """
+    task = score_interview.delay(str(interview_id))
+    return {"queued": True, "task_id": task.id}
+
+@router.post("/report/{interview_id}/pdf")
+def pdf_now(interview_id: UUID, user=Depends(get_current_user)):
+    """
+    Queue PDF generation. Stores PDF to S3/MinIO as reports/{id}.pdf
+    """
+    task = generate_pdf.delay(str(interview_id))
+    return {"queued": True, "task_id": task.id}
+
+@router.get("/report/{interview_id}/pdf")
+def pdf_info(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    Return PDF location (and a presigned URL if possible).
+    """
+    key = db.execute(text("SELECT pdf_key FROM interviews WHERE id = :i"), {"i": str(interview_id)}).scalar()
+    if not key:
+        raise HTTPException(status_code=404, detail="PDF not ready")
+    bucket = getattr(settings, "S3_BUCKET", getattr(settings, "s3_bucket", None))
+    if not bucket:
+        raise HTTPException(status_code=500, detail="Bucket not configured")
+
+    # Try to presign (works for MinIO/S3 if creds are set)
+    try:
+        s3 = get_s3_client()
+        expires = int(getattr(settings, "PRESIGNED_URL_EXPIRES", 900))
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires,
+        )
+    except Exception:
+        url = None
+
+    return {"bucket": bucket, "key": key, "presigned_url": url}

@@ -17,7 +17,10 @@ app = Celery(
     "ai_interview_platform",
     broker=BROKER,
     backend=BACKEND,
-    include=["tasks.transcribe"],  # keep your module path
+    include=["tasks.transcribe",
+             "tasks.score_interview",
+             "tasks.report_pdf",
+             ],
 )
 
 # sensible dev defaults
