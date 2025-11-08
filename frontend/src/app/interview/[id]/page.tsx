@@ -1,10 +1,10 @@
 // frontend/src/app/interview/[id]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
-type InterviewQuestion = {
+type Q = {
   id: number;
   question_text: string;
   type: "voice" | "code";
@@ -14,119 +14,126 @@ type InterviewQuestion = {
 export default function InterviewFlowPage() {
   const { id } = useParams() as { id: string };
   const API = process.env.NEXT_PUBLIC_API_URL!;
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
-  const [step, setStep] = useState(0);
-  const [err, setErr] = useState<string | null>(null);
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
+
+  const [qs, setQs] = useState<Q[]>([]);
+  const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_token") || ""
-      : "";
-
-  async function load() {
-    try {
-      setLoading(true);
-      setErr(null);
-      const res = await fetch(`${API}/interview/questions/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`HTTP ${res.status}: ${txt}`);
-      }
-      const json = (await res.json()) as InterviewQuestion[];
-      setQuestions(json);
-    } catch (e: any) {
-      setErr(e?.message || String(e));
-      setQuestions([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const pct = useMemo(
+    () => (qs.length ? Math.round(((idx + 1) / qs.length) * 100) : 0),
+    [qs.length, idx]
+  );
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+    (async () => {
+      try {
+        const r = await fetch(`${API}/interview/questions/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const data: Q[] = await r.json();
+        setQs(data || []);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [API, id, token]);
 
-  const question = questions[step];
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] grid place-items-center text-gray-600">
+        Loading interview questions…
+      </div>
+    );
+  }
+
+  if (!qs.length) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <a href="/uploads" className="text-sm underline text-gray-600">← Back to Uploads</a>
+        <h1 className="text-2xl font-semibold mt-4">No questions yet</h1>
+        <p className="text-gray-600 mt-2">Seed questions for this interview to proceed.</p>
+      </div>
+    );
+  }
+
+  const q = qs[idx];
+
+  function go(delta: number) {
+    setIdx((i) => Math.min(Math.max(0, i + delta), qs.length - 1));
+  }
+
+  const primaryBtn =
+    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 transition";
+  const ghostBtn =
+    "inline-flex items-center gap-2 rounded-xl px-3 py-2 border border-gray-200 hover:bg-gray-50 transition";
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ marginBottom: 12 }}>
-        <a href="/uploads" style={{ textDecoration: "underline" }}>
+    <div className="max-w-3xl mx-auto p-6">
+      {/* top bar */}
+      <div className="flex items-center justify-between">
+        <a href="/uploads" className="text-sm underline text-gray-600">
           ← Back to Uploads
         </a>
+        <div className="text-sm text-gray-600">
+          Question <b>{idx + 1}</b> / {qs.length}
+        </div>
       </div>
 
-      {loading && <div>Loading interview questions…</div>}
+      {/* progress */}
+      <div className="w-full h-2 bg-gray-100 rounded mt-3 overflow-hidden">
+        <div
+          className="h-full bg-indigo-600 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
 
-      {!loading && err && (
-        <div style={{ background: "#fff7ed", padding: 12, borderRadius: 6, marginBottom: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Couldn’t load questions</div>
-          <pre style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>{err}</pre>
-          {!token && (
-            <div style={{ marginTop: 8, fontSize: 12 }}>
-              Tip: Log in first so localStorage has <code>access_token</code>.
-            </div>
-          )}
-          <button
-            onClick={load}
-            style={{ marginTop: 8, padding: "6px 12px", borderRadius: 6 }}
-          >
-            Retry
-          </button>
+      {/* card */}
+      <div className="mt-6 rounded-2xl border border-gray-200 shadow-sm p-6 bg-white">
+        <div className="text-xs uppercase tracking-wide text-gray-500">
+          {q.type === "voice" ? "Voice Answer" : "Coding"}
         </div>
-      )}
+        <h1 className="text-2xl font-semibold mt-2">{q.question_text}</h1>
 
-      {!loading && !err && !question && (
-        <div>No questions found for this interview.</div>
-      )}
-
-      {!loading && !err && question && (
-        <>
-          <h1>Question {step + 1}</h1>
-          <p style={{ fontSize: "18px" }}>{question.question_text}</p>
-
-          {question.type === "voice" ? (
-            <a href={`/interview/${id}/record?question=${question.id}`}>
-              <button style={btn}>🎤 Start Recording</button>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          {q.type === "voice" ? (
+            <a href={`/interview/${id}/record?question=${q.id}`} className={primaryBtn}>
+              🎤 Start Recording
             </a>
           ) : (
-            <a href={`/interview/${id}/code?question=${question.id}`}>
-              <button style={btn}>💻 Start Coding</button>
+            <a href={`/interview/${id}/code?question=${q.id}`} className={primaryBtn}>
+              💻 Start Coding
             </a>
           )}
+          <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+            ⏳ Time limit: {Math.round((q.time_limit_seconds || 0) / 60)} min
+          </span>
+        </div>
 
-          <br />
-          <br />
-
-          <button
-            disabled={step === 0}
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
-            style={navBtn}
-          >
+        <div className="mt-8 flex items-center justify-between text-sm">
+          <button onClick={() => go(-1)} className={ghostBtn} disabled={idx === 0}>
             ← Previous
           </button>
           <button
-            disabled={step >= questions.length - 1}
-            onClick={() => setStep((s) => Math.min(questions.length - 1, s + 1))}
-            style={navBtn}
+            onClick={() => go(1)}
+            className={ghostBtn}
+            disabled={idx === qs.length - 1}
           >
             Next →
           </button>
-        </>
-      )}
+        </div>
+      </div>
+
+      {/* report link */}
+      <div className="mt-6 text-right">
+        <a
+          href={`/interview/${id}/report`}
+          className="text-sm text-indigo-600 hover:text-indigo-700 underline"
+        >
+          View Report →
+        </a>
+      </div>
     </div>
   );
 }
-
-const btn = {
-  padding: "10px 20px",
-  background: "blue",
-  color: "white",
-  borderRadius: "6px",
-};
-
-const navBtn = { padding: "6px 12px", marginRight: "10px" };
