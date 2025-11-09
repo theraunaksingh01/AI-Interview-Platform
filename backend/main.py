@@ -20,6 +20,12 @@ from api import transcribe_upload
 from api import score
 from api import interview
 from api import runner
+from api import resumes
+from api import interview_link
+from api import interview_generate
+
+
+
 
 
 app = FastAPI(title="AI Interview Platform API")
@@ -41,6 +47,13 @@ app.include_router(uploads.router)
 app.include_router(uploads_me.router)
 
 app.include_router(runner.router)
+
+app.include_router(resumes.router)
+
+app.include_router(interview_link.router)
+
+app.include_router(interview_generate.router)
+
 
 init_db()
 

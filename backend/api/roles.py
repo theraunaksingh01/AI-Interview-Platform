@@ -1,3 +1,4 @@
+# backend/api/roles.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from db.session import SessionLocal
