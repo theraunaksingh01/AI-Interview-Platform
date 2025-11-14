@@ -7,17 +7,26 @@ from typing import Optional, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text, bindparam
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import JSONB
 
 from api.deps import get_db, get_current_user
 from core.config import settings
 from core.s3_client import get_s3_client
+
+# tasks
 from tasks.report_pdf import generate_pdf
 from tasks.score_interview import score_interview
 from tasks.resume_tasks import extract_resume_text
 from tasks.question_tasks import generate_questions_ai
+
+# celery app (to inspect task status)
+from celery_app import app as celery_app
+from celery.result import AsyncResult
+
+import os
+import httpx
+from fastapi import HTTPException
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
@@ -91,40 +100,68 @@ def get_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depend
 
 
 # ---------------------------
-# Phase 4B: AI question generation
+# Phase 4C: AI question generation
 # ---------------------------
 
-# --- add field ---
 class GenerateIn(BaseModel):
     interview_id: UUID
-    count: int | None = None
+    count: Optional[int] = None
     extract_resume: bool = True
-    replace: bool = False  # NEW
+    replace: bool = False  # clear existing questions before generating
+
 
 @router.post("/generate")
 def generate_questions(payload: GenerateIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    Trigger AI question generation for an interview.
+    - If extract_resume=True, enqueues resume extraction (non-blocking).
+    - If replace=True, deletes existing questions for the interview prior to generation.
+    Returns Celery task id for tracking.
+    """
+    # Validate interview exists
     row = db.execute(text("""
         SELECT id, role_id, resume_id
         FROM interviews
         WHERE id = :iid
     """), {"iid": str(payload.interview_id)}).mappings().first()
-    if not row: raise HTTPException(status_code=404, detail="interview not found")
-    if not row["role_id"]: raise HTTPException(status_code=400, detail="role_id missing on interview")
-    if not row["resume_id"]: raise HTTPException(status_code=400, detail="resume_id missing on interview")
+    if not row:
+        raise HTTPException(status_code=404, detail="interview not found")
+    if not row["role_id"]:
+        raise HTTPException(status_code=400, detail="role_id missing on interview")
+    if not row["resume_id"]:
+        raise HTTPException(status_code=400, detail="resume_id missing on interview")
 
-    # NEW: optional replacement
+    # Optional: remove existing questions
     if payload.replace:
         db.execute(text("DELETE FROM interview_questions WHERE interview_id = :iid"), {"iid": str(payload.interview_id)})
         db.commit()
 
+    # Optionally re-run resume extraction (async)
     if payload.extract_resume:
         try:
             extract_resume_text.delay(int(row["resume_id"]))
         except Exception:
+            # fallback if job expects str
             extract_resume_text.delay(row["resume_id"])
 
+    # Enqueue question generation
     task = generate_questions_ai.delay(str(payload.interview_id), payload.count)
     return {"queued": True, "task_id": task.id}
+
+
+# ---------------------------
+# Task status helper (useful while testing)
+# ---------------------------
+@router.get("/task/{task_id}")
+def get_task_status(task_id: str):
+    """
+    Minimal Celery task status endpoint. Useful to poll while developing.
+    """
+    try:
+        res: AsyncResult = AsyncResult(task_id, app=celery_app)
+        return {"task_id": task_id, "status": res.status, "result": res.result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"failed to inspect task: {e}")
 
 
 # ---------------------------
@@ -210,7 +247,8 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
         {"qid": payload.question_id}
     ).scalar()
     if not answer_id:
-        raise HTTPException(404, "No answer found to attach flags (save an answer first)")
+        raise HTTPException(status_code=404, detail="No answer found to attach flags (save an answer first)")
+
 
     # 4) read current flags
     cur = db.execute(text("SELECT cheat_flags FROM interview_answers WHERE id = :aid"), {"aid": answer_id}).scalar()
@@ -224,14 +262,15 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     # 5) merge & dedupe
     merged = list(dict.fromkeys([*cur_list, *payload.flags]))
 
-    # 6) overwrite with bound JSONB (NO ::jsonb, NO ||)
+    # 6) overwrite with bound JSONB
+    from sqlalchemy.dialects.postgresql import JSONB
     upd = text("UPDATE interview_answers SET cheat_flags = :merged WHERE id = :aid RETURNING id")
-    upd = upd.bindparams(bindparam("merged", type_=JSONB))
+    upd = upd.bindparams(merged=merged)
     updated_id = db.execute(upd, {"merged": merged, "aid": answer_id}).scalar()
     db.commit()
 
     if not updated_id:
-        raise HTTPException(500, "Failed to update cheat_flags")
+        raise HTTPException(status_code=500, detail="Failed to update cheat_flags")
 
     return {"ok": True, "answer_id": int(updated_id), "cheat_flags": merged}
 
@@ -338,3 +377,74 @@ def pdf_info(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get
         url = None
 
     return {"bucket": bucket, "key": key, "presigned_url": url}
+
+# AI health-check endpoint
+@router.get("/ai/health")
+def ai_health_check():
+    """
+    Quick health check for the AI provider (Ollama).
+    Verifies Ollama server is reachable and model exists.
+    """
+
+    # Read ENV variables here (fix: previously undefined)
+    provider = os.getenv("AI_PROVIDER", "stub").lower()
+    ollama_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+    model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
+
+    result = {
+        "provider": provider,
+        "ollama": None,
+        "model_found": False,
+        "models": []
+    }
+
+    # If using stub or openai, ollama isn't required
+    if provider != "ollama":
+        result["ollama"] = "skipped (provider != ollama)"
+        return result
+
+    # Ping Ollama server
+    try:
+        with httpx.Client(timeout=5) as client:
+            r = client.get(f"{ollama_url.rstrip('/')}/api/tags")
+            r.raise_for_status()
+            data = r.json()
+    except Exception as e:
+        result["ollama"] = "error"
+        result["error"] = f"Ollama unreachable: {e}"
+        return result
+
+    result["ollama"] = "ok"
+
+    # Read available models
+    models_list = data.get("models", []) if isinstance(data, dict) else []
+    result["models"] = models_list
+
+    # Normalize model names ("tinyllama:latest" vs "tinyllama")
+    available_names = [
+        m.get("model") or m.get("name")
+        for m in models_list if isinstance(m, dict)
+    ]
+
+    for name in available_names:
+        if not name:
+            continue
+        # Matches "tinyllama" OR "tinyllama:latest"
+        if model_name in name:
+            result["model_found"] = True
+            break
+
+    return result
+
+from fastapi import Body
+
+@router.post("/ai/debug_generate")
+def ai_debug_generate(jd: str = Body(...), resume: str = Body(...), count: int = 3):
+    """
+    Call LLM with the prompt and return raw model response + parsed result.
+    Use in Swagger to iterate quickly without DB writes.
+    """
+    from tasks.question_tasks import _llm_json
+    import asyncio
+    out = asyncio.run(_llm_json(jd, resume, count))
+    return {"parsed": out}

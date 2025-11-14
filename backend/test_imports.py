@@ -1,22 +1,5 @@
-# file: test_imports.py
-import importlib, importlib.util, sys, os
-print("cwd:", os.getcwd())
-modules = [
-    "tasks.transcribe",
-    "tasks.resume_tasks",
-    "tasks.question_tasks",
-    "tasks.score_interview",
-    "tasks.report_pdf",
-    "tasks.code_grade",
-]
-for m in modules:
-    spec = importlib.util.find_spec(m)
-    print(m, "->", "FOUND" if spec else "MISSING")
-    if spec:
-        try:
-            module = importlib.import_module(m)
-            print("  import OK")
-        except Exception as e:
-            import traceback
-            print("  import FAILED:")
-            traceback.print_exc()
+# debug_run_task.py
+from tasks.question_tasks import generate_questions_ai
+# call the task's run method synchronously
+res = generate_questions_ai.run("aca11eb9-62a9-447d-9a5e-2f69044c1b5d", 3)
+print("TASK RUN RESULT:", res)
