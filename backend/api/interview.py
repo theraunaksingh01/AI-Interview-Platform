@@ -1,25 +1,26 @@
 # backend/api/interview.py
 from __future__ import annotations
+
 import json
 from uuid import UUID
 from typing import Optional, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import JSONB
 
 from api.deps import get_db, get_current_user
-from sqlalchemy import text, bindparam
-from sqlalchemy.dialects.postgresql import JSONB
 from core.config import settings
 from core.s3_client import get_s3_client
 from tasks.report_pdf import generate_pdf
 from tasks.score_interview import score_interview
-from pydantic import BaseModel
-
+from tasks.resume_tasks import extract_resume_text
+from tasks.question_tasks import generate_questions_ai
 
 router = APIRouter(prefix="/interview", tags=["interview"])
+
 
 # ---------------------------
 # Start + Seed + Questions
@@ -29,12 +30,7 @@ router = APIRouter(prefix="/interview", tags=["interview"])
 def start_interview(db: Session = Depends(get_db), user=Depends(get_current_user)):
     """
     Creates a new interview row and returns its UUID.
-    NOTE: If your interviews.user_id column is UUID but users.id is INT,
-    you should either:
-      - make interviews.user_id INT, or
-      - store user.email instead, or
-      - map user.id to a UUID elsewhere.
-    This version assumes interviews.user_id is INT.
+    Assumes interviews.user_id is INT; adjust if your schema uses UUID user ids.
     """
     try:
         res = db.execute(
@@ -51,6 +47,7 @@ def start_interview(db: Session = Depends(get_db), user=Depends(get_current_user
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"/interview/start failed: {e}")
+
 
 @router.post("/seed/{interview_id}")
 def seed_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -92,6 +89,44 @@ def get_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depend
     ).mappings().all()
     return [dict(r) for r in rows]
 
+
+# ---------------------------
+# Phase 4B: AI question generation
+# ---------------------------
+
+# --- add field ---
+class GenerateIn(BaseModel):
+    interview_id: UUID
+    count: int | None = None
+    extract_resume: bool = True
+    replace: bool = False  # NEW
+
+@router.post("/generate")
+def generate_questions(payload: GenerateIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    row = db.execute(text("""
+        SELECT id, role_id, resume_id
+        FROM interviews
+        WHERE id = :iid
+    """), {"iid": str(payload.interview_id)}).mappings().first()
+    if not row: raise HTTPException(status_code=404, detail="interview not found")
+    if not row["role_id"]: raise HTTPException(status_code=400, detail="role_id missing on interview")
+    if not row["resume_id"]: raise HTTPException(status_code=400, detail="resume_id missing on interview")
+
+    # NEW: optional replacement
+    if payload.replace:
+        db.execute(text("DELETE FROM interview_questions WHERE interview_id = :iid"), {"iid": str(payload.interview_id)})
+        db.commit()
+
+    if payload.extract_resume:
+        try:
+            extract_resume_text.delay(int(row["resume_id"]))
+        except Exception:
+            extract_resume_text.delay(row["resume_id"])
+
+    task = generate_questions_ai.delay(str(payload.interview_id), payload.count)
+    return {"queued": True, "task_id": task.id}
+
+
 # ---------------------------
 # Record answer (video/code)
 # ---------------------------
@@ -100,7 +135,7 @@ class RecordAnswer(BaseModel):
     question_id: int
     upload_id: Optional[int] = None          # for voice answers
     code_answer: Optional[str] = None        # for code answers
-    # NEW fields for grading results from /code/grade:
+    # optional grading payload from /code/grade:
     code_output: Optional[str] = None
     test_results: Optional[dict[str, Any]] = None
 
@@ -133,9 +168,11 @@ def record_answer(payload: RecordAnswer, db: Session = Depends(get_db), user=Dep
     db.commit()
     return {"ok": True}
 
+
 # ---------------------------
 # Persist anti-cheat flags
 # ---------------------------
+
 class FlagsIn(BaseModel):
     question_id: int
     flags: List[str]
@@ -199,6 +236,10 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     return {"ok": True, "answer_id": int(updated_id), "cheat_flags": merged}
 
 
+# ---------------------------
+# Progress & Reporting
+# ---------------------------
+
 class ProgressOut(BaseModel):
     total: int
     answered: int
@@ -237,10 +278,6 @@ def interview_progress(interview_id: UUID, db: Session = Depends(get_db), user=D
     return {"total": total, "answered": answered, "percent": pct}
 
 
-# ---------------------------
-# (Optional) Simple report
-# ---------------------------
-
 @router.get("/report/{interview_id}")
 def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
     rows = db.execute(
@@ -263,28 +300,24 @@ def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_c
     ).mappings().all()
     return [dict(r) for r in rows]
 
+
 @router.post("/score/{interview_id}")
 def score_now(interview_id: UUID, user=Depends(get_current_user)):
-    """
-    Queue AI scoring for this interview (LLM + aggregation).
-    Requires Celery worker to be running.
-    """
+    """Queue AI scoring for this interview (LLM + aggregation)."""
     task = score_interview.delay(str(interview_id))
     return {"queued": True, "task_id": task.id}
 
+
 @router.post("/report/{interview_id}/pdf")
 def pdf_now(interview_id: UUID, user=Depends(get_current_user)):
-    """
-    Queue PDF generation. Stores PDF to S3/MinIO as reports/{id}.pdf
-    """
+    """Queue PDF generation. Stores PDF to S3/MinIO as reports/{id}.pdf"""
     task = generate_pdf.delay(str(interview_id))
     return {"queued": True, "task_id": task.id}
 
+
 @router.get("/report/{interview_id}/pdf")
 def pdf_info(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """
-    Return PDF location (and a presigned URL if possible).
-    """
+    """Return PDF location (and a presigned URL if possible)."""
     key = db.execute(text("SELECT pdf_key FROM interviews WHERE id = :i"), {"i": str(interview_id)}).scalar()
     if not key:
         raise HTTPException(status_code=404, detail="PDF not ready")

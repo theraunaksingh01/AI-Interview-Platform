@@ -8,14 +8,14 @@ import uuid
 import logging
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, asc
+from sqlalchemy import func, desc, asc, text
 
 from api.deps import get_db, get_current_user
 from core.config import settings
 from core.s3_client import get_s3_client
 from db.models import Upload, UploadStatus
 from tasks.transcribe import transcribe_upload
-
+from tasks.resume_tasks import extract_resume_text  # <-- new
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 logger = logging.getLogger("uploads")
@@ -31,7 +31,7 @@ ALLOWED_CONTENT_TYPES = {
     "audio/webm",
     "video/mp4",
     "video/webm",
-    "application/octet-stream",  
+    "application/octet-stream",
 }
 
 class PresignRequest(BaseModel):
@@ -94,7 +94,6 @@ async def proxy_upload(
     _require_allowed_type(file.content_type)
     base_ct = _base_ct(file.content_type)
 
-
     data = await file.read()
     await file.close()
     if len(data) > MAX_UPLOAD_BYTES:
@@ -138,15 +137,35 @@ async def proxy_upload(
             pass
         raise HTTPException(status_code=500, detail=f"DB persist failed: {exc}")
 
-    # Queue Celery job
+    # If PDF/text resume, create candidate_resumes placeholder and enqueue resume extraction.
+    # Otherwise enqueue normal media transcription.
     try:
-        async_result = transcribe_upload.delay(upload.id)
-        upload.processor_job_id = async_result.id
-        db.add(upload)
-        db.commit()
-        db.refresh(upload)
+        processor_result = None
+        # treat plain/text and pdf as resume
+        if base_ct in ("application/pdf", "text/plain"):
+            # Ensure `candidate_resumes` row exists (graceful if table doesn't exist)
+            try:
+                cr_id = db.execute(
+                    text("INSERT INTO candidate_resumes (upload_id, created_at) VALUES (:uid, now()) RETURNING id"),
+                    {"uid": upload.id},
+                ).scalar()
+                db.commit()
+                # enqueue resume extraction task (reads candidate_resumes -> downloads file -> extracts text)
+                processor_result = extract_resume_text.delay(upload.id)
+                upload.processor_job_id = processor_result.id
+                db.add(upload); db.commit(); db.refresh(upload)
+            except Exception as exc:
+                # if candidate_resumes table doesn't exist, still attempt to enqueue extract task directly
+                logger.exception("candidate_resumes insert failed (maybe table missing): %s", exc)
+                processor_result = extract_resume_text.delay(upload.id)
+                upload.processor_job_id = processor_result.id
+                db.add(upload); db.commit(); db.refresh(upload)
+        else:
+            processor_result = transcribe_upload.delay(upload.id)
+            upload.processor_job_id = processor_result.id
+            db.add(upload); db.commit(); db.refresh(upload)
     except Exception as exc:
-        logger.exception("Failed to enqueue: %s", exc)
+        logger.exception("Failed to enqueue processing task: %s", exc)
 
     return upload
 
@@ -232,12 +251,15 @@ def retry_upload(
     db.commit()
     db.refresh(upload)
 
+    # Decide which task to enqueue based on content_type
     try:
-        async_result = transcribe_upload.delay(upload.id)
+        base_ct = (upload.content_type or "").split(";", 1)[0].strip().lower()
+        if base_ct in ("application/pdf", "text/plain"):
+            async_result = extract_resume_text.delay(upload.id)
+        else:
+            async_result = transcribe_upload.delay(upload.id)
         upload.processor_job_id = async_result.id
-        db.add(upload)
-        db.commit()
-        db.refresh(upload)
+        db.add(upload); db.commit(); db.refresh(upload)
     except Exception as exc:
         logger.exception("Retry enqueue failed: %s", exc)
 

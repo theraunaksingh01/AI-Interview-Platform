@@ -23,6 +23,7 @@ from api import runner
 from api import resumes
 from api import interview_link
 from api import interview_generate
+from api import interview_ai
 
 
 
@@ -53,6 +54,9 @@ app.include_router(resumes.router)
 app.include_router(interview_link.router)
 
 app.include_router(interview_generate.router)
+
+app.include_router(interview_ai.router)
+
 
 
 init_db()

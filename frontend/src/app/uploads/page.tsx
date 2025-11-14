@@ -48,41 +48,48 @@ export default function UploadsPage() {
     []
   );
 
-  const fetchUploads = useCallback(async () => {
+    const fetchUploads = useCallback(async () => {
     setLoading(true);
     setErr(null);
     setDebug("");
     try {
-      // Your backend exposes GET /upload/me (singular) returning {items,total}
-      // If you later switch to /uploads/me, just change the path here.
+      const jwt = getToken();
+      // note: backend may return either an array OR { items: [...], total: N }
       const data = await requestJSON<any>(
         `${API_BASE}/upload/me`,
         {},
         { withAuth: true }
       );
 
-      // Normalize to array for rendering
-      const list: Upload[] = Array.isArray(data) ? data : (data?.items ?? []);
-      setUploads(list);
+      // Accept both shapes
+      let items: Upload[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data && Array.isArray(data.items)) {
+        items = data.items;
+      } else if (data && Array.isArray(data.items?.items)) {
+        // some proxies double-wrap — be defensive
+        items = data.items.items;
+      } else {
+        // fallback empty
+        items = [];
+      }
+
+      setUploads(items);
     } catch (e: any) {
       const msg = e?.message || "Failed to load uploads";
       setErr(msg);
-
-      // Helpful debug on auth errors
-      if (msg.startsWith("HTTP 401") || /401/.test(msg)) {
-        const tok = getToken() || "";
-        const head = tok.slice(0, 12);
-        setDebug(
-          `401 from /upload/me\nToken present: ${tok ? "yes" : "no"}\nToken head: ${head ? head + "..." : "(none)"}`
-        );
+      // If it was 401, show quick debug
+      if (msg.startsWith("HTTP 401")) {
+        const head = (getToken() || "").slice(0, 12);
+        setDebug(`401 from /upload/me\nToken present: ${getToken() ? "yes" : "no"}\nToken head: ${head ? head + "..." : "(none)"}`);
       }
-
-      // Fallback demo items so UI doesn't break
       setUploads(demoData);
     } finally {
       setLoading(false);
     }
   }, [demoData]);
+
 
   useEffect(() => {
     fetchUploads();
