@@ -35,26 +35,24 @@ SYS_PROMPT = (
     "with a mix of 'voice' and 'code'. Return strict JSON and nothing else."
 )
 
-USER_TPL = """You will be given a Job Description and a Candidate Resume. Produce **ONLY** a JSON object with a top-level key "questions" whose value is an ARRAY of question objects. Do NOT add any other text, explanation, or commentary.
+# NOTE: template uses double braces to escape literal JSON in str.format()
+USER_TPL = """You will be given a Job Description and a Candidate Resume. Produce **ONLY** a JSON object with a top-level key "questions" whose value is an ARRAY of question objects. Each question must be either type \"voice\" (spoken answer) or \"code\" (programming task). Do NOT output any other question types or any commentary.
 
-Each question object MUST have exactly these keys:
+Each question object MUST have these keys:
 - id: short unique id (string)
-- type: one of "voice", "code", "text"
-- title: short title string
+- type: one of \"voice\" or \"code\"
 - question_text: full question body
 - time_limit_seconds: integer (seconds)
-- tags: array of short tag strings
+- tags: array of short tag strings (optional)
 
-Return exactly this JSON. No markdown, no backticks, no leading/trailing commentary.
+Return exactly this JSON. No markdown, no backticks, no commentary.
 
-Example (produce exactly this format as a template):
-
+Example:
 {{
   "questions": [
     {{
       "id": "q1",
       "type": "voice",
-      "title": "Project deep dive",
       "question_text": "Walk me through a recent project where you used FastAPI. What was your role and impact?",
       "time_limit_seconds": 120,
       "tags": ["fastapi","system-design"]
@@ -62,7 +60,6 @@ Example (produce exactly this format as a template):
     {{
       "id": "q2",
       "type": "code",
-      "title": "LRU Cache implementation",
       "question_text": "Implement an LRU cache with get/put operations in your preferred language. Provide complexity notes.",
       "time_limit_seconds": 600,
       "tags": ["python","algorithms"]
@@ -79,8 +76,6 @@ Candidate Resume:
 ---
 {resume}
 """
-
-
 
 # ------------------------------
 # Helpers
@@ -153,6 +148,50 @@ def _stub_make_questions(jd: str, resume: str, n: int) -> Dict[str, Any]:
     return {"questions": chosen[:n]}
 
 
+def _parse_plain_text_questions(text_blob: str, n: int) -> Dict[str, Any]:
+    """
+    Heuristic fallback: parse numbered or dashed lists into question objects.
+    Returns {"questions": [...]} with up to n items.
+    """
+    if not text_blob:
+        return {"questions": []}
+
+    lines = [ln.strip() for ln in text_blob.splitlines() if ln.strip()]
+    # Combine consecutive lines into paragraphs where lines don't start with 1. or -
+    paras = []
+    cur = []
+    for ln in lines:
+        if re.match(r"^\d+[\).\-\:]\s+", ln) or ln.startswith("- ") or ln.startswith("* "):
+            if cur:
+                paras.append(" ".join(cur))
+            cur = [re.sub(r"^\d+[\).\-\:]\s+", "", ln)]
+        else:
+            cur.append(ln)
+    if cur:
+        paras.append(" ".join(cur))
+
+    questions = []
+    for i, p in enumerate(paras[:n]):
+        # choose type by keywords
+        low = p.lower()
+        qtype = "voice"
+        if any(k in low for k in ["implement", "write code", "function", "solve", "algorithm", "return"]):
+            qtype = "code"
+        elif any(k in low for k in ["explain", "describe", "walk me through", "how would you"]):
+            qtype = "voice"
+        title = (p[:60] + "...") if len(p) > 60 else p
+        qid = f"f{i+1}"
+        questions.append({
+            "id": qid,
+            "type": qtype,
+            "title": title,
+            "question_text": p,
+            "time_limit_seconds": 600 if qtype == "code" else 120,
+            "tags": []
+        })
+    return {"questions": questions}
+
+
 async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 120) -> Dict[str, Any]:
     """
     Call Ollama and handle NDJSON / chunked responses robustly.
@@ -166,7 +205,7 @@ async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 120) -> Di
         content_type = r.headers.get("Content-Type", "")
         raw = r.content.decode(errors="ignore")
         # If NDJSON chunked response, extract the last JSON-like line or first JSON blob
-        if "ndjson" in content_type or ("{") in raw and raw.strip().startswith("{") is False:
+        if "ndjson" in content_type or ("{" in raw and raw.strip().startswith("{") is False):
             lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
             if not lines:
                 return {}
@@ -261,7 +300,7 @@ async def _llm_json(jd: str, resume: str, n: int) -> Dict[str, Any]:
                                 return {"questions": parsed2["questions"]}
                         except Exception:
                             pass
-                        
+
                 # Fallback: try parsing as plain text (numbered list etc.)
                 fb = _parse_plain_text_questions(resp_str, n)
                 if fb.get("questions"):
@@ -347,10 +386,46 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
         # call LLM (run async code from sync context)
         qcount = int(n or NUM_QUESTIONS)
         llm_out = asyncio.run(_llm_json(r["jd_text"] or "", resume_text or "", qcount))
-        qlist: List[dict] = (llm_out or {}).get("questions", [])
-        if not isinstance(qlist, list):
-            log.warning("LLM returned unexpected questions type: %s", type(qlist))
-            qlist = []
+        qlist_raw: List[dict] = (llm_out or {}).get("questions", [])
+        if not isinstance(qlist_raw, list):
+            log.warning("LLM returned unexpected questions type: %s", type(qlist_raw))
+            qlist_raw = []
+
+        # NORMALIZE: only allow "voice" or "code". Map everything else -> "voice".
+        cleaned_questions: List[dict] = []
+        for item in qlist_raw:
+            if not isinstance(item, dict):
+                continue
+            # normalize text
+            q_text = (item.get("question_text") or item.get("question") or "").strip()
+            q_type_raw = (item.get("type") or "").lower()
+            # prefer explicit type hints
+            if "code" in q_type_raw or "program" in q_type_raw or "algo" in q_type_raw:
+                q_type = "code"
+            elif "voice" in q_type_raw or "speak" in q_type_raw or "audio" in q_type_raw:
+                q_type = "voice"
+            else:
+                # heuristics based on question text to decide code vs voice
+                qt_lower = q_text.lower()
+                if any(k in qt_lower for k in ["implement", "write code", "function", "solve", "return", "complexity", "algorithm", "leetcode", "merge", "sort", "stack", "queue"]):
+                    q_type = "code"
+                else:
+                    q_type = "voice"
+
+            # normalize time_limit
+            try:
+                q_tl = int(item.get("time_limit_seconds") or (600 if q_type == "code" else 120))
+            except Exception:
+                q_tl = 600 if q_type == "code" else 120
+
+            cleaned_questions.append({
+                "type": q_type,
+                "question_text": q_text,
+                "time_limit_seconds": q_tl,
+                "raw": item
+            })
+
+        qlist = cleaned_questions
 
         # Defensive sanitize & insert
         inserted = 0
@@ -367,8 +442,6 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
                     tl = int(q.get("time_limit_seconds", 300 if qtype == "code" else 120))
                 except Exception:
                     tl = 300 if qtype == "code" else 120
-                # slug (optional) — we won't insert it if DB lacks column
-                slug = q.get("slug") if isinstance(q.get("slug"), str) else None
 
                 # Insert row — use nested transaction (SAVEPOINT) so a failing row doesn't abort the whole batch
                 try:
@@ -402,46 +475,3 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
         return {"ok": False, "error": str(e)}
     finally:
         db.close()
-
-def _parse_plain_text_questions(text_blob: str, n: int) -> Dict[str, Any]:
-    """
-    Heuristic fallback: parse numbered or dashed lists into question objects.
-    Returns {"questions": [...]} with up to n items.
-    """
-    if not text_blob:
-        return {"questions": []}
-
-    lines = [ln.strip() for ln in text_blob.splitlines() if ln.strip()]
-    # Combine consecutive lines into paragraphs where lines don't start with 1. or -
-    paras = []
-    cur = []
-    for ln in lines:
-        if re.match(r"^\d+[\).\-\:]\s+", ln) or ln.startswith("- ") or ln.startswith("* "):
-            if cur:
-                paras.append(" ".join(cur))
-            cur = [re.sub(r"^\d+[\).\-\:]\s+", "", ln)]
-        else:
-            cur.append(ln)
-    if cur:
-        paras.append(" ".join(cur))
-
-    questions = []
-    for i, p in enumerate(paras[:n]):
-        # choose type by keywords
-        low = p.lower()
-        qtype = "voice"
-        if any(k in low for k in ["implement", "write code", "function", "solve", "algorithm", "return"]):
-            qtype = "code"
-        elif any(k in low for k in ["explain", "describe", "walk me through", "how would you"]):
-            qtype = "voice"
-        title = (p[:60] + "...") if len(p) > 60 else p
-        qid = f"f{i+1}"
-        questions.append({
-            "id": qid,
-            "type": qtype,
-            "title": title,
-            "question_text": p,
-            "time_limit_seconds": 600 if qtype == "code" else 120,
-            "tags": []
-        })
-    return {"questions": questions}
