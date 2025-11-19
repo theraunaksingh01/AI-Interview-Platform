@@ -7,6 +7,8 @@ from sqlalchemy import text
 from db.session import SessionLocal
 from celery_app import app
 import httpx
+from score_utils import grade_transcript_with_llm, grade_code_answer
+
 
 COMM_W = float(os.getenv("AI_COMM_WEIGHT", "0.30"))
 TECH_W = float(os.getenv("AI_TECH_WEIGHT", "0.60"))
@@ -57,11 +59,15 @@ def _safe_int(x, default=0):
     try: return int(x)
     except Exception: return default
 
-async def _llm_json(prompt: str) -> Dict[str, Any]:
+async def _llm_json(prompt: str):
+    """
+    Return (parsed_json, raw_text)
+    """
+    # Stub fallback
     if not OPENAI_API_KEY:
-        # fallback: deterministic stub (no internet / for local dev)
-        return {"communication": 70, "technical": 70, "completeness": 70, "red_flags": [], "summary": "LLM stub"}
-    # OpenAI-compatible JSON call
+        raw = '{"technical":70,"communication":70,"completeness":70,"red_flags":[],"summary":"LLM stub"}'
+        return json.loads(raw), raw
+
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
     payload = {
@@ -73,14 +79,19 @@ async def _llm_json(prompt: str) -> Dict[str, Any]:
         ],
         "temperature": 0.2,
     }
+
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(url, headers=headers, json=payload)
         r.raise_for_status()
-        txt = r.json()["choices"][0]["message"]["content"]
+
+        raw = r.json()["choices"][0]["message"]["content"]
         try:
-            return json.loads(txt)
+            parsed = json.loads(raw)
         except Exception:
-            return {"summary": txt}
+            parsed = {"summary": raw}
+
+        return parsed, raw
+
 
 def _penalty_from_flags(flags: List[str]) -> int:
     # simple example: -5 per flag up to -20
@@ -128,7 +139,8 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
                         fb = {"communication": 0, "technical": 0, "completeness": 0,
                               "red_flags": ["No speech detected"], "summary": "No transcript"}
                     else:
-                        fb = await _llm_json(VOICE_USER_PROMPT.format(transcript=transcript))
+                        fb, raw_resp = await _llm_json(VOICE_USER_PROMPT.format(transcript=transcript))
+
                     comm = _safe_int(fb.get("communication"), 0)
                     tech = _safe_int(fb.get("technical"), 0)
                     comp = _safe_int(fb.get("completeness"), 0)
@@ -136,21 +148,71 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
                     comm_scores.append(comm); tech_scores.append(tech); comp_scores.append(comp)
                     redflags_all.extend(fb.get("red_flags") or [])
                     # save ai_feedback on answer
-                    db.execute(text("UPDATE interview_answers SET ai_feedback = :fb WHERE id = :aid"),
-                               {"fb": json.dumps(fb), "aid": r["aid"]})
+                    db.execute(text("""
+                        UPDATE interview_answers
+                        SET ai_feedback = :fb, llm_raw = :raw
+                        WHERE id = :aid
+                    """), {
+                        "fb": json.dumps(fb),
+                        "raw": raw_resp,
+                        "aid": r["aid"]
+                    })
+
+                    # persist per-question score into interview_scores
+                    try:
+                        # compute per-question numeric fields in a consistent way
+                        if r["type"] == "voice":
+                            technical = _safe_int(tech, 0)
+                            communication = _safe_int(comm, 0)
+                            completeness = _safe_int(comp, 0)
+                            perq_overall = int(round(COMM_W * communication + TECH_W * technical + COMP_W * completeness))
+                        else:
+                            # code question: technical = tech, communication unknown -> 0, completeness = comp
+                            technical = _safe_int(tech, 0)
+                            communication = 0
+                            completeness = _safe_int(comp, 0)
+                            perq_overall = int(round(TECH_W * technical + COMP_W * completeness + COMM_W * communication))
+
+                        db.execute(text("""
+                            INSERT INTO interview_scores
+                              (interview_id, question_id, technical_score, communication_score,
+                               completeness_score, overall_score, ai_feedback, llm_raw)
+                            VALUES (:iid, :qid, :tech, :comm, :comp, :overall, CAST(:fb AS jsonb), :raw)
+                        """), {
+                            "iid": str(interview_id),
+                            "qid": r["qid"],
+                            "tech": technical,
+                            "comm": communication,
+                            "comp": completeness,
+                            "overall": perq_overall,
+                            "fb": json.dumps(fb),
+                            "raw": raw_resp,
+                        })
+
+                    except Exception:
+                        math.log.exception("Failed to insert into interview_scores for question %s", r["qid"])
+
                 else:  # code
                     tests = r["test_results"] or {}
                     corr = _safe_int((tests or {}).get("correctness"), 0)
                     # optional LLM feedback on code:
                     code = r["code_answer"] or ""
                     stdout = (r["code_output"] or "")[:1000]
-                    fb = await _llm_json(CODE_USER_PROMPT.format(code=code, stdout=stdout, correctness=corr))
+                    fb, raw_resp = await _llm_json(CODE_USER_PROMPT.format(code=code, stdout=stdout, correctness=corr))
+
                     tech = max(corr, _safe_int(fb.get("technical"), corr))  # keep at least correctness
                     comp = _safe_int(fb.get("completeness"), 50 if corr>0 else 0)
                     per_q.append({"question_id": r["qid"], "type": "code", "ai_feedback": fb, "correctness": corr})
                     tech_scores.append(tech); comp_scores.append(comp)
-                    db.execute(text("UPDATE interview_answers SET ai_feedback = :fb WHERE id = :aid"),
-                               {"fb": json.dumps(fb), "aid": r["aid"]})
+                    db.execute(text("""
+                        UPDATE interview_answers
+                        SET ai_feedback = :fb, llm_raw = :raw
+                        WHERE id = :aid
+                    """), {
+                        "fb": json.dumps(fb),
+                        "raw": raw_resp,
+                        "aid": r["aid"]
+                    })
                 # merge cheat flags
                 flags = r["cheat_flags"] or []
                 if isinstance(flags, str):
