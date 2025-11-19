@@ -21,3 +21,10 @@ celery -A celery_app.app worker -l info -P solo
 
 Store the token in the browser for the frontend to use
 localStorage.setItem('access_token', '<PASTE_ACCESS_TOKEN_HERE>');
+
+Remove prev Tokens [Testing]
+localStorage.removeItem('access_token');
+localStorage.removeItem('API_TOKEN'); // if you used this earlier
+document.cookie.split(';').forEach(c => {
+  document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/');
+});
