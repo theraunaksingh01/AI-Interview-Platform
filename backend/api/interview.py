@@ -1,4 +1,3 @@
-# backend/api/interview.py
 from __future__ import annotations
 
 import json
@@ -26,7 +25,6 @@ from celery.result import AsyncResult
 
 import os
 import httpx
-from fastapi import HTTPException
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
@@ -37,10 +35,6 @@ router = APIRouter(prefix="/interview", tags=["interview"])
 
 @router.post("/start")
 def start_interview(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """
-    Creates a new interview row and returns its UUID.
-    Assumes interviews.user_id is INT; adjust if your schema uses UUID user ids.
-    """
     try:
         res = db.execute(
             text("""
@@ -65,7 +59,7 @@ def seed_questions(interview_id: UUID, db: Session = Depends(get_db), user=Depen
         raise HTTPException(status_code=404, detail="Interview not found")
 
     already = db.execute(
-        text("SELECT COUNT(*) FROM interview_questions WHERE interview_id=:id"),
+        text("SELECT COUNT(*) FROM interview_questions WHERE interview_id = :id"),
         {"id": str(interview_id)}
     ).scalar() or 0
 
@@ -112,13 +106,6 @@ class GenerateIn(BaseModel):
 
 @router.post("/generate")
 def generate_questions(payload: GenerateIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """
-    Trigger AI question generation for an interview.
-    - If extract_resume=True, enqueues resume extraction (non-blocking).
-    - If replace=True, deletes existing questions for the interview prior to generation.
-    Returns Celery task id for tracking.
-    """
-    # Validate interview exists
     row = db.execute(text("""
         SELECT id, role_id, resume_id
         FROM interviews
@@ -131,20 +118,16 @@ def generate_questions(payload: GenerateIn, db: Session = Depends(get_db), user=
     if not row["resume_id"]:
         raise HTTPException(status_code=400, detail="resume_id missing on interview")
 
-    # Optional: remove existing questions
     if payload.replace:
         db.execute(text("DELETE FROM interview_questions WHERE interview_id = :iid"), {"iid": str(payload.interview_id)})
         db.commit()
 
-    # Optionally re-run resume extraction (async)
     if payload.extract_resume:
         try:
             extract_resume_text.delay(int(row["resume_id"]))
         except Exception:
-            # fallback if job expects str
             extract_resume_text.delay(row["resume_id"])
 
-    # Enqueue question generation
     task = generate_questions_ai.delay(str(payload.interview_id), payload.count)
     return {"queued": True, "task_id": task.id}
 
@@ -154,9 +137,6 @@ def generate_questions(payload: GenerateIn, db: Session = Depends(get_db), user=
 # ---------------------------
 @router.get("/task/{task_id}")
 def get_task_status(task_id: str):
-    """
-    Minimal Celery task status endpoint. Useful to poll while developing.
-    """
     try:
         res: AsyncResult = AsyncResult(task_id, app=celery_app)
         return {"task_id": task_id, "status": res.status, "result": res.result}
@@ -170,15 +150,13 @@ def get_task_status(task_id: str):
 
 class RecordAnswer(BaseModel):
     question_id: int
-    upload_id: Optional[int] = None          # for voice answers
-    code_answer: Optional[str] = None        # for code answers
-    # optional grading payload from /code/grade:
+    upload_id: Optional[int] = None
+    code_answer: Optional[str] = None
     code_output: Optional[str] = None
     test_results: Optional[dict[str, Any]] = None
 
 @router.post("/answer")
 def record_answer(payload: RecordAnswer, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # Ensure question exists
     qid = db.execute(
         text("SELECT id FROM interview_questions WHERE id = :qid"),
         {"qid": payload.question_id}
@@ -186,7 +164,6 @@ def record_answer(payload: RecordAnswer, db: Session = Depends(get_db), user=Dep
     if not qid:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    # Insert answer with optional grading fields
     db.execute(
         text("""
           INSERT INTO interview_answers
@@ -216,7 +193,6 @@ class FlagsIn(BaseModel):
 
 @router.post("/flags")
 def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # 1) detect FK column
     qcol = db.execute(text("""
         SELECT column_name
         FROM information_schema.columns
@@ -227,7 +203,6 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     if not qcol:
         raise HTTPException(500, "interview_answers missing FK column")
 
-    # 2) detect ordering column
     has_created_at = db.execute(text("""
         SELECT 1
         FROM information_schema.columns
@@ -236,7 +211,6 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     """)).scalar() is not None
     order_clause = "created_at DESC NULLS LAST" if has_created_at else "id DESC"
 
-    # 3) latest answer id
     answer_id = db.execute(
         text(f"""
             SELECT id FROM interview_answers
@@ -249,8 +223,6 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     if not answer_id:
         raise HTTPException(status_code=404, detail="No answer found to attach flags (save an answer first)")
 
-
-    # 4) read current flags
     cur = db.execute(text("SELECT cheat_flags FROM interview_answers WHERE id = :aid"), {"aid": answer_id}).scalar()
     try:
         cur_list = json.loads(cur) if isinstance(cur, str) else (cur or [])
@@ -259,10 +231,8 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     if not isinstance(cur_list, list):
         cur_list = []
 
-    # 5) merge & dedupe
     merged = list(dict.fromkeys([*cur_list, *payload.flags]))
 
-    # 6) overwrite with bound JSONB
     from sqlalchemy.dialects.postgresql import JSONB
     upd = text("UPDATE interview_answers SET cheat_flags = :merged WHERE id = :aid RETURNING id")
     upd = upd.bindparams(merged=merged)
@@ -286,13 +256,11 @@ class ProgressOut(BaseModel):
 
 @router.get("/progress/{interview_id}", response_model=ProgressOut)
 def interview_progress(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # total questions
     total = db.execute(
         text("SELECT COUNT(*) FROM interview_questions WHERE interview_id = :iid"),
         {"iid": str(interview_id)}
     ).scalar() or 0
 
-    # answered questions (count a question if latest answer has either upload_id (voice) OR code_answer)
     answered = db.execute(
         text("""
         WITH latest AS (
@@ -319,12 +287,18 @@ def interview_progress(interview_id: UUID, db: Session = Depends(get_db), user=D
 
 @router.get("/report/{interview_id}")
 def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    Return per-question report. Includes:
+    - latest answer (transcript, ai_feedback, etc)
+    - **latest llm_raw from interview_scores** (if any) as `llm_raw`
+    """
     rows = db.execute(
         text("""
             SELECT
               q.id AS question_id, q.type, q.question_text, q.time_limit_seconds,
               a.id AS answer_id, a.upload_id, a.code_answer, a.code_output,
-              a.test_results, a.cheat_flags, a.transcript, a.ai_feedback, a.created_at
+              a.test_results, a.cheat_flags, a.transcript, a.ai_feedback, a.created_at,
+              s.llm_raw AS llm_raw
             FROM interview_questions q
             LEFT JOIN LATERAL (
               SELECT * FROM interview_answers a2
@@ -332,41 +306,62 @@ def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_c
               ORDER BY a2.created_at DESC NULLS LAST
               LIMIT 1
             ) a ON TRUE
-            WHERE q.interview_id = :id
+            LEFT JOIN LATERAL (
+              SELECT llm_raw FROM interview_scores s2
+              WHERE s2.question_id = q.id AND s2.interview_id = :iid
+              ORDER BY s2.id DESC
+              LIMIT 1
+            ) s ON TRUE
+            WHERE q.interview_id = :iid
             ORDER BY q.id ASC
         """),
-        {"id": str(interview_id)}
+        {"iid": str(interview_id)}
     ).mappings().all()
     return [dict(r) for r in rows]
 
 
 @router.post("/score/{interview_id}")
 def score_now(interview_id: UUID, user=Depends(get_current_user)):
-    """Queue AI scoring for this interview (LLM + aggregation)."""
     task = score_interview.delay(str(interview_id))
     return {"queued": True, "task_id": task.id}
 
 
 @router.post("/report/{interview_id}/pdf")
 def pdf_now(interview_id: UUID, user=Depends(get_current_user)):
-    """Queue PDF generation. Stores PDF to S3/MinIO as reports/{id}.pdf"""
+    """
+    Queue PDF generation. The generate_pdf task should:
+      - create the PDF file
+      - upload it to S3/MinIO under a stable key (e.g. reports/{interview_id}.pdf or reports/<fname>)
+      - update interviews.pdf_key in the DB with that key
+    """
     task = generate_pdf.delay(str(interview_id))
     return {"queued": True, "task_id": task.id}
 
 
 @router.get("/report/{interview_id}/pdf")
 def pdf_info(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """Return PDF location (and a presigned URL if possible)."""
+    """
+    Return PDF location (and a presigned URL if possible).
+    Validates object exists in S3/MinIO before returning the presigned URL.
+    """
     key = db.execute(text("SELECT pdf_key FROM interviews WHERE id = :i"), {"i": str(interview_id)}).scalar()
     if not key:
         raise HTTPException(status_code=404, detail="PDF not ready")
+
     bucket = getattr(settings, "S3_BUCKET", getattr(settings, "s3_bucket", None))
     if not bucket:
         raise HTTPException(status_code=500, detail="Bucket not configured")
 
-    # Try to presign (works for MinIO/S3 if creds are set)
+    # Try to verify object exists, then presign
     try:
         s3 = get_s3_client()
+        # verify object exists
+        s3.head_object(Bucket=bucket, Key=key)
+    except Exception as e:
+        # if head_object fails, return helpful message
+        raise HTTPException(status_code=404, detail=f"PDF not found in bucket (key: {key}) - {e}")
+
+    try:
         expires = int(getattr(settings, "PRESIGNED_URL_EXPIRES", 900))
         url = s3.generate_presigned_url(
             "get_object",
@@ -378,15 +373,10 @@ def pdf_info(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get
 
     return {"bucket": bucket, "key": key, "presigned_url": url}
 
+
 # AI health-check endpoint
 @router.get("/ai/health")
 def ai_health_check():
-    """
-    Quick health check for the AI provider (Ollama).
-    Verifies Ollama server is reachable and model exists.
-    """
-
-    # Read ENV variables here (fix: previously undefined)
     provider = os.getenv("AI_PROVIDER", "stub").lower()
     ollama_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
     model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
@@ -398,12 +388,10 @@ def ai_health_check():
         "models": []
     }
 
-    # If using stub or openai, ollama isn't required
     if provider != "ollama":
         result["ollama"] = "skipped (provider != ollama)"
         return result
 
-    # Ping Ollama server
     try:
         with httpx.Client(timeout=5) as client:
             r = client.get(f"{ollama_url.rstrip('/')}/api/tags")
@@ -415,36 +403,60 @@ def ai_health_check():
         return result
 
     result["ollama"] = "ok"
-
-    # Read available models
     models_list = data.get("models", []) if isinstance(data, dict) else []
     result["models"] = models_list
-
-    # Normalize model names ("tinyllama:latest" vs "tinyllama")
     available_names = [
         m.get("model") or m.get("name")
         for m in models_list if isinstance(m, dict)
     ]
-
     for name in available_names:
         if not name:
             continue
-        # Matches "tinyllama" OR "tinyllama:latest"
         if model_name in name:
             result["model_found"] = True
             break
-
     return result
+
 
 from fastapi import Body
 
 @router.post("/ai/debug_generate")
 def ai_debug_generate(jd: str = Body(...), resume: str = Body(...), count: int = 3):
-    """
-    Call LLM with the prompt and return raw model response + parsed result.
-    Use in Swagger to iterate quickly without DB writes.
-    """
     from tasks.question_tasks import _llm_json
     import asyncio
     out = asyncio.run(_llm_json(jd, resume, count))
     return {"parsed": out}
+
+
+@router.get("/scores/{interview_id}")
+def get_interview_scores(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    rows = db.execute(
+        text("""
+            SELECT id, interview_id, question_id, technical_score, communication_score,
+                   completeness_score, overall_score, ai_feedback, created_at, llm_raw
+            FROM interview_scores
+            WHERE interview_id = :iid
+            ORDER BY id ASC
+        """),
+        {"iid": str(interview_id)}
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+@router.post("/score_question/{question_id}")
+def score_question(question_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    Map a question_id -> interview_id and enqueue the scoring job for that interview.
+    This is a pragmatic fix so the UI's per-question Re-score button doesn't 404.
+    If you implement a true single-question scoring task, replace this to call that task.
+    """
+    # find interview id for this question
+    iid = db.execute(
+        text("SELECT interview_id FROM interview_questions WHERE id = :qid"),
+        {"qid": int(question_id)}
+    ).scalar()
+    if not iid:
+        raise HTTPException(status_code=404, detail="Question or interview not found")
+
+    # enqueue the whole-interview scorer (use existing task)
+    task = score_interview.delay(str(iid))
+    return {"queued": True, "task_id": task.id, "interview_id": str(iid)}
