@@ -12,6 +12,9 @@ from sqlalchemy import text
 from db.session import SessionLocal
 from celery_app import app
 import httpx
+from sqlalchemy import Table, MetaData
+# Celery helper to get current task id
+from celery import current_task
 
 # Optional external helpers (keep compatibility if you add them later)
 try:
@@ -19,6 +22,15 @@ try:
 except Exception:
     grade_transcript_with_llm = None
     grade_code_answer = None
+
+# NEW imports for S3 + settings + typing
+try:
+    from core.s3_client import get_s3_client
+    from core.config import settings
+except Exception:
+    # If project layout differs, S3 upload will be skipped
+    get_s3_client = None
+    settings = None
 
 log = logging.getLogger(__name__)
 if not log.handlers:
@@ -79,26 +91,21 @@ Return JSON:
 
 # ------------------------------
 # LLM callers
+# (unchanged)
 # ------------------------------
 async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 90) -> Dict[str, Any]:
-    """
-    Call Ollama /api/generate and try to extract a JSON body or response field.
-    Returns {"raw": raw_text, "body": parsed_body_or_None}
-    """
     url = f"{OLLAMA_URL.rstrip('/')}/api/generate"
     payload = {"model": model, "prompt": prompt, "format": "json", "stream": False}
     async with httpx.AsyncClient(timeout=timeout) as client:
         r = await client.post(url, json=payload)
         r.raise_for_status()
         raw = r.content.decode(errors="ignore")
-        # NDJSON: prefer last non-empty line
         lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
         if lines:
             last = lines[-1]
             try:
                 return {"raw": last, "body": json.loads(last)}
             except Exception:
-                # try to find any JSON blob in the whole raw text
                 m = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw, flags=re.S)
                 if m:
                     blob = m.group(1)
@@ -106,7 +113,6 @@ async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 90) -> Dic
                         return {"raw": blob, "body": json.loads(blob)}
                     except Exception:
                         log.debug("Failed to json.loads matched blob from Ollama NDJSON")
-                # fallback to parse as JSON whole body
                 try:
                     return {"raw": raw, "body": r.json()}
                 except Exception:
@@ -119,9 +125,6 @@ async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 90) -> Dic
 
 
 async def _openai_call(prompt: str, model: str, timeout: int = 60) -> Tuple[Optional[dict], str]:
-    """
-    Call OpenAI chat completions and return (parsed_json_or_None, raw_text)
-    """
     if not OPENAI_API_KEY:
         return None, ""
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
@@ -146,27 +149,18 @@ async def _openai_call(prompt: str, model: str, timeout: int = 60) -> Tuple[Opti
 
 
 async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
-    """
-    Unified LLM caller. Returns (parsed_dict, raw_text).
-    parsed_dict will be a dict with numeric keys where appropriate (technical, communication, completeness)
-    and/or a 'summary' fallback.
-    """
-    # Stub fallback (useful in local dev when neither OpenAI nor Ollama available)
     if AI_PROVIDER == "stub":
         raw = json.dumps({"technical": 70, "communication": 70, "completeness": 70, "red_flags": [], "summary": "LLM stub"})
         return json.loads(raw), raw
 
-    # Ollama path
     if AI_PROVIDER == "ollama":
         try:
             res = await _ollama_call_ndjson(prompt=prompt, model=OLLAMA_MODEL)
             raw_text = res.get("raw") or ""
             body = res.get("body")
-            # If body is a dict that directly includes scores
             if isinstance(body, dict):
                 if any(k in body for k in ("technical", "communication", "completeness")):
                     return body, raw_text
-                # Ollama sometimes returns {"response": "<json string>"}
                 resp = body.get("response") or body.get("text") or None
                 if isinstance(resp, str):
                     try:
@@ -182,7 +176,6 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
                                     return parsed2, resp
                             except Exception:
                                 pass
-                # fallback return body as-is
                 return body, raw_text
             elif isinstance(body, str):
                 try:
@@ -203,14 +196,12 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
             log.exception("Ollama call failed: %s", e)
             return {"summary": f"ollama_error: {str(e)}", "technical": 0, "communication": 0, "completeness": 0, "red_flags": []}, str(e)
 
-    # OpenAI path
     if AI_PROVIDER == "openai":
         parsed, raw = await _openai_call(prompt=prompt, model=OPENAI_MODEL)
         if parsed is None:
             return {"summary": "openai_missing_key", "technical": 0, "communication": 0, "completeness": 0, "red_flags": []}, raw
         return parsed, raw
 
-    # Unknown provider fallback -> stub
     log.warning("Unknown AI_PROVIDER=%s — using stub", AI_PROVIDER)
     raw = json.dumps({"technical": 70, "communication": 70, "completeness": 70, "red_flags": [], "summary": "LLM stub"})
     return json.loads(raw), raw
@@ -235,10 +226,6 @@ def _cap(x):
 
 
 def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str, Any]:
-    """
-    Read interview_scores rows and compute an aggregated report.
-    Uses DB averages as the single source of truth.
-    """
     row = db.execute(text("""
         SELECT
           AVG(technical_score) AS tech_avg,
@@ -277,10 +264,82 @@ def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str
 
 
 # ------------------------------
-# Celery Task
+# Helper: record audit 
+# ------------------------------
+def _record_audit(db: Session, interview_id: str, overall_score: float, section_scores: dict,
+                  per_question_summary: list, model_meta: dict, prompt_hash: Optional[str],
+                  prompt_text: Optional[str], weights: dict, triggered_by: str, task_id: Optional[str],
+                  llm_raw_full: Optional[dict], notes: Optional[str] = None) -> Optional[int]:
+    """
+    Record an audit row using SQLAlchemy Core table reflection + insert().
+    Commits the session after inserting so other connections can see the row.
+    Returns inserted audit id or None. Non-fatal on errors (logs and returns None).
+    """
+    llm_raw_s3_key = None
+
+    # 1) S3 upload (best-effort)
+    try:
+        if llm_raw_full is not None and get_s3_client and settings:
+            try:
+                s3 = get_s3_client()
+                bucket = getattr(settings, "S3_BUCKET", None) or getattr(settings, "s3_bucket", None)
+                if s3 and bucket:
+                    safe_task_id = (task_id or "task").replace("/", "_")
+                    key = f"llm_raw/{interview_id}/{safe_task_id}.json"
+                    s3.put_object(Bucket=bucket, Key=key, Body=json.dumps(llm_raw_full).encode("utf-8"), ContentType="application/json")
+                    llm_raw_s3_key = key
+            except Exception as e:
+                log.exception("llm_raw S3 upload failed: %s", e)
+                notes = (notes or "") + f" | llm_raw upload failed: {e}"
+    except Exception:
+        pass
+
+    # 2) Insert via reflection
+    try:
+        meta = MetaData()
+        audit_table = Table("interview_score_audit", meta, autoload_with=db.bind)
+        ins = audit_table.insert().returning(audit_table.c.id)
+        payload = {
+            "interview_id": str(interview_id),
+            "overall_score": float(overall_score) if overall_score is not None else None,
+            "section_scores": section_scores or {},
+            "per_question": per_question_summary or [],
+            "model_meta": model_meta or {},
+            "prompt_hash": prompt_hash,
+            "prompt_text": prompt_text,
+            "weights": weights or {},
+            "triggered_by": triggered_by,
+            "task_id": task_id,
+            "llm_raw_s3_key": llm_raw_s3_key,
+            "notes": notes,
+        }
+        res = db.execute(ins, payload)
+        row = res.fetchone()
+        # commit so other sessions can see the row
+        try:
+            db.commit()
+        except Exception as e:
+            log.exception("Failed to commit audit insert: %s", e)
+        if row:
+            try:
+                return int(row[0])
+            except Exception:
+                return None
+    except Exception as e:
+        log.exception("Failed to insert interview_score_audit (reflection path): %s", e)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return None
+
+    return None
+
+# ------------------------------
+# Celery Task (modified signature to accept triggered_by)
 # ------------------------------
 @app.task(name="tasks.score_interview")
-def score_interview(interview_id: str) -> Dict[str, Any]:
+def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str, Any]:
     db: Session = SessionLocal()
     try:
         rows = db.execute(text("""
@@ -305,11 +364,16 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
         comp_scores: List[int] = []
         redflags_all: List[str] = []
 
+        # collect full raw outputs per question for S3 bundle
+        llm_raw_full_questions: List[dict] = []
+
         async def _score_all():
             for r in rows:
                 if not r["aid"]:
                     log.info("No answer for question %s — skipping", r["qid"])
                     continue
+
+                raw_resp = ""  # initialize per-question raw text
 
                 if r["type"] == "voice":
                     transcript = (r["transcript"] or "").strip()
@@ -324,7 +388,14 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
                     tech = _safe_int(fb.get("technical"), 0)
                     comp = _safe_int(fb.get("completeness"), 0)
 
-                    per_q.append({"question_id": r["qid"], "type": "voice", "ai_feedback": fb})
+                    # include a preview of raw in per-question summary
+                    preview = None
+                    try:
+                        preview = (raw_resp[:500] + "...") if raw_resp else None
+                    except Exception:
+                        preview = None
+
+                    per_q.append({"question_id": r["qid"], "type": "voice", "ai_feedback": fb, "llm_raw_preview": preview})
                     comm_scores.append(comm); tech_scores.append(tech); comp_scores.append(comp)
                     redflags_all.extend(fb.get("red_flags") or [])
 
@@ -386,7 +457,13 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
                     tech = max(corr, _safe_int(fb.get("technical"), corr))
                     comp = _safe_int(fb.get("completeness"), 50 if corr > 0 else 0)
 
-                    per_q.append({"question_id": r["qid"], "type": "code", "ai_feedback": fb, "correctness": corr})
+                    preview = None
+                    try:
+                        preview = (raw_resp[:500] + "...") if raw_resp else None
+                    except Exception:
+                        preview = None
+
+                    per_q.append({"question_id": r["qid"], "type": "code", "ai_feedback": fb, "correctness": corr, "llm_raw_preview": preview})
                     tech_scores.append(tech); comp_scores.append(comp)
                     redflags_all.extend(fb.get("red_flags") or [])
 
@@ -437,8 +514,6 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
                     except Exception:
                         log.exception("Failed to upsert interview_scores for code question %s", r["qid"])
 
-                    # merge cheat flags handled below
-
                 # merge cheat flags (common)
                 flags = r["cheat_flags"] or []
                 if isinstance(flags, str):
@@ -447,6 +522,18 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
                     except Exception:
                         flags = []
                 redflags_all.extend(flags)
+
+                # collect full llm_raw per question for S3 bundle (keep raw_resp and ai_feedback)
+                try:
+                    llm_raw_full_questions.append({
+                        "question_id": r["qid"],
+                        "type": r["type"],
+                        "ai_feedback": per_q[-1].get("ai_feedback") if per_q else None,
+                        "llm_raw": raw_resp
+                    })
+                except Exception:
+                    # defensive: don't let this block scoring
+                    log.debug("Failed to append llm_raw_full for q %s", r["qid"])
 
             await asyncio.sleep(0)
             return True
@@ -463,12 +550,60 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
         penalty = _penalty_from_flags(list(dict.fromkeys(redflags_all)))
         overall = _cap(base + penalty)
 
+        # Build llm_raw_full bundle for S3 (includes metadata + per-question raw)
+        try:
+            # Try to fetch prompt_hash/prompt_text if your scoring uses templates.
+            prompt_hash = None
+            prompt_text = None
+            model_meta = {"provider": AI_PROVIDER, "model": (OLLAMA_MODEL if AI_PROVIDER == "ollama" else OPENAI_MODEL if AI_PROVIDER == "openai" else "stub")}
+            weights = {"technical": TECH_W, "communication": COMM_W, "completeness": COMP_W}
+            task_id = None
+            try:
+                task_id = getattr(current_task.request, "id", None) or None
+            except Exception:
+                task_id = None
+
+            llm_raw_bundle = {
+                "interview_id": interview_id,
+                "task_id": task_id,
+                "model_meta": model_meta,
+                "prompt_hash": prompt_hash,
+                "prompt_text": prompt_text,
+                "weights": weights,
+                "questions": llm_raw_full_questions
+            }
+        except Exception:
+            llm_raw_bundle = None
+
         # Recompute report from interview_scores (preferred single source of truth)
         try:
             report = _aggregate_from_interview_scores(db, interview_id)
             db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb) WHERE id = :iid"),
                        {"o": report["overall_score"], "r": json.dumps(report), "iid": str(interview_id)})
             db.commit()
+
+            # RECORD AUDIT (best-effort, won't break scoring)
+            try:
+                audit_id = _record_audit(
+                    db=db,
+                    interview_id=str(interview_id),
+                    overall_score=report.get("overall_score"),
+                    section_scores=report.get("section_scores"),
+                    per_question_summary=report.get("per_question"),
+                    model_meta=model_meta,
+                    prompt_hash=prompt_hash,
+                    prompt_text=prompt_text,
+                    weights=weights,
+                    triggered_by=triggered_by,
+                    task_id=task_id,
+                    llm_raw_full=llm_raw_bundle,
+                    notes="scoring completed (aggregate)"
+                )
+                if audit_id:
+                    log.info("Recorded interview_score_audit id=%s for interview=%s", audit_id, interview_id)
+            except Exception:
+                log.exception("Failed to record audit after aggregate report")
+
             return {"ok": True, "overall": report["overall_score"]}
         except Exception:
             log.exception("Failed to aggregate from interview_scores; falling back to computed values")
@@ -483,6 +618,30 @@ def score_interview(interview_id: str) -> Dict[str, Any]:
             db.execute(text("UPDATE interviews SET overall_score=:o, report=:r WHERE id=:iid"),
                        {"o": int(overall), "r": json.dumps(report), "iid": str(interview_id)})
             db.commit()
+
+            # RECORD AUDIT for fallback path (best-effort)
+            try:
+                task_id = getattr(current_task.request, "id", None) if not task_id else task_id
+                audit_id = _record_audit(
+                    db=db,
+                    interview_id=str(interview_id),
+                    overall_score=overall,
+                    section_scores=report.get("section_scores"),
+                    per_question_summary=report.get("per_question"),
+                    model_meta={"provider": AI_PROVIDER},
+                    prompt_hash=None,
+                    prompt_text=None,
+                    weights={"technical": TECH_W, "communication": COMM_W, "completeness": COMP_W},
+                    triggered_by=triggered_by,
+                    task_id=task_id,
+                    llm_raw_full=llm_raw_bundle,
+                    notes="scoring completed (fallback)"
+                )
+                if audit_id:
+                    log.info("Recorded interview_score_audit id=%s for interview=%s (fallback)", audit_id, interview_id)
+            except Exception:
+                log.exception("Failed to record audit in fallback path")
+
             return {"ok": True, "overall": overall}
 
     except Exception as e:

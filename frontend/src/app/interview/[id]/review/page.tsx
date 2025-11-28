@@ -201,6 +201,14 @@ export default function InterviewReviewPage() {
           </button>
 
           <button
+            className="px-3 py-1 border rounded text-sm"
+            onClick={() => router.push(`/interview/${encodeURIComponent(id)}/audit`)}
+          >
+            View Scoring History
+          </button>
+
+
+          <button
             className="px-3 py-1 text-sm border rounded"
             onClick={() => setRawVisible((s) => !s)}
           >

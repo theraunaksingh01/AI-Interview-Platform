@@ -4,7 +4,7 @@ import json
 from uuid import UUID
 from typing import Optional, Any, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -460,3 +460,72 @@ def score_question(question_id: int, db: Session = Depends(get_db), user=Depends
     # enqueue the whole-interview scorer (use existing task)
     task = score_interview.delay(str(iid))
     return {"queued": True, "task_id": task.id, "interview_id": str(iid)}
+
+@router.get("/{interview_id}/audit")
+def list_audit(interview_id: str, limit: int = Query(20, ge=1, le=200), db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    List recent audit runs for an interview.
+    Returns array of audit metadata (id, scored_at, overall_score, triggered_by, task_id, llm_raw_s3_key).
+    """
+    try:
+        rows = db.execute(
+            text("""
+                SELECT id, interview_id, scored_at, overall_score, section_scores, per_question,
+                       model_meta, prompt_hash, weights, triggered_by, task_id, llm_raw_s3_key, notes, created_at
+                FROM interview_score_audit
+                WHERE interview_id = :iid
+                ORDER BY created_at DESC
+                LIMIT :lim
+            """),
+            {"iid": str(interview_id), "lim": int(limit)}
+        ).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"failed to query audit: {e}")
+
+
+@router.get("/{interview_id}/audit/{audit_id}")
+def get_audit_detail(interview_id: str, audit_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    Return a single audit row. If llm_raw_s3_key is present and S3 configured,
+    return a presigned_url for direct download (expires per settings.PRESIGNED_URL_EXPIRES).
+    """
+    try:
+        row = db.execute(
+            text("""
+                SELECT id, interview_id, scored_at, overall_score, section_scores, per_question,
+                       model_meta, prompt_hash, prompt_text, weights, triggered_by, task_id, llm_raw_s3_key, notes, created_at
+                FROM interview_score_audit
+                WHERE interview_id = :iid AND id = :aid
+                LIMIT 1
+            """),
+            {"iid": str(interview_id), "aid": int(audit_id)}
+        ).mappings().first()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"failed to query audit detail: {e}")
+
+    if not row:
+        raise HTTPException(status_code=404, detail="audit entry not found")
+
+    result = dict(row)
+
+    s3_key = result.get("llm_raw_s3_key")
+    presigned = None
+    if s3_key:
+        # guard: try to create presigned URL, but don't fail if S3 misconfigured
+        try:
+            s3 = get_s3_client()
+            bucket = getattr(settings, "S3_BUCKET", None) or getattr(settings, "s3_bucket", None)
+            if s3 and bucket:
+                expires = int(getattr(settings, "PRESIGNED_URL_EXPIRES", 900))
+                presigned = s3.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": bucket, "Key": s3_key},
+                    ExpiresIn=expires
+                )
+        except Exception as e:
+            # Log via HTTPException detail? better to return info but not fail
+            result["llm_raw_presign_error"] = str(e)
+
+    result["llm_raw_presigned_url"] = presigned
+    return result
