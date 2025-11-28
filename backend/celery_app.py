@@ -3,17 +3,20 @@ from celery import Celery
 from core.config import settings  # ← your pydantic Settings
 import logging
 import importlib.util
+import os
 
 logger = logging.getLogger("celery_app")
 
 BROKER = (
     getattr(settings, "celery_broker_url", None)
     or getattr(settings, "redis_url", None)
+    or os.getenv("CELERY_BROKER_URL")
     or "redis://127.0.0.1:6379/0"
 )
 BACKEND = (
     getattr(settings, "celery_result_backend", None)
     or getattr(settings, "redis_url", None)
+    or os.getenv("CELERY_RESULT_BACKEND")
     or BROKER
 )
 
@@ -51,7 +54,11 @@ app = Celery(
 app.conf.task_acks_late = True
 app.conf.worker_prefetch_multiplier = 1
 app.conf.broker_connection_retry_on_startup = True
-app.conf.task_ignore_result = True
+
+# <-- IMPORTANT: enable result backend so AsyncResult and /interview/task/... work
+app.conf.task_ignore_result = False
+app.conf.result_backend = BACKEND
+app.conf.result_expires = 3600 * 24
 app.conf.result_extended = False
 
 # Defensive import: try to import modules so their tasks register now and we get logs for any import errors.

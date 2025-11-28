@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from db.session import SessionLocal
 from db import models as db_models
 from core import security
+from fastapi import HTTPException, Depends
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -54,3 +56,9 @@ def require_roles(*allowed_roles: List[str]) -> Callable:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operation not permitted")
         return current_user
     return dependency
+
+def require_admin(user = Depends(get_current_user)):
+    # adapt to your user object (is_admin / roles etc)
+    if not getattr(user, "is_admin", False) and not getattr(user, "is_hr", False):
+        raise HTTPException(status_code=403, detail="admin access required")
+    return user

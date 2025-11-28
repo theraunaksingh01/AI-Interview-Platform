@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from api.deps import get_db, get_current_user
 from core.config import settings
 from core.s3_client import get_s3_client
+from fastapi.responses import Response
+
 
 # tasks
 from tasks.report_pdf import generate_pdf
@@ -529,3 +531,51 @@ def get_audit_detail(interview_id: str, audit_id: int, db: Session = Depends(get
 
     result["llm_raw_presigned_url"] = presigned
     return result
+
+@router.get("/audit/{interview_id}")
+def audit_list(
+    interview_id: UUID,
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user = Depends(get_current_user),  # or Depends(require_admin) to limit to admins
+):
+    rows = db.execute(
+        text("""
+            SELECT id, interview_id, scored_at, overall_score, section_scores, per_question,
+                   model_meta, prompt_hash, weights, triggered_by, task_id, llm_raw_s3_key, notes, created_at
+            FROM interview_score_audit
+            WHERE interview_id = :iid
+            ORDER BY created_at DESC
+            LIMIT :lim OFFSET :off
+        """),
+        {"iid": str(interview_id), "lim": limit, "off": offset}
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/audit/{interview_id}/raw/{audit_id}")
+def audit_raw_proxy(
+    interview_id: UUID,
+    audit_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(get_current_user),  # or Depends(require_admin)
+):
+    row = db.execute(
+        text("SELECT llm_raw_s3_key FROM interview_score_audit WHERE id = :aid AND interview_id = :iid"),
+        {"aid": audit_id, "iid": str(interview_id)}
+    ).scalar()
+    if not row:
+        raise HTTPException(status_code=404, detail="Raw LLM not found")
+
+    bucket = getattr(settings, "S3_BUCKET", getattr(settings, "s3_bucket", None))
+    if not bucket:
+        raise HTTPException(status_code=500, detail="Bucket not configured")
+
+    try:
+        s3 = get_s3_client()
+        resp = s3.get_object(Bucket=bucket, Key=row)
+        body = resp["Body"].read()
+        return Response(content=body, media_type="application/json")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch raw from S3: {e}")

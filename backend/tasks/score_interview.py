@@ -15,6 +15,8 @@ import httpx
 from sqlalchemy import Table, MetaData
 # Celery helper to get current task id
 from celery import current_task
+import platform
+from datetime import datetime
 
 # Optional external helpers (keep compatibility if you add them later)
 try:
