@@ -1,6 +1,9 @@
+// src/app/interview/[id]/audit/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
+import CompareModal from "./CompareModal"; 
+import ModelInspector from "@/app/components/ui/ModelInspector"; 
 
 type AuditRow = {
   id: number;
@@ -54,143 +57,8 @@ function RawModal({
   );
 }
 
-function ModelInspectorModal({
-  open,
-  modelMeta,
-  promptHash,
-  promptText,
-  weights,
-  taskId,
-  onClose,
-}: {
-  open: boolean;
-  modelMeta?: Record<string, any> | null;
-  promptHash?: string | null;
-  promptText?: string | null;
-  weights?: Record<string, number> | null;
-  taskId?: string | null;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded shadow-xl p-4 max-w-2xl w-full max-h-[80vh] overflow-auto">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="font-semibold text-lg">Model Inspector</h2>
-          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">Close</button>
-        </div>
-
-        <div className="text-sm space-y-3">
-          <div><strong>Model meta</strong></div>
-          <pre className="bg-gray-50 p-3 rounded text-xs">{JSON.stringify(modelMeta || {}, null, 2)}</pre>
-
-          <div><strong>Prompt hash</strong></div>
-          <div className="bg-gray-50 p-2 rounded text-xs">{promptHash || "—"}</div>
-
-          <div><strong>Prompt text</strong></div>
-          <pre className="bg-gray-50 p-3 rounded text-xs whitespace-pre-wrap">{promptText || "—"}</pre>
-
-          <div><strong>Weights</strong></div>
-          <pre className="bg-gray-50 p-3 rounded text-xs">{JSON.stringify(weights || {}, null, 2)}</pre>
-
-          <div><strong>Task id</strong></div>
-          <div className="bg-gray-50 p-2 rounded text-xs">{taskId || "—"}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DiffModal({
-  open,
-  left,
-  right,
-  onClose,
-}: {
-  open: boolean;
-  left?: AuditRow | null;
-  right?: AuditRow | null;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-
-  // Compute simple diffs
-  const secLeft = left?.section_scores || {};
-  const secRight = right?.section_scores || {};
-  const sectionDiffs: Array<{ name: string; left: number; right: number; delta: number }> = [];
-  const keys = Array.from(new Set([...Object.keys(secLeft), ...Object.keys(secRight)]));
-  keys.forEach((k) => {
-    const l = Number(secLeft[k] ?? 0);
-    const r = Number(secRight[k] ?? 0);
-    sectionDiffs.push({ name: k, left: l, right: r, delta: Math.round((r - l) * 100) / 100 });
-  });
-
-  // per-question diffs by question_id (only numeric overall if present)
-  const mapByQ = (arr: any[]) => {
-    const m = new Map<number, any>();
-    (arr || []).forEach((p) => {
-      const id = Number(p.question_id ?? p.questionId ?? p.qid ?? -1);
-      m.set(id, p);
-    });
-    return m;
-  };
-  const leftMap = mapByQ(left?.per_question || []);
-  const rightMap = mapByQ(right?.per_question || []);
-  const qIds = Array.from(new Set([...Array.from(leftMap.keys()), ...Array.from(rightMap.keys())])).sort((a, b) => a - b);
-
-  const perQDiffs = qIds.map((qid) => {
-    const L = leftMap.get(qid) || {};
-    const R = rightMap.get(qid) || {};
-    const lOverall = Number(L.overall ?? L.overall_score ?? 0);
-    const rOverall = Number(R.overall ?? R.overall_score ?? 0);
-    return { qid, left: lOverall, right: rOverall, delta: Math.round((rOverall - lOverall) * 100) / 100 };
-  });
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded shadow-xl p-4 max-w-3xl w-full max-h-[80vh] overflow-auto">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="font-semibold text-lg">Comparison (Left → Right)</h2>
-          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">Close</button>
-        </div>
-
-        <div className="mb-3 text-sm">
-          <div className="font-medium">Runs</div>
-          <div className="text-xs text-muted-foreground">Left: {left?.id ?? "—"} — Right: {right?.id ?? "—"}</div>
-        </div>
-
-        <div className="mb-4">
-          <div className="font-medium">Section score diffs</div>
-          <ul className="ml-4 list-disc text-sm">
-            {sectionDiffs.map((s) => (
-              <li key={s.name}>
-                {s.name}: {s.left} → {s.right} ({s.delta >= 0 ? "+" + s.delta : s.delta})
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <div className="font-medium mb-2">Per-question overall diffs</div>
-          <div className="text-sm space-y-2">
-            {perQDiffs.length === 0 && <div className="text-xs text-muted-foreground">No per-question data</div>}
-            {perQDiffs.map((d) => (
-              <div key={d.qid} className="border rounded p-2">
-                <div className="text-sm font-medium">Q{d.qid}</div>
-                <div className="text-xs">Overall: {d.left} → {d.right} ({d.delta >= 0 ? "+" + d.delta : d.delta})</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function InterviewAuditPage({ params }: { params: { id: string } }) {
-  // Next.js note: in newer versions params may be a Promise, but in practice this page
-  // is used like previous versions. If you see a warning about React.use() you can
-  // adjust migration style; leaving the familiar pattern for now.
+  // Keep familiar params access for now (see Next.js migration note)
   const interviewId = (params && (params as any).id) || "";
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
@@ -203,16 +71,16 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
   const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]); // up to 2 ids
   const [compareError, setCompareError] = useState<string | null>(null);
 
-  // Modals
+  // Modals / external inspector
   const [rawModalOpen, setRawModalOpen] = useState(false);
   const [rawModalJSON, setRawModalJSON] = useState<string | null>(null);
 
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [modelModalData, setModelModalData] = useState<any>(null);
 
-  const [diffModalOpen, setDiffModalOpen] = useState(false);
-  const [diffLeft, setDiffLeft] = useState<AuditRow | null>(null);
-  const [diffRight, setDiffRight] = useState<AuditRow | null>(null);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [compareLeft, setCompareLeft] = useState<AuditRow | null>(null);
+  const [compareRight, setCompareRight] = useState<AuditRow | null>(null);
 
   function getAuthHeader(): Headers {
     const h = new Headers();
@@ -267,7 +135,6 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
         window.open(det.llm_raw_presigned_url, "_blank");
         return;
       }
-      // fallback: if llm_raw present inline, open modal
       if (det.llm_raw_full) {
         setRawModalJSON(JSON.stringify(det.llm_raw_full, null, 2));
         setRawModalOpen(true);
@@ -279,7 +146,7 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
     }
   }
 
-  // Fetch raw content and show modal (used by Selected run 'Open Raw LLM')
+  // Fetch raw content and show modal (Used by Selected Run -> Open Raw LLM)
   async function fetchAndShowRaw(aid: number) {
     try {
       const url = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${aid}`;
@@ -287,14 +154,12 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
       if (!r.ok) throw new Error(await r.text());
       const det = await r.json();
       if (det.llm_raw_presigned_url) {
-        // fetch presigned url and show the JSON text
         const rawResp = await fetch(det.llm_raw_presigned_url);
         const txt = await rawResp.text();
         setRawModalJSON(txt);
         setRawModalOpen(true);
         return;
       }
-      // try llm_raw_full bundle
       if (det.llm_raw_full) {
         setRawModalJSON(JSON.stringify(det.llm_raw_full, null, 2));
         setRawModalOpen(true);
@@ -314,9 +179,8 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
         // remove
         return prev.filter((x) => x !== aid);
       } else {
-        // add (max 2)
+        // add (max 2) — if adding beyond 2 keep most recent two
         if (prev.length >= 2) {
-          // keep most recent two: drop first, add new
           return [prev[1], aid];
         }
         return [...prev, aid];
@@ -345,7 +209,6 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
     }
     const [a, b] = selectedForCompare;
     try {
-      // fetch details for both
       const urlA = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${a}`;
       const urlB = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${b}`;
       const [ra, rb] = await Promise.all([
@@ -356,9 +219,11 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
       if (!rb.ok) throw new Error(await rb.text());
       const da = await ra.json();
       const db = await rb.json();
-      setDiffLeft(da);
-      setDiffRight(db);
-      setDiffModalOpen(true);
+
+      // Provide fetched rows to the CompareModal via state
+      setCompareLeft(da);
+      setCompareRight(db);
+      setCompareModalOpen(true);
     } catch (e: any) {
       setCompareError(String(e?.message || e));
     }
@@ -516,7 +381,9 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
 
       {/* Modals */}
       <RawModal open={rawModalOpen} json={rawModalJSON} onClose={() => setRawModalOpen(false)} />
-      <ModelInspectorModal
+
+      {/* Use your external ModelInspector component */}
+      <ModelInspector
         open={modelModalOpen}
         modelMeta={modelModalData?.model_meta}
         promptHash={modelModalData?.prompt_hash}
@@ -525,7 +392,14 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
         taskId={modelModalData?.task_id}
         onClose={() => { setModelModalOpen(false); setModelModalData(null); }}
       />
-      <DiffModal open={diffModalOpen} left={diffLeft} right={diffRight} onClose={() => setDiffModalOpen(false)} />
+
+      {/* Use external CompareModal and pass left/right runs */}
+      <CompareModal
+        open={compareModalOpen}
+        left={compareLeft}
+        right={compareRight}
+        onClose={() => { setCompareModalOpen(false); setCompareLeft(null); setCompareRight(null); }}
+      />
     </div>
   );
 }
