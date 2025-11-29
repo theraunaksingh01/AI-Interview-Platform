@@ -63,7 +63,8 @@ type AuditRow = {
 };
 
 export default function InterviewAuditPage({ params }: { params: { id: string } }) {
-  const interviewId = params.id;
+  const _params = (React as any).use ? (React as any).use(params) : params;
+  const interviewId = (_params as any).id;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
   const [loading, setLoading] = useState(false);

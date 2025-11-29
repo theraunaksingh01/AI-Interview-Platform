@@ -585,9 +585,15 @@ def audit_raw_proxy(
 @router.post("/score_question/{question_id}")
 def api_score_single_question(
     question_id: int,
+    interview_id: Optional[str] = Query(None, description="Interview UUID"),
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
+    user = Depends(get_current_user),
 ):
-    from tasks.score_interview import score_question
-    task = score_question.delay(question_id, triggered_by=f"user:{user.id}")
-    return {"queued": True, "task_id": task.id}
+    if not interview_id:
+        raise HTTPException(status_code=400, detail="interview_id query param required")
+    # NOTE: pass (question_id, interview_id) in that order
+    from tasks.score_question import score_question
+    task = score_question.delay(int(question_id), str(interview_id), triggered_by=f"user:{user.id}")
+    return {"queued": True, "task_id": str(task.id)}
+
+
