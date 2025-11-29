@@ -579,3 +579,15 @@ def audit_raw_proxy(
         return Response(content=body, media_type="application/json")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch raw from S3: {e}")
+
+
+# POST /interview/score_question/{question_id}
+@router.post("/score_question/{question_id}")
+def api_score_single_question(
+    question_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    from tasks.score_interview import score_question
+    task = score_question.delay(question_id, triggered_by=f"user:{user.id}")
+    return {"queued": True, "task_id": task.id}

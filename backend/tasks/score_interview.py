@@ -338,6 +338,209 @@ def _record_audit(db: Session, interview_id: str, overall_score: float, section_
     return None
 
 # ------------------------------
+# Celery Task: score a single question (new)
+# ------------------------------
+@app.task(name="tasks.score_question")
+def score_question(interview_question_id: int, triggered_by: str = "system") -> Dict[str, Any]:
+    """
+    Score a single question (interview_questions.id). This will:
+      - find the latest answer for that question
+      - call the LLM scorer for that single answer (voice or code)
+      - update interview_answers.ai_feedback and llm_raw
+      - upsert interview_scores for that question
+      - recompute aggregate report for the interview and store into interviews.report
+      - attempt to record an audit row (best-effort)
+    Returns {"ok": True, "overall": new_overall} on success or {"ok": False, "error": ...}
+    """
+    db: Session = SessionLocal()
+    try:
+        row = db.execute(text("""
+            SELECT q.id AS qid, q.interview_id, q.type, q.question_text,
+                   a.id AS aid, a.transcript, a.code_answer, a.code_output, a.test_results, a.cheat_flags
+            FROM interview_questions q
+            LEFT JOIN LATERAL (
+              SELECT z.*
+              FROM interview_answers z
+              WHERE z.interview_question_id = q.id
+              ORDER BY z.created_at DESC NULLS LAST, z.id DESC
+              LIMIT 1
+            ) a ON TRUE
+            WHERE q.id = :qid
+            LIMIT 1
+        """), {"qid": int(interview_question_id)}).mappings().first()
+
+        if not row:
+            return {"ok": False, "error": "question_not_found"}
+
+        if not row["aid"]:
+            return {"ok": False, "error": "no_answer_for_question"}
+
+        interview_id = str(row["interview_id"])
+        raw_resp = ""
+        per_q_summary = None
+        redflags = []
+
+        async def _call_and_process():
+            nonlocal raw_resp, per_q_summary, redflags
+            if row["type"] == "voice":
+                transcript = (row["transcript"] or "").strip()
+                if not transcript:
+                    fb = {"communication": 0, "technical": 0, "completeness": 0,
+                          "red_flags": ["No speech detected"], "summary": "No transcript"}
+                    raw_resp = ""
+                else:
+                    fb, raw_resp = await _llm_json(VOICE_USER_PROMPT.format(transcript=transcript))
+
+                comm = _safe_int(fb.get("communication"), 0)
+                tech = _safe_int(fb.get("technical"), 0)
+                comp = _safe_int(fb.get("completeness"), 0)
+                perq_overall = round(COMM_W * comm + TECH_W * tech + COMP_W * comp, 2)
+
+                per_q_summary = {
+                    "question_id": row["qid"],
+                    "type": "voice",
+                    "ai_feedback": fb,
+                    "technical": tech,
+                    "communication": comm,
+                    "completeness": comp,
+                    "overall": perq_overall
+                }
+                redflags = fb.get("red_flags") or []
+
+            else:  # code
+                tests = row["test_results"] or {}
+                corr = _safe_int((tests or {}).get("correctness"), 0)
+                code = row["code_answer"] or ""
+                stdout = (row["code_output"] or "")[:1000]
+
+                fb, raw_resp = await _llm_json(CODE_USER_PROMPT.format(code=code, stdout=stdout, correctness=corr))
+
+                tech = max(corr, _safe_int(fb.get("technical"), corr))
+                comp = _safe_int(fb.get("completeness"), 50 if corr > 0 else 0)
+                communication = 0
+                perq_overall = round(TECH_W * tech + COMP_W * comp + COMM_W * communication, 2)
+
+                per_q_summary = {
+                    "question_id": row["qid"],
+                    "type": "code",
+                    "ai_feedback": fb,
+                    "technical": tech,
+                    "communication": communication,
+                    "completeness": comp,
+                    "correctness": corr,
+                    "overall": perq_overall
+                }
+                redflags = fb.get("red_flags") or []
+
+            await asyncio.sleep(0)
+            return True
+
+        asyncio.run(_call_and_process())
+
+        # Update interview_answers with ai_feedback + llm_raw
+        try:
+            db.execute(text("""
+                UPDATE interview_answers
+                SET ai_feedback = :fb, llm_raw = :raw
+                WHERE id = :aid
+            """), {
+                "fb": json.dumps(per_q_summary.get("ai_feedback") if per_q_summary else {}),
+                "raw": raw_resp,
+                "aid": row["aid"]
+            })
+        except Exception:
+            log.exception("Failed to update interview_answers for aid=%s", row["aid"])
+
+        # Upsert interview_scores for this question only
+        try:
+            tech_score = _safe_int(per_q_summary.get("technical"), 0)
+            comm_score = _safe_int(per_q_summary.get("communication"), 0)
+            comp_score = _safe_int(per_q_summary.get("completeness"), 0)
+            overall_q = float(per_q_summary.get("overall", 0))
+
+            db.execute(text("""
+                INSERT INTO interview_scores
+                  (interview_id, question_id, technical_score, communication_score,
+                   completeness_score, overall_score, ai_feedback, llm_raw, created_at)
+                VALUES (:iid, :qid, :tech, :comm, :comp, :overall, CAST(:fb AS jsonb), :raw, now())
+                ON CONFLICT (interview_id, question_id) DO UPDATE
+                SET technical_score = EXCLUDED.technical_score,
+                    communication_score = EXCLUDED.communication_score,
+                    completeness_score = EXCLUDED.completeness_score,
+                    overall_score = EXCLUDED.overall_score,
+                    ai_feedback = EXCLUDED.ai_feedback,
+                    llm_raw = EXCLUDED.llm_raw,
+                    created_at = now()
+            """), {
+                "iid": interview_id,
+                "qid": row["qid"],
+                "tech": int(tech_score),
+                "comm": int(comm_score),
+                "comp": int(comp_score),
+                "overall": float(overall_q),
+                "fb": json.dumps(per_q_summary.get("ai_feedback") if per_q_summary else {}),
+                "raw": raw_resp,
+            })
+            db.commit()
+        except Exception:
+            log.exception("Failed to upsert interview_scores for question %s", row["qid"])
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        # recompute aggregate report and update interviews table
+        try:
+            report = _aggregate_from_interview_scores(db, interview_id)
+            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb) WHERE id = :iid"),
+                       {"o": report["overall_score"], "r": json.dumps(report), "iid": interview_id})
+            db.commit()
+        except Exception:
+            log.exception("Failed to aggregate after single-question scoring")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        # record an audit row (best-effort)
+        try:
+            model_meta = {"provider": AI_PROVIDER, "model": (OLLAMA_MODEL if AI_PROVIDER == "ollama" else OPENAI_MODEL if AI_PROVIDER == "openai" else "stub")}
+            weights = {"technical": TECH_W, "communication": COMM_W, "completeness": COMP_W}
+            audit_id = _record_audit(
+                db=db,
+                interview_id=interview_id,
+                overall_score=report.get("overall_score") if 'report' in locals() else None,
+                section_scores=report.get("section_scores") if 'report' in locals() else {},
+                per_question_summary=[per_q_summary] if per_q_summary else [],
+                model_meta=model_meta,
+                prompt_hash=None,
+                prompt_text=None,
+                weights=weights,
+                triggered_by=triggered_by,
+                task_id=getattr(current_task.request, "id", None),
+                llm_raw_full={"interview_id": interview_id, "questions": [{"question_id": row["qid"], "llm_raw": raw_resp, "ai_feedback": per_q_summary.get("ai_feedback")}]},
+                notes="single-question scoring"
+            )
+            if audit_id:
+                log.info("Recorded interview_score_audit id=%s for interview=%s (single-question)", audit_id, interview_id)
+        except Exception:
+            log.exception("Failed to record audit for single-question scoring")
+
+        # Return new overall to UI (or None)
+        try:
+            new_overall = report.get("overall_score")
+        except Exception:
+            new_overall = None
+
+        return {"ok": True, "overall": new_overall}
+    except Exception as e:
+        db.rollback()
+        log.exception("score_question failed for %s: %s", interview_question_id, e)
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+# ------------------------------
 # Celery Task (modified signature to accept triggered_by)
 # ------------------------------
 @app.task(name="tasks.score_interview")

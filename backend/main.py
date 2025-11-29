@@ -4,6 +4,49 @@ Defensive FastAPI startup: try to include real routers but never crash the whole
 If an import fails, the exception is captured and exposed at /__startup_error for easy debugging.
 """
 import os
+import sys
+import logging
+from dotenv import load_dotenv
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+_log = logging.getLogger("env_loader")
+
+# Candidate .env locations (in order)
+#  - PROJECT_ROOT/.env
+#  - BACKEND_DIR/.env
+#  - current working directory .env
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))        # backend/
+PROJECT_ROOT = os.path.dirname(BASE_DIR)                     # project root (parent of backend)
+CWD = os.getcwd()
+
+cand_paths = [
+    os.path.join(PROJECT_ROOT, ".env"),
+    os.path.join(BASE_DIR, ".env"),
+    os.path.join(CWD, ".env"),
+]
+
+loaded_from = None
+for p in cand_paths:
+    try:
+        if os.path.exists(p):
+            load_dotenv(p, override=True)
+            loaded_from = p
+            _log.info(f"Loaded .env from: {p}")
+            break
+    except Exception as e:
+        _log.exception("Failed to load .env from %s: %s", p, e)
+
+# Fallback: try load_dotenv() (searches CWD+parents)
+if not loaded_from:
+    try:
+        load_dotenv(override=False)
+        _log.info("Called load_dotenv() fallback (no explicit path)")
+    except Exception as e:
+        _log.exception("Fallback load_dotenv() failed: %s", e)
+
+_log.info(f"[ENV] AI_PROVIDER={os.getenv('AI_PROVIDER')}, OLLAMA_URL={os.getenv('OLLAMA_URL')}, OLLAMA_MODEL={os.getenv('OLLAMA_MODEL')}")
+# ---------------------------------------------------------
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api import ops as ops_router
@@ -26,7 +69,7 @@ from api import interview_generate
 from api import interview_ai
 from api.interview import router as interview_router
 
-
+from dotenv import load_dotenv
 
 
 
@@ -97,6 +140,17 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"ok": True}
+
+#Debug model config
+@app.get("/__debug_model")
+def debug_model():
+    return {
+        "AI_PROVIDER": os.getenv("AI_PROVIDER"),
+        "OPENAI_MODEL": os.getenv("OPENAI_MODEL"),
+        "OLLAMA_URL": os.getenv("OLLAMA_URL"),
+        "OLLAMA_MODEL": os.getenv("OLLAMA_MODEL"),
+    }
+
 
 # Demo uploads route (keeps UI from blocking)
 @app.get("/uploads")
