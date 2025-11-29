@@ -25,6 +25,87 @@ type QItem = {
   [k: string]: any;
 };
 
+// Inline task poll hook (self-contained)
+// Inline task poll hook (self-contained)
+function useTaskPoll(taskId: string | null, opts?: { interval?: number }) {
+  const intervalMs = opts?.interval ?? 1500;
+  const [state, setState] = useState<{ status: string | null; result: any | null; error: string | null; loading: boolean }>({
+    status: null,
+    result: null,
+    error: null,
+    loading: false,
+  });
+
+  useEffect(() => {
+    // if no taskId, reset and return early
+    if (!taskId) {
+      setState({ status: null, result: null, error: null, loading: false });
+      return;
+    }
+
+    let stopped = false;
+    const controller = new AbortController();
+
+    async function pollOnce() {
+      try {
+        setState((s) => ({ ...s, loading: true, error: null }));
+
+        // coerce taskId to string (safe because we've returned above if falsy)
+        const tid = String(taskId);
+
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+        const res = await fetch(`${base}/interview/task/${encodeURIComponent(tid)}`, {
+          method: "GET",
+          headers: (() => {
+            const h = new Headers();
+            try {
+              const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
+              if (token) h.set("Authorization", `Bearer ${token}`);
+            } catch (e) {}
+            h.set("Accept", "application/json");
+            return h;
+          })(),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => res.statusText);
+          setState((s) => ({ ...s, error: `Task endpoint returned ${res.status}: ${txt}` }));
+          return;
+        }
+
+        const j = await res.json().catch(() => null);
+        const status = (j && (j.status || j.state || j.task_state || null)) ?? null;
+        const result = j?.result ?? j;
+        setState({ status, result, error: null, loading: !(status === "SUCCESS" || status === "FAILURE") });
+
+        if (status === "SUCCESS" || status === "FAILURE") {
+          stopped = true;
+          controller.abort();
+        }
+      } catch (err: any) {
+        if (!controller.signal.aborted) {
+          setState((s) => ({ ...s, error: String(err?.message || err), loading: false }));
+        }
+      }
+    }
+
+    pollOnce();
+    const t = setInterval(() => {
+      if (!stopped) pollOnce();
+    }, intervalMs);
+
+    return () => {
+      stopped = true;
+      controller.abort();
+      clearInterval(t);
+    };
+  }, [taskId, intervalMs]);
+
+  return state;
+}
+
+
 export default function InterviewReviewPage() {
   const params = useParams();
   const router = useRouter();
@@ -36,7 +117,14 @@ export default function InterviewReviewPage() {
   const [report, setReport] = useState<QItem[] | null>(null);
   const [rawVisible, setRawVisible] = useState<boolean>(false);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
-  const [rescoreLoading, setRescoreLoading] = useState<boolean>(false);
+
+  // track currently active task (for polling)
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  // optionally remember which question is being rescored (null = whole interview)
+  const [currentTaskQuestion, setCurrentTaskQuestion] = useState<number | null>(null);
+
+  // use the inline hook to poll task status
+  const taskState = useTaskPoll(currentTaskId, { interval: 1500 });
 
   // weights used in frontend displays (mirror backend)
   const TECH_W = 0.6;
@@ -92,6 +180,28 @@ export default function InterviewReviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // react to task polling state changes
+  useEffect(() => {
+    if (!currentTaskId) return;
+    // when task completes (SUCCESS), refresh report and clear task state
+    if (taskState.status === "SUCCESS") {
+      // success: refresh and clear
+      fetchReport();
+      setCurrentTaskId(null);
+      setCurrentTaskQuestion(null);
+    } else if (taskState.status === "FAILURE") {
+      // failure: surface error and clear task state
+      setError("Rescore task failed: " + (JSON.stringify(taskState.result || taskState.error) || "unknown"));
+      setCurrentTaskId(null);
+      setCurrentTaskQuestion(null);
+    }
+    // if taskState.error present and not finished, show it but keep polling
+    if (!taskState.loading && taskState.error) {
+      setError(taskState.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskState.status, taskState.error, currentTaskId]);
+
   async function downloadPdf() {
     setPdfStatus(null);
     try {
@@ -139,8 +249,10 @@ export default function InterviewReviewPage() {
     }
   }
 
+  // NEW: rescoreWhole now enqueues and uses polling
   async function rescoreWhole() {
-    setRescoreLoading(true);
+    // if a task already running, ignore
+    if (currentTaskId) return;
     setError(null);
     try {
       const url = `${API_BASE}/interview/score/${encodeURIComponent(id)}`;
@@ -149,30 +261,46 @@ export default function InterviewReviewPage() {
         const txt = await resp.text();
         throw new Error(txt || resp.statusText);
       }
-      await fetchReport();
+      const j = await resp.json().catch(() => null);
+      const tid = j?.task_id || j?.task || j;
+      if (!tid) {
+        // fallback: server didn't return a task id — refresh immediately
+        await fetchReport();
+        return;
+      }
+      setCurrentTaskId(String(tid));
+      setCurrentTaskQuestion(null); // whole interview
     } catch (e: any) {
       setError(String(e?.message || e));
-    } finally {
-      setRescoreLoading(false);
     }
   }
 
+  // NEW: rescore individual question with polling
   async function rescoreQuestion(qid: number) {
-    setRescoreLoading(true);
+    // don't start if another task is already running
+    if (currentTaskId) return;
     setError(null);
     try {
-      // If backend doesn't provide per-question endpoint, this will return 404.
-      const url = `${API_BASE}/interview/score_question/${encodeURIComponent(String(qid))}`;
+      // some implementations expect interview_id query param — include it
+      const url = `${API_BASE}/interview/score_question/${encodeURIComponent(String(qid))}?interview_id=${encodeURIComponent(
+        String(id)
+      )}`;
       const resp = await fetch(url, { method: "POST", headers: getAuthHeader() });
       if (!resp.ok) {
         const txt = await resp.text();
         throw new Error(txt || resp.statusText);
       }
-      await fetchReport();
+      const j = await resp.json().catch(() => null);
+      const tid = j?.task_id || j?.task || j;
+      if (!tid) {
+        // fallback: server didn't return a task id — refresh immediately
+        await fetchReport();
+        return;
+      }
+      setCurrentTaskId(String(tid));
+      setCurrentTaskQuestion(qid);
     } catch (e: any) {
       setError(String(e?.message || e));
-    } finally {
-      setRescoreLoading(false);
     }
   }
 
@@ -230,7 +358,6 @@ export default function InterviewReviewPage() {
       // For per-question bars use technical if available else overall fallback
       let perScore = t;
       if (!perScore) {
-        // fallback to computed overall if no technical (e.g., voice-only)
         perScore = Math.round(TECH_W * t + COMM_W * c + COMP_W * p) || 0;
       }
       perq.push({ name: `Q${q.question_id}`, technical: perScore });
@@ -250,43 +377,48 @@ export default function InterviewReviewPage() {
 
   const agg = computeAggregate(report);
 
+  // helpers to display current task state in UI
+  const isTaskRunning = Boolean(currentTaskId && taskState.loading);
+  const taskLabel = currentTaskId
+    ? taskState.loading
+      ? currentTaskQuestion
+        ? `Rescoring Q${currentTaskQuestion}...`
+        : "Rescoring interview..."
+      : taskState.status === "SUCCESS"
+      ? "Rescore succeeded"
+      : taskState.status === "FAILURE"
+      ? "Rescore failed"
+      : "Rescore (done)"
+    : "";
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-bold">Interview Review</h1>
           <div className="text-sm text-muted-foreground">Interview ID: {id}</div>
+          {taskLabel && <div className="text-xs text-muted-foreground mt-1">{taskLabel}</div>}
         </div>
 
         <div className="flex gap-3">
-          <button
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
-            onClick={downloadPdf}
-            disabled={!id}
-          >
+          <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded" onClick={downloadPdf} disabled={!id}>
             Download PDF
           </button>
 
-          <button
-            className="px-3 py-1 border rounded text-sm"
-            onClick={() => router.push(`/interview/${encodeURIComponent(id)}/audit`)}
-          >
+          <button className="px-3 py-1 border rounded text-sm" onClick={() => router.push(`/interview/${encodeURIComponent(id)}/audit`)}>
             View Scoring History
           </button>
 
-          <button
-            className="px-3 py-1 text-sm border rounded"
-            onClick={() => setRawVisible((s) => !s)}
-          >
+          <button className="px-3 py-1 text-sm border rounded" onClick={() => setRawVisible((s) => !s)}>
             {rawVisible ? "Hide raw" : "Show raw"}
           </button>
 
           <button
             className="px-3 py-1 text-sm bg-orange-500 text-white rounded"
             onClick={rescoreWhole}
-            disabled={rescoreLoading || !id}
+            disabled={isTaskRunning || !id}
           >
-            {rescoreLoading ? "Rescoring..." : "Re-score (whole interview)"}
+            {isTaskRunning && currentTaskQuestion === null ? "Rescoring..." : "Re-score (whole interview)"}
           </button>
         </div>
       </div>
@@ -303,9 +435,7 @@ export default function InterviewReviewPage() {
           </div>
 
           {rawVisible && (
-            <pre className="bg-gray-100 p-4 rounded mb-4 overflow-auto text-sm">
-              {JSON.stringify(report, null, 2)}
-            </pre>
+            <pre className="bg-gray-100 p-4 rounded mb-4 overflow-auto text-sm">{JSON.stringify(report, null, 2)}</pre>
           )}
 
           {/* Charts Panel */}
@@ -318,18 +448,10 @@ export default function InterviewReviewPage() {
               <div className="lg:col-span-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <ScoreBars
-                      technical={agg.section.technical}
-                      communication={agg.section.communication}
-                      completeness={agg.section.completeness}
-                    />
+                    <ScoreBars technical={agg.section.technical} communication={agg.section.communication} completeness={agg.section.completeness} />
                   </div>
                   <div>
-                    <RadarChartComponent
-                      technical={agg.section.technical}
-                      communication={agg.section.communication}
-                      completeness={agg.section.completeness}
-                    />
+                    <RadarChartComponent technical={agg.section.technical} communication={agg.section.communication} completeness={agg.section.completeness} />
                   </div>
                 </div>
 
@@ -347,25 +469,25 @@ export default function InterviewReviewPage() {
               const technical = getNum(ai, "technical");
               const communication = getNum(ai, "communication");
               const completeness = getNum(ai, "completeness");
-              // fallback overall calc if not present in report
               const overall = Math.round(0.6 * technical + 0.3 * communication + 0.1 * completeness);
 
               const qtype = (String(q.type || "").toLowerCase() || "voice");
+
+              const isThisQuestionRunning = isTaskRunning && currentTaskQuestion === q.question_id;
 
               return (
                 <div key={q.question_id} className="border rounded p-6">
                   <div className="flex flex-col lg:flex-row justify-between">
                     <div style={{ flex: 1, paddingRight: 20 }}>
-                      <h3 className="text-lg font-semibold">Q{q.question_id} — Score: {overall}</h3>
+                      <h3 className="text-lg font-semibold">
+                        Q{q.question_id} — Score: {overall}
+                      </h3>
                       <p className="mt-2 text-sm text-gray-800">{q.question_text}</p>
 
-                      {/* For code questions: show submitted code + outputs */}
                       {qtype === "code" && (
                         <div className="mt-4">
                           <div className="font-medium mb-2">Code answer</div>
-                          <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto whitespace-pre-wrap max-h-52">
-                            {q.code_answer ? String(q.code_answer) : "—"}
-                          </pre>
+                          <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto whitespace-pre-wrap max-h-52">{q.code_answer ? String(q.code_answer) : "—"}</pre>
 
                           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
@@ -393,21 +515,16 @@ export default function InterviewReviewPage() {
 
                             <div>
                               <div className="text-xs text-muted-foreground">Cheat flags</div>
-                              <div className="mt-1 text-sm">
-                                {Array.isArray(q.cheat_flags) && q.cheat_flags.length ? q.cheat_flags.join(", ") : "—"}
-                              </div>
+                              <div className="mt-1 text-sm">{Array.isArray(q.cheat_flags) && q.cheat_flags.length ? q.cheat_flags.join(", ") : "—"}</div>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* For voice questions: show transcript, audio link if upload exists */}
                       {qtype !== "code" && (
                         <div className="mt-4">
                           <div className="font-medium mb-2">Transcript</div>
-                          <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">
-                            {q.transcript ? String(q.transcript) : "—"}
-                          </div>
+                          <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">{q.transcript ? String(q.transcript) : "—"}</div>
 
                           {q.upload_id ? (
                             <div className="mt-3 flex items-center gap-3">
@@ -426,8 +543,12 @@ export default function InterviewReviewPage() {
                       <div className="text-sm">Completeness: {completeness}</div>
 
                       <div className="mt-4 flex flex-col gap-2 items-end">
-                        <button className="px-3 py-1 text-sm border rounded" onClick={() => rescoreQuestion(q.question_id)}>
-                          Re-score
+                        <button
+                          className="px-3 py-1 text-sm border rounded"
+                          onClick={() => rescoreQuestion(q.question_id)}
+                          disabled={isTaskRunning}
+                        >
+                          {isThisQuestionRunning ? "Rescoring..." : "Re-score"}
                         </button>
                       </div>
                     </div>

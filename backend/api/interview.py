@@ -597,3 +597,132 @@ def api_score_single_question(
     return {"queued": True, "task_id": str(task.id)}
 
 
+# GET diff between two audit runs
+@router.get("/interview/{interview_id}/audit/{base_id}/diff/{compare_id}")
+def audit_diff(
+    interview_id: str,
+    base_id: int,
+    compare_id: int,
+    db = Depends(get_db),
+    user = Depends(get_current_user),
+):
+    """
+    Compute a diff between two audit runs for the same interview.
+    Returns numeric deltas for section_scores and per_question (overall/technical/...).
+    """
+    try:
+        # fetch base audit
+        q = text("""
+            SELECT id, section_scores, per_question, model_meta, prompt_hash, prompt_text, weights, created_at
+            FROM interview_score_audit
+            WHERE interview_id = :iid AND id = :aid
+            LIMIT 1
+        """)
+        base = db.execute(q, {"iid": str(interview_id), "aid": int(base_id)}).mappings().first()
+        comp = db.execute(q, {"iid": str(interview_id), "aid": int(compare_id)}).mappings().first()
+
+        if not base or not comp:
+            raise HTTPException(status_code=404, detail="one or both audit runs not found")
+
+        # normalize fields (they are likely JSON/dicts already)
+        base_sec = base["section_scores"] or {}
+        comp_sec = comp["section_scores"] or {}
+
+        # section diffs (union of keys)
+        sec_keys = set(list(base_sec.keys()) + list(comp_sec.keys()))
+        section_score_diff = {}
+        for k in sec_keys:
+            b = base_sec.get(k)
+            c = comp_sec.get(k)
+            try:
+                bnum = float(b) if b is not None else None
+            except Exception:
+                bnum = None
+            try:
+                cnum = float(c) if c is not None else None
+            except Exception:
+                cnum = None
+            delta = None
+            if bnum is not None and cnum is not None:
+                delta = round(cnum - bnum, 3)
+            section_score_diff[k] = {"base": bnum, "compare": cnum, "delta": delta}
+
+        # per-question diffs: map by question_id
+        def _to_map(perq_list):
+            out = {}
+            for item in (perq_list or []):
+                qid = item.get("question_id") or item.get("questionId") or item.get("qid")
+                try:
+                    qid = int(qid)
+                except Exception:
+                    continue
+                out[qid] = item
+            return out
+
+        base_map = _to_map(base["per_question"] or [])
+        comp_map = _to_map(comp["per_question"] or [])
+
+        qids = sorted(set(list(base_map.keys()) + list(comp_map.keys())))
+        per_question_diff = []
+        for qid in qids:
+            b = base_map.get(qid) or {}
+            c = comp_map.get(qid) or {}
+            # numeric fields to compare
+            def pick_num(d, key):
+                v = d.get(key)
+                try:
+                    return float(v) if v is not None else None
+                except Exception:
+                    return None
+
+            b_over = pick_num(b, "overall")
+            c_over = pick_num(c, "overall")
+            b_tech = pick_num(b, "technical")
+            c_tech = pick_num(c, "technical")
+            b_comm = pick_num(b, "communication")
+            c_comm = pick_num(c, "communication")
+            b_comp = pick_num(b, "completeness")
+            c_comp = pick_num(c, "completeness")
+
+            delta = {
+                "overall": (round((c_over - b_over), 3) if (b_over is not None and c_over is not None) else None),
+                "technical": (round((c_tech - b_tech), 3) if (b_tech is not None and c_tech is not None) else None),
+                "communication": (round((c_comm - b_comm), 3) if (b_comm is not None and c_comm is not None) else None),
+                "completeness": (round((c_comp - b_comp), 3) if (b_comp is not None and c_comp is not None) else None),
+            }
+
+            # strings side-by-side for ai_feedback.summary if present
+            b_summary = None
+            c_summary = None
+            try:
+                b_summary = (b.get("ai_feedback") or {}).get("summary") if isinstance(b.get("ai_feedback"), dict) else None
+            except Exception:
+                b_summary = None
+            try:
+                c_summary = (c.get("ai_feedback") or {}).get("summary") if isinstance(c.get("ai_feedback"), dict) else None
+            except Exception:
+                c_summary = None
+
+            per_question_diff.append({
+                "question_id": qid,
+                "base": {"overall": b_over, "technical": b_tech, "communication": b_comm, "completeness": b_comp, "ai_summary": b_summary},
+                "compare": {"overall": c_over, "technical": c_tech, "communication": c_comm, "completeness": c_comp, "ai_summary": c_summary},
+                "delta": delta,
+            })
+
+        out = {
+            "interview_id": interview_id,
+            "base_id": int(base_id),
+            "compare_id": int(compare_id),
+            "base_meta": {"id": base["id"], "created_at": str(base["created_at"]), "model_meta": base.get("model_meta"), "weights": base.get("weights"), "prompt_hash": base.get("prompt_hash")},
+            "compare_meta": {"id": comp["id"], "created_at": str(comp["created_at"]), "model_meta": comp.get("model_meta"), "weights": comp.get("weights"), "prompt_hash": comp.get("prompt_hash")},
+            "section_score_diff": section_score_diff,
+            "per_question_diff": per_question_diff
+        }
+
+        return out
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

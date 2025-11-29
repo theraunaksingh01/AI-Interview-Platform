@@ -1,12 +1,25 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import ScoreGauge from "@/app/components/ui/ScoreGauge";
-import ScoreBars from "@/app/components/ui/ScoreBars";
-import RadarChartComponent from "@/app/components/ui/RadarChartComponent";
-import PerQuestionBar from "@/app/components/ui/PerQuestionBar";
 
-// Raw JSON Modal Component
-// --------------------------------------
+import React, { useEffect, useState } from "react";
+
+type AuditRow = {
+  id: number;
+  interview_id: string;
+  scored_at?: string | null;
+  created_at?: string | null;
+  overall_score: number;
+  section_scores: Record<string, number>;
+  per_question: Array<any>;
+  model_meta?: Record<string, any> | null;
+  prompt_hash?: string | null;
+  prompt_text?: string | null;
+  weights?: Record<string, number> | null;
+  triggered_by?: string | null;
+  task_id?: string | null;
+  llm_raw_s3_key?: string | null;
+  notes?: string | null;
+};
+
 function RawModal({
   open,
   json,
@@ -17,19 +30,16 @@ function RawModal({
   onClose: () => void;
 }) {
   if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded shadow-xl p-4 max-w-3xl w-full max-h-[80vh] overflow-auto">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold text-lg">Raw LLM JSON</h2>
-          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">
-            Close
-          </button>
+          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">Close</button>
         </div>
-
-        <pre className="whitespace-pre-wrap text-xs bg-gray-100 p-3 rounded border">{json || "No raw JSON available"}</pre>
-
+        <pre className="whitespace-pre-wrap text-xs bg-gray-100 p-3 rounded border overflow-auto">
+          {json || "No raw JSON available"}
+        </pre>
         <div className="mt-4 flex justify-end">
           <a
             href={`data:application/json;charset=utf-8,${encodeURIComponent(json || "")}`}
@@ -44,42 +54,170 @@ function RawModal({
   );
 }
 
-type AuditRow = {
-  id: number;
-  interview_id: string;
-  scored_at: string;
-  overall_score: number;
-  section_scores: Record<string, number>;
-  per_question: any[];
-  model_meta: Record<string, any> | null;
-  prompt_hash?: string | null;
-  prompt_text?: string | null;
-  weights?: Record<string, number>;
-  triggered_by?: string | null;
-  task_id?: string | null;
-  llm_raw_s3_key?: string | null;
-  notes?: string | null;
-  created_at?: string | null;
-};
+function ModelInspectorModal({
+  open,
+  modelMeta,
+  promptHash,
+  promptText,
+  weights,
+  taskId,
+  onClose,
+}: {
+  open: boolean;
+  modelMeta?: Record<string, any> | null;
+  promptHash?: string | null;
+  promptText?: string | null;
+  weights?: Record<string, number> | null;
+  taskId?: string | null;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded shadow-xl p-4 max-w-2xl w-full max-h-[80vh] overflow-auto">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="font-semibold text-lg">Model Inspector</h2>
+          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">Close</button>
+        </div>
+
+        <div className="text-sm space-y-3">
+          <div><strong>Model meta</strong></div>
+          <pre className="bg-gray-50 p-3 rounded text-xs">{JSON.stringify(modelMeta || {}, null, 2)}</pre>
+
+          <div><strong>Prompt hash</strong></div>
+          <div className="bg-gray-50 p-2 rounded text-xs">{promptHash || "—"}</div>
+
+          <div><strong>Prompt text</strong></div>
+          <pre className="bg-gray-50 p-3 rounded text-xs whitespace-pre-wrap">{promptText || "—"}</pre>
+
+          <div><strong>Weights</strong></div>
+          <pre className="bg-gray-50 p-3 rounded text-xs">{JSON.stringify(weights || {}, null, 2)}</pre>
+
+          <div><strong>Task id</strong></div>
+          <div className="bg-gray-50 p-2 rounded text-xs">{taskId || "—"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiffModal({
+  open,
+  left,
+  right,
+  onClose,
+}: {
+  open: boolean;
+  left?: AuditRow | null;
+  right?: AuditRow | null;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  // Compute simple diffs
+  const secLeft = left?.section_scores || {};
+  const secRight = right?.section_scores || {};
+  const sectionDiffs: Array<{ name: string; left: number; right: number; delta: number }> = [];
+  const keys = Array.from(new Set([...Object.keys(secLeft), ...Object.keys(secRight)]));
+  keys.forEach((k) => {
+    const l = Number(secLeft[k] ?? 0);
+    const r = Number(secRight[k] ?? 0);
+    sectionDiffs.push({ name: k, left: l, right: r, delta: Math.round((r - l) * 100) / 100 });
+  });
+
+  // per-question diffs by question_id (only numeric overall if present)
+  const mapByQ = (arr: any[]) => {
+    const m = new Map<number, any>();
+    (arr || []).forEach((p) => {
+      const id = Number(p.question_id ?? p.questionId ?? p.qid ?? -1);
+      m.set(id, p);
+    });
+    return m;
+  };
+  const leftMap = mapByQ(left?.per_question || []);
+  const rightMap = mapByQ(right?.per_question || []);
+  const qIds = Array.from(new Set([...Array.from(leftMap.keys()), ...Array.from(rightMap.keys())])).sort((a, b) => a - b);
+
+  const perQDiffs = qIds.map((qid) => {
+    const L = leftMap.get(qid) || {};
+    const R = rightMap.get(qid) || {};
+    const lOverall = Number(L.overall ?? L.overall_score ?? 0);
+    const rOverall = Number(R.overall ?? R.overall_score ?? 0);
+    return { qid, left: lOverall, right: rOverall, delta: Math.round((rOverall - lOverall) * 100) / 100 };
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded shadow-xl p-4 max-w-3xl w-full max-h-[80vh] overflow-auto">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="font-semibold text-lg">Comparison (Left → Right)</h2>
+          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">Close</button>
+        </div>
+
+        <div className="mb-3 text-sm">
+          <div className="font-medium">Runs</div>
+          <div className="text-xs text-muted-foreground">Left: {left?.id ?? "—"} — Right: {right?.id ?? "—"}</div>
+        </div>
+
+        <div className="mb-4">
+          <div className="font-medium">Section score diffs</div>
+          <ul className="ml-4 list-disc text-sm">
+            {sectionDiffs.map((s) => (
+              <li key={s.name}>
+                {s.name}: {s.left} → {s.right} ({s.delta >= 0 ? "+" + s.delta : s.delta})
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <div className="font-medium mb-2">Per-question overall diffs</div>
+          <div className="text-sm space-y-2">
+            {perQDiffs.length === 0 && <div className="text-xs text-muted-foreground">No per-question data</div>}
+            {perQDiffs.map((d) => (
+              <div key={d.qid} className="border rounded p-2">
+                <div className="text-sm font-medium">Q{d.qid}</div>
+                <div className="text-xs">Overall: {d.left} → {d.right} ({d.delta >= 0 ? "+" + d.delta : d.delta})</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function InterviewAuditPage({ params }: { params: { id: string } }) {
-  const _params = (React as any).use ? (React as any).use(params) : params;
-  const interviewId = (_params as any).id;
+  // Next.js note: in newer versions params may be a Promise, but in practice this page
+  // is used like previous versions. If you see a warning about React.use() you can
+  // adjust migration style; leaving the familiar pattern for now.
+  const interviewId = (params && (params as any).id) || "";
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [audits, setAudits] = useState<AuditRow[]>([]);
-  const [selected, setSelected] = useState<AuditRow | null>(null);
+  const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const [selectedRun, setSelectedRun] = useState<AuditRow | null>(null);
+  const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]); // up to 2 ids
+  const [compareError, setCompareError] = useState<string | null>(null);
+
+  // Modals
   const [rawModalOpen, setRawModalOpen] = useState(false);
   const [rawModalJSON, setRawModalJSON] = useState<string | null>(null);
+
+  const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [modelModalData, setModelModalData] = useState<any>(null);
+
+  const [diffModalOpen, setDiffModalOpen] = useState(false);
+  const [diffLeft, setDiffLeft] = useState<AuditRow | null>(null);
+  const [diffRight, setDiffRight] = useState<AuditRow | null>(null);
 
   function getAuthHeader(): Headers {
     const h = new Headers();
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || localStorage.getItem("token") : null;
+      const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
       if (token) h.set("Authorization", `Bearer ${token}`);
     } catch (e) {}
     h.set("Accept", "application/json");
@@ -94,7 +232,7 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
       const res = await fetch(url, { headers: getAuthHeader() });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
-      setAudits(json || []);
+      setAudits(Array.isArray(json) ? json : []);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -110,7 +248,7 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
       const res = await fetch(url, { headers: getAuthHeader() });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
-      setSelected(json);
+      setSelectedRun(json);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -118,18 +256,119 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
     }
   }
 
+  // Download or open raw LLM presigned url (best-effort)
+  async function openRaw(aid: number) {
+    try {
+      const url = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${aid}`;
+      const r = await fetch(url, { headers: getAuthHeader() });
+      if (!r.ok) throw new Error(await r.text());
+      const det = await r.json();
+      if (det.llm_raw_presigned_url) {
+        window.open(det.llm_raw_presigned_url, "_blank");
+        return;
+      }
+      // fallback: if llm_raw present inline, open modal
+      if (det.llm_raw_full) {
+        setRawModalJSON(JSON.stringify(det.llm_raw_full, null, 2));
+        setRawModalOpen(true);
+        return;
+      }
+      alert("No raw LLM available");
+    } catch (e: any) {
+      alert(String(e?.message || e));
+    }
+  }
+
+  // Fetch raw content and show modal (used by Selected run 'Open Raw LLM')
+  async function fetchAndShowRaw(aid: number) {
+    try {
+      const url = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${aid}`;
+      const r = await fetch(url, { headers: getAuthHeader() });
+      if (!r.ok) throw new Error(await r.text());
+      const det = await r.json();
+      if (det.llm_raw_presigned_url) {
+        // fetch presigned url and show the JSON text
+        const rawResp = await fetch(det.llm_raw_presigned_url);
+        const txt = await rawResp.text();
+        setRawModalJSON(txt);
+        setRawModalOpen(true);
+        return;
+      }
+      // try llm_raw_full bundle
+      if (det.llm_raw_full) {
+        setRawModalJSON(JSON.stringify(det.llm_raw_full, null, 2));
+        setRawModalOpen(true);
+        return;
+      }
+      alert("No raw LLM JSON available for this run");
+    } catch (err: any) {
+      alert(String(err?.message || err));
+    }
+  }
+
+  function toggleCompareSelect(aid: number) {
+    setCompareError(null);
+    setSelectedForCompare((prev) => {
+      const found = prev.indexOf(aid);
+      if (found >= 0) {
+        // remove
+        return prev.filter((x) => x !== aid);
+      } else {
+        // add (max 2)
+        if (prev.length >= 2) {
+          // keep most recent two: drop first, add new
+          return [prev[1], aid];
+        }
+        return [...prev, aid];
+      }
+    });
+  }
+
+  async function openModelInspectorFor(aid: number) {
+    try {
+      const url = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${aid}`;
+      const r = await fetch(url, { headers: getAuthHeader() });
+      if (!r.ok) throw new Error(await r.text());
+      const det = await r.json();
+      setModelModalData(det);
+      setModelModalOpen(true);
+    } catch (err: any) {
+      alert(String(err?.message || err));
+    }
+  }
+
+  async function doCompare() {
+    setCompareError(null);
+    if (selectedForCompare.length !== 2) {
+      setCompareError("Select exactly two runs to compare.");
+      return;
+    }
+    const [a, b] = selectedForCompare;
+    try {
+      // fetch details for both
+      const urlA = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${a}`;
+      const urlB = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${b}`;
+      const [ra, rb] = await Promise.all([
+        fetch(urlA, { headers: getAuthHeader() }),
+        fetch(urlB, { headers: getAuthHeader() }),
+      ]);
+      if (!ra.ok) throw new Error(await ra.text());
+      if (!rb.ok) throw new Error(await rb.text());
+      const da = await ra.json();
+      const db = await rb.json();
+      setDiffLeft(da);
+      setDiffRight(db);
+      setDiffModalOpen(true);
+    } catch (e: any) {
+      setCompareError(String(e?.message || e));
+    }
+  }
+
   useEffect(() => {
+    if (!interviewId) return;
     fetchAudits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
-
-  // derive arrays for charting from selected
-  const selectedSection = selected?.section_scores || { technical: 0, communication: 0, completeness: 0 };
-  const selectedPerQ =
-    (selected?.per_question || []).map((q: any) => ({
-      name: q.question_id ? `Q${q.question_id}` : (q.name || "Q"),
-      technical: q.technical ?? q.overall ?? 0,
-    })) || [];
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -138,158 +377,131 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
           <h1 className="text-2xl font-semibold">Scoring History</h1>
           <div className="text-sm text-muted-foreground">Interview: {interviewId}</div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-2 items-center">
           <button className="px-3 py-1 border rounded text-sm" onClick={() => fetchAudits()} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
+          </button>
+          <button
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+            onClick={() => doCompare()}
+            disabled={selectedForCompare.length !== 2}
+            title={selectedForCompare.length === 2 ? "Compare selected runs" : "Select exactly two runs to compare"}
+          >
+            Compare ({selectedForCompare.length}/2)
           </button>
         </div>
       </div>
 
-      {error && <div className="mb-4 text-sm text-red-600">Error: {error}</div>}
+      {compareError && <div className="mb-3 text-sm text-red-600">{compareError}</div>}
+      {error && <div className="mb-3 text-sm text-red-600">Error: {error}</div>}
 
-      {audits.length === 0 && !loading && <div className="p-6 bg-gray-50 rounded">No scoring runs found for this interview.</div>}
+      {audits.length === 0 && !loading && (
+        <div className="p-6 bg-gray-50 rounded">No scoring runs found for this interview.</div>
+      )}
 
       {audits.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <div className="space-y-4">
-              {audits.map((a) => (
-                <div key={a.id} className="border rounded p-4 flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-muted-foreground">{new Date(a.created_at || a.scored_at || "").toLocaleString()}</div>
-                    <div className="text-lg font-medium">Overall: {a.overall_score}</div>
-                    <div className="text-sm">
-                      Triggered by: {a.triggered_by || "-"} • Model: {a.model_meta?.model || a.model_meta?.provider || "unknown"}
-                    </div>
+          {/* Left: list */}
+          <div className="md:col-span-2 space-y-4">
+            {audits.map((a) => (
+              <div key={a.id} className="border rounded p-4 flex flex-col md:flex-row md:justify-between md:items-center">
+                <div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(a.created_at || a.scored_at || "").toLocaleString()}
                   </div>
-
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1 border rounded text-sm" onClick={() => fetchAuditDetail(a.id)}>
-                      View
-                    </button>
-
-                    {a.llm_raw_s3_key && (
-                      <a
-                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
-                        href={"/"}
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          try {
-                            const r = await fetch(`${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${a.id}`, { headers: getAuthHeader() });
-                            if (!r.ok) throw new Error(await r.text());
-                            const det = await r.json();
-                            if (det.llm_raw_presigned_url) window.open(det.llm_raw_presigned_url, "_blank");
-                            else alert("No presigned URL available");
-                          } catch (err: any) {
-                            alert(String(err?.message || err));
-                          }
-                        }}
-                      >
-                        Download Raw
-                      </a>
-                    )}
-                  </div>
+                  <div className="text-lg font-medium">Overall: {a.overall_score}</div>
+                  <div className="text-sm">Triggered by: {a.triggered_by || "-"} • Model: {a.model_meta?.model || a.model_meta?.provider || "unknown"}</div>
                 </div>
-              ))}
-            </div>
+
+                <div className="mt-3 md:mt-0 flex items-center gap-2">
+                  <button
+                    className="px-3 py-1 border rounded text-sm"
+                    onClick={() => fetchAuditDetail(a.id)}
+                  >
+                    View
+                  </button>
+
+                  <button
+                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                    onClick={() => openRaw(a.id)}
+                  >
+                    Download Raw
+                  </button>
+
+                  <label className="inline-flex items-center gap-2 text-sm ml-2">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox"
+                      checked={selectedForCompare.indexOf(a.id) >= 0}
+                      onChange={() => toggleCompareSelect(a.id)}
+                      aria-label={`Select run ${a.id} for comparison`}
+                    />
+                    <span>Compare</span>
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
 
+          {/* Right: selected run details */}
           <div className="md:col-span-1">
             <div className="border rounded p-4">
               <h3 className="text-lg font-medium mb-2">Selected Run</h3>
+
               {detailLoading && <div>Loading...</div>}
-              {!selected && !detailLoading && <div className="text-sm text-muted-foreground">Select a run to view details</div>}
+              {!selectedRun && !detailLoading && <div className="text-sm text-muted-foreground">Select a run to view details</div>}
 
-              {selected && (
+              {selectedRun && (
                 <div className="space-y-3 text-sm">
-                  {/* Charts for selected run */}
-                  <div className="flex gap-4 items-start">
-                    <div className="w-28">
-                      <ScoreGauge value={selected.overall_score ?? 0} />
-                    </div>
-                    <div className="flex-1">
-                      <ScoreBars
-                        technical={selectedSection.technical ?? 0}
-                        communication={selectedSection.communication ?? 0}
-                        completeness={selectedSection.completeness ?? 0}
-                      />
-                    </div>
-                  </div>
+                  <div><strong>Overall</strong>: {selectedRun.overall_score}</div>
 
-                  <div className="mt-3">
-                    <RadarChartComponent
-                      technical={selectedSection.technical ?? 0}
-                      communication={selectedSection.communication ?? 0}
-                      completeness={selectedSection.completeness ?? 0}
-                    />
-                  </div>
+                  <div><strong>Section scores</strong>:</div>
+                  <ul className="ml-4 list-disc">
+                    {selectedRun.section_scores && Object.entries(selectedRun.section_scores).map(([k, v]) => (
+                      <li key={k}>{k}: {v}</li>
+                    ))}
+                  </ul>
 
-                  <div className="mt-3">
-                    <h4 className="font-medium mb-2">Per-question (technical)</h4>
-                    <PerQuestionBar items={selectedPerQ} />
-                  </div>
-
-                  <div>
-                    <div><strong>Overall</strong>: {selected.overall_score}</div>
-                    <div><strong>Section scores</strong>:</div>
-                    <ul className="ml-4 list-disc">
-                      {selected.section_scores && Object.entries(selected.section_scores).map(([k, v]) => (
-                        <li key={k}>{k}: {v}</li>
-                      ))}
-                    </ul>
-
-                    <div><strong>Per-question:</strong></div>
-                    <div className="max-h-48 overflow-auto bg-gray-50 p-2 rounded text-xs">
-                      {selected.per_question.map((q: any) => (
-                        <div key={q.question_id} className="mb-2 border-b pb-2">
-                          <div className="font-medium">Q{q.question_id} — overall: {q.overall}</div>
-                          <div className="text-xs">tech: {q.technical} • comm: {q.communication} • comp: {q.completeness}</div>
+                  <div><strong>Per-question:</strong></div>
+                  <div className="max-h-48 overflow-auto bg-gray-50 p-2 rounded text-xs">
+                    {selectedRun.per_question && selectedRun.per_question.length ? (
+                      selectedRun.per_question.map((q: any) => (
+                        <div key={q.question_id || q.questionId || Math.random()} className="mb-2 border-b pb-2">
+                          <div className="font-medium">Q{q.question_id} — overall: {q.overall ?? q.overall_score ?? "-"}</div>
+                          <div className="text-xs">tech: {q.technical ?? "-"} • comm: {q.communication ?? "-"} • comp: {q.completeness ?? "-"}</div>
                           <div className="mt-1 text-xs italic">{q.ai_feedback?.summary || "-"}</div>
                         </div>
-                      ))}
-                    </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No per-question data</div>
+                    )}
+                  </div>
 
-                    <div className="mt-2">
-                      <button
-                        className="px-3 py-1 border rounded text-sm mr-2"
-                        onClick={() => {
-                          navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
-                          alert("Copied JSON to clipboard");
-                        }}
-                      >
-                        Copy JSON
-                      </button>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      className="px-3 py-1 border rounded text-sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(selectedRun, null, 2));
+                        alert("Copied JSON to clipboard");
+                      }}
+                    >
+                      Copy JSON
+                    </button>
 
-                      {selected.llm_raw_s3_key && (
-                        <button
-                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
-                          onClick={async () => {
-                            try {
-                              const r = await fetch(`${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${selected.id}`, {
-                                headers: getAuthHeader(),
-                              });
-                              if (!r.ok) throw new Error(await r.text());
-                              const det = await r.json();
+                    <button
+                      className="px-3 py-1 border rounded text-sm"
+                      onClick={() => openModelInspectorFor(selectedRun.id)}
+                    >
+                      Model Inspector
+                    </button>
 
-                              if (!det.llm_raw_presigned_url) {
-                                alert("No presigned URL available");
-                                return;
-                              }
-
-                              const rawResp = await fetch(det.llm_raw_presigned_url);
-                              const rawText = await rawResp.text();
-
-                              setRawModalJSON(rawText);
-                              setRawModalOpen(true);
-                            } catch (err: any) {
-                              alert(String(err?.message || err));
-                            }
-                          }}
-                        >
-                          Open Raw LLM
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                      onClick={() => fetchAndShowRaw(selectedRun.id)}
+                    >
+                      Open Raw LLM
+                    </button>
                   </div>
                 </div>
               )}
@@ -301,7 +513,19 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
           </div>
         </div>
       )}
+
+      {/* Modals */}
       <RawModal open={rawModalOpen} json={rawModalJSON} onClose={() => setRawModalOpen(false)} />
+      <ModelInspectorModal
+        open={modelModalOpen}
+        modelMeta={modelModalData?.model_meta}
+        promptHash={modelModalData?.prompt_hash}
+        promptText={modelModalData?.prompt_text}
+        weights={modelModalData?.weights}
+        taskId={modelModalData?.task_id}
+        onClose={() => { setModelModalOpen(false); setModelModalData(null); }}
+      />
+      <DiffModal open={diffModalOpen} left={diffLeft} right={diffRight} onClose={() => setDiffModalOpen(false)} />
     </div>
   );
 }
