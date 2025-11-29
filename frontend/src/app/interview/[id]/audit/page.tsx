@@ -1,6 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
-
+import ScoreGauge from "@/app/components/ui/ScoreGauge";
+import ScoreBars from "@/app/components/ui/ScoreBars";
+import RadarChartComponent from "@/app/components/ui/RadarChartComponent";
+import PerQuestionBar from "@/app/components/ui/PerQuestionBar";
 
 // Raw JSON Modal Component
 // --------------------------------------
@@ -20,23 +23,16 @@ function RawModal({
       <div className="bg-white rounded shadow-xl p-4 max-w-3xl w-full max-h-[80vh] overflow-auto">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold text-lg">Raw LLM JSON</h2>
-          <button
-            onClick={onClose}
-            className="text-sm px-2 py-1 border rounded"
-          >
+          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">
             Close
           </button>
         </div>
 
-        <pre className="whitespace-pre-wrap text-xs bg-gray-100 p-3 rounded border">
-{json || "No raw JSON available"}
-        </pre>
+        <pre className="whitespace-pre-wrap text-xs bg-gray-100 p-3 rounded border">{json || "No raw JSON available"}</pre>
 
         <div className="mt-4 flex justify-end">
           <a
-            href={`data:application/json;charset=utf-8,${encodeURIComponent(
-              json || ""
-            )}`}
+            href={`data:application/json;charset=utf-8,${encodeURIComponent(json || "")}`}
             download={`llm_raw_${Date.now()}.json`}
             className="px-3 py-1 bg-blue-600 text-white rounded"
           >
@@ -79,11 +75,10 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
   const [rawModalOpen, setRawModalOpen] = useState(false);
   const [rawModalJSON, setRawModalJSON] = useState<string | null>(null);
 
-
   function getAuthHeader(): Headers {
     const h = new Headers();
     try {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
+      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || localStorage.getItem("token") : null;
       if (token) h.set("Authorization", `Bearer ${token}`);
     } catch (e) {}
     h.set("Accept", "application/json");
@@ -127,6 +122,14 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
 
+  // derive arrays for charting from selected
+  const selectedSection = selected?.section_scores || { technical: 0, communication: 0, completeness: 0 };
+  const selectedPerQ =
+    (selected?.per_question || []).map((q: any) => ({
+      name: q.question_id ? `Q${q.question_id}` : (q.name || "Q"),
+      technical: q.technical ?? q.overall ?? 0,
+    })) || [];
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
@@ -135,11 +138,7 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
           <div className="text-sm text-muted-foreground">Interview: {interviewId}</div>
         </div>
         <div className="flex gap-2">
-          <button
-            className="px-3 py-1 border rounded text-sm"
-            onClick={() => fetchAudits()}
-            disabled={loading}
-          >
+          <button className="px-3 py-1 border rounded text-sm" onClick={() => fetchAudits()} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
@@ -147,9 +146,7 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
 
       {error && <div className="mb-4 text-sm text-red-600">Error: {error}</div>}
 
-      {audits.length === 0 && !loading && (
-        <div className="p-6 bg-gray-50 rounded">No scoring runs found for this interview.</div>
-      )}
+      {audits.length === 0 && !loading && <div className="p-6 bg-gray-50 rounded">No scoring runs found for this interview.</div>}
 
       {audits.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -160,14 +157,13 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
                   <div>
                     <div className="text-sm text-muted-foreground">{new Date(a.created_at || a.scored_at || "").toLocaleString()}</div>
                     <div className="text-lg font-medium">Overall: {a.overall_score}</div>
-                    <div className="text-sm">Triggered by: {a.triggered_by || "-"} • Model: {a.model_meta?.model || a.model_meta?.provider || 'unknown'}</div>
+                    <div className="text-sm">
+                      Triggered by: {a.triggered_by || "-"} • Model: {a.model_meta?.model || a.model_meta?.provider || "unknown"}
+                    </div>
                   </div>
 
                   <div className="flex gap-2">
-                    <button
-                      className="px-3 py-1 border rounded text-sm"
-                      onClick={() => fetchAuditDetail(a.id)}
-                    >
+                    <button className="px-3 py-1 border rounded text-sm" onClick={() => fetchAuditDetail(a.id)}>
                       View
                     </button>
 
@@ -205,57 +201,83 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
 
               {selected && (
                 <div className="space-y-3 text-sm">
-                  <div><strong>Overall</strong>: {selected.overall_score}</div>
-                  <div><strong>Section scores</strong>:</div>
-                  <ul className="ml-4 list-disc">
-                    {selected.section_scores && Object.entries(selected.section_scores).map(([k,v]) => (
-                      <li key={k}>{k}: {v}</li>
-                    ))}
-                  </ul>
-
-                  <div><strong>Per-question:</strong></div>
-                  <div className="max-h-48 overflow-auto bg-gray-50 p-2 rounded text-xs">
-                    {selected.per_question.map((q:any) => (
-                      <div key={q.question_id} className="mb-2 border-b pb-2">
-                        <div className="font-medium">Q{q.question_id} — overall: {q.overall}</div>
-                        <div className="text-xs">tech: {q.technical} • comm: {q.communication} • comp: {q.completeness}</div>
-                        <div className="mt-1 text-xs italic">{q.ai_feedback?.summary || "-"}</div>
-                      </div>
-                    ))}
+                  {/* Charts for selected run */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-28">
+                      <ScoreGauge value={selected.overall_score ?? 0} />
+                    </div>
+                    <div className="flex-1">
+                      <ScoreBars
+                        technical={selectedSection.technical ?? 0}
+                        communication={selectedSection.communication ?? 0}
+                        completeness={selectedSection.completeness ?? 0}
+                      />
+                    </div>
                   </div>
 
-                  <div className="mt-2">
-                    <button
-                      className="px-3 py-1 border rounded text-sm mr-2"
-                      onClick={() => {
-                        navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
-                        alert('Copied JSON to clipboard');
-                      }}
-                    >
-                      Copy JSON
-                    </button>
+                  <div className="mt-3">
+                    <RadarChartComponent
+                      technical={selectedSection.technical ?? 0}
+                      communication={selectedSection.communication ?? 0}
+                      completeness={selectedSection.completeness ?? 0}
+                    />
+                  </div>
 
-                    {selected.llm_raw_s3_key && (
+                  <div className="mt-3">
+                    <h4 className="font-medium mb-2">Per-question (technical)</h4>
+                    <PerQuestionBar items={selectedPerQ} />
+                  </div>
+
+                  <div>
+                    <div><strong>Overall</strong>: {selected.overall_score}</div>
+                    <div><strong>Section scores</strong>:</div>
+                    <ul className="ml-4 list-disc">
+                      {selected.section_scores && Object.entries(selected.section_scores).map(([k, v]) => (
+                        <li key={k}>{k}: {v}</li>
+                      ))}
+                    </ul>
+
+                    <div><strong>Per-question:</strong></div>
+                    <div className="max-h-48 overflow-auto bg-gray-50 p-2 rounded text-xs">
+                      {selected.per_question.map((q: any) => (
+                        <div key={q.question_id} className="mb-2 border-b pb-2">
+                          <div className="font-medium">Q{q.question_id} — overall: {q.overall}</div>
+                          <div className="text-xs">tech: {q.technical} • comm: {q.communication} • comp: {q.completeness}</div>
+                          <div className="mt-1 text-xs italic">{q.ai_feedback?.summary || "-"}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-2">
                       <button
+                        className="px-3 py-1 border rounded text-sm mr-2"
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
+                          alert("Copied JSON to clipboard");
+                        }}
+                      >
+                        Copy JSON
+                      </button>
+
+                      {selected.llm_raw_s3_key && (
+                        <button
                           className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
                           onClick={async () => {
                             try {
-                              const r = await fetch(
-                                `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${selected.id}`,
-                                { headers: getAuthHeader() }
-                              );
+                              const r = await fetch(`${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${selected.id}`, {
+                                headers: getAuthHeader(),
+                              });
                               if (!r.ok) throw new Error(await r.text());
                               const det = await r.json();
-                          
+
                               if (!det.llm_raw_presigned_url) {
                                 alert("No presigned URL available");
                                 return;
                               }
-                          
-                              // Fetch the raw JSON using the presigned URL
+
                               const rawResp = await fetch(det.llm_raw_presigned_url);
                               const rawText = await rawResp.text();
-                          
+
                               setRawModalJSON(rawText);
                               setRawModalOpen(true);
                             } catch (err: any) {
@@ -265,10 +287,9 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
                         >
                           Open Raw LLM
                         </button>
-
-                    )}
+                      )}
+                    </div>
                   </div>
-
                 </div>
               )}
             </div>
@@ -279,14 +300,7 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
           </div>
         </div>
       )}
-      <RawModal
-      open={rawModalOpen}
-      json={rawModalJSON}
-      onClose={() => setRawModalOpen(false)}
-    />
+      <RawModal open={rawModalOpen} json={rawModalJSON} onClose={() => setRawModalOpen(false)} />
     </div>
-    
   );
-  
-
 }

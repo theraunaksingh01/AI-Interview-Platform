@@ -2,6 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import ScoreGauge from "@/app/components/ui/ScoreGauge";
+import ScoreBars from "@/app/components/ui/ScoreBars";
+import RadarChartComponent from "@/app/components/ui/RadarChartComponent";
+import PerQuestionBar from "@/app/components/ui/PerQuestionBar";
 
 type QItem = {
   question_id: number;
@@ -33,6 +37,11 @@ export default function InterviewReviewPage() {
   const [rawVisible, setRawVisible] = useState<boolean>(false);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
   const [rescoreLoading, setRescoreLoading] = useState<boolean>(false);
+
+  // weights used in frontend displays (mirror backend)
+  const TECH_W = 0.6;
+  const COMM_W = 0.3;
+  const COMP_W = 0.1;
 
   function getAuthHeader(): Headers {
     const h = new Headers();
@@ -153,7 +162,6 @@ export default function InterviewReviewPage() {
     setError(null);
     try {
       // If backend doesn't provide per-question endpoint, this will return 404.
-      // UI will show the error string so admin knows to use whole-interview re-score.
       const url = `${API_BASE}/interview/score_question/${encodeURIComponent(String(qid))}`;
       const resp = await fetch(url, { method: "POST", headers: getAuthHeader() });
       if (!resp.ok) {
@@ -176,12 +184,71 @@ export default function InterviewReviewPage() {
     return Number.isNaN(n) ? 0 : n;
   }
 
-  // Try to derive an upload URL for audio preview (best effort: depends on your uploads route or S3)
- function uploadPreviewUrl(uploadId: number | null): string | undefined {
+  // derive an upload URL for audio preview (best effort)
+  function uploadPreviewUrl(uploadId: number | null): string | undefined {
     if (!uploadId) return undefined;
-    // common patterns: /uploads/{id} (app page) or presigned S3 object — we keep app link
     return `/uploads/${encodeURIComponent(String(uploadId))}`;
   }
+
+  // compute aggregated section scores and per-question list for charts
+  function computeAggregate(rs: QItem[] | null) {
+    if (!rs || !rs.length) {
+      return {
+        section: { technical: 0, communication: 0, completeness: 0 },
+        overall: 0,
+        perQuestion: [] as { name: string; technical: number }[],
+      };
+    }
+    let techSum = 0,
+      commSum = 0,
+      compSum = 0,
+      cntTech = 0,
+      cntComm = 0,
+      cntComp = 0;
+
+    const perq: { name: string; technical: number }[] = [];
+
+    rs.forEach((q) => {
+      const ai = (q.ai_feedback || {}) as any;
+      const t = getNum(ai, "technical");
+      const c = getNum(ai, "communication");
+      const p = getNum(ai, "completeness");
+
+      if (typeof t === "number") {
+        techSum += t;
+        cntTech++;
+      }
+      if (typeof c === "number") {
+        commSum += c;
+        cntComm++;
+      }
+      if (typeof p === "number") {
+        compSum += p;
+        cntComp++;
+      }
+
+      // For per-question bars use technical if available else overall fallback
+      let perScore = t;
+      if (!perScore) {
+        // fallback to computed overall if no technical (e.g., voice-only)
+        perScore = Math.round(TECH_W * t + COMM_W * c + COMP_W * p) || 0;
+      }
+      perq.push({ name: `Q${q.question_id}`, technical: perScore });
+    });
+
+    const techAvg = cntTech ? Math.round(techSum / cntTech) : 0;
+    const commAvg = cntComm ? Math.round(commSum / cntComm) : 0;
+    const compAvg = cntComp ? Math.round(compSum / cntComp) : 0;
+    const overall = Math.round(TECH_W * techAvg + COMM_W * commAvg + COMP_W * compAvg);
+
+    return {
+      section: { technical: techAvg, communication: commAvg, completeness: compAvg },
+      overall,
+      perQuestion: perq,
+    };
+  }
+
+  const agg = computeAggregate(report);
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -206,7 +273,6 @@ export default function InterviewReviewPage() {
           >
             View Scoring History
           </button>
-
 
           <button
             className="px-3 py-1 text-sm border rounded"
@@ -242,6 +308,39 @@ export default function InterviewReviewPage() {
             </pre>
           )}
 
+          {/* Charts Panel */}
+          <div className="mb-6 border rounded p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+              <div className="flex justify-center">
+                <ScoreGauge value={agg.overall} />
+              </div>
+
+              <div className="lg:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <ScoreBars
+                      technical={agg.section.technical}
+                      communication={agg.section.communication}
+                      completeness={agg.section.completeness}
+                    />
+                  </div>
+                  <div>
+                    <RadarChartComponent
+                      technical={agg.section.technical}
+                      communication={agg.section.communication}
+                      completeness={agg.section.completeness}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2">Per-question technical scores</h4>
+                  <PerQuestionBar items={agg.perQuestion} />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-6">
             {report.map((q) => {
               const ai = q.ai_feedback || {};
@@ -257,9 +356,7 @@ export default function InterviewReviewPage() {
                 <div key={q.question_id} className="border rounded p-6">
                   <div className="flex flex-col lg:flex-row justify-between">
                     <div style={{ flex: 1, paddingRight: 20 }}>
-                      <h3 className="text-lg font-semibold">
-                        Q{q.question_id} — Score: {overall}
-                      </h3>
+                      <h3 className="text-lg font-semibold">Q{q.question_id} — Score: {overall}</h3>
                       <p className="mt-2 text-sm text-gray-800">{q.question_text}</p>
 
                       {/* For code questions: show submitted code + outputs */}
@@ -277,7 +374,6 @@ export default function InterviewReviewPage() {
                                 {q.test_results
                                   ? (() => {
                                       const t = q.test_results as any;
-                                      // Common shapes: { passed: X, total: Y } or { correctness: 0.85 }
                                       if (typeof t.passed !== "undefined" && typeof t.total !== "undefined") {
                                         return `${t.passed} / ${t.total} passed`;
                                       }
@@ -292,9 +388,7 @@ export default function InterviewReviewPage() {
 
                             <div>
                               <div className="text-xs text-muted-foreground">Code output</div>
-                              <div className="mt-1 text-sm break-words">
-                                {q.code_output ? String(q.code_output) : "—"}
-                              </div>
+                              <div className="mt-1 text-sm break-words">{q.code_output ? String(q.code_output) : "—"}</div>
                             </div>
 
                             <div>
@@ -317,16 +411,9 @@ export default function InterviewReviewPage() {
 
                           {q.upload_id ? (
                             <div className="mt-3 flex items-center gap-3">
-                              <a
-                                className="text-sm underline"
-                                href={uploadPreviewUrl(q.upload_id)}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
+                              <a className="text-sm underline" href={uploadPreviewUrl(q.upload_id)} target="_blank" rel="noreferrer">
                                 View recording
                               </a>
-                              {/* If you have a direct URL for audio you can embed an <audio> here.
-                                  We keep a link since presigned S3 access often required. */}
                             </div>
                           ) : null}
                         </div>
@@ -339,29 +426,20 @@ export default function InterviewReviewPage() {
                       <div className="text-sm">Completeness: {completeness}</div>
 
                       <div className="mt-4 flex flex-col gap-2 items-end">
-                        <button
-                          className="px-3 py-1 text-sm border rounded"
-                          onClick={() => rescoreQuestion(q.question_id)}
-                        >
+                        <button className="px-3 py-1 text-sm border rounded" onClick={() => rescoreQuestion(q.question_id)}>
                           Re-score
                         </button>
-
-                        {/* keep raw LLM view lower down */}
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-6">
                     <h4 className="font-medium mb-2">AI Feedback</h4>
-                    <pre className="bg-gray-50 p-4 rounded text-sm overflow-auto">
-                      {JSON.stringify(ai, null, 2)}
-                    </pre>
+                    <pre className="bg-gray-50 p-4 rounded text-sm overflow-auto">{JSON.stringify(ai, null, 2)}</pre>
 
                     <div className="mt-3">
                       <strong>Raw LLM (if available)</strong>
-                      <div className="mt-2 bg-gray-50 p-3 rounded text-sm">
-                        {q.llm_raw ? String(q.llm_raw) : "—"}
-                      </div>
+                      <div className="mt-2 bg-gray-50 p-3 rounded text-sm">{q.llm_raw ? String(q.llm_raw) : "—"}</div>
                     </div>
                   </div>
                 </div>
