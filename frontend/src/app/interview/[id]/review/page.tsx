@@ -6,6 +6,7 @@ import ScoreGauge from "@/app/components/ui/ScoreGauge";
 import ScoreBars from "@/app/components/ui/ScoreBars";
 import RadarChartComponent from "@/app/components/ui/RadarChartComponent";
 import PerQuestionBar from "@/app/components/ui/PerQuestionBar";
+import CodeViewer from "@/app/components/ui/CodeViewer";
 
 type QItem = {
   question_id: number;
@@ -248,6 +249,19 @@ export default function InterviewReviewPage() {
       setPdfStatus(String(e?.message || e));
     }
   }
+  
+  
+function guessLangFromQuestion(q: any): string {
+  if (!q) return "text";
+  if (q.language) return q.language;
+  const code = String(q.code_answer || "").slice(0, 300).toLowerCase();
+  if (code.includes("def ") || code.includes("import ") && code.includes(":")) return "python";
+  if (code.includes("console.log") || code.includes("function ") || code.includes("=>")) return "javascript";
+  if (code.includes("public static void main") || code.includes("class ") && code.includes("String")) return "java";
+  if (code.includes("#include") || code.includes("std::")) return "cpp";
+  return "text";
+}
+
 
   // NEW: rescoreWhole now enqueues and uses polling
   async function rescoreWhole() {
@@ -487,7 +501,13 @@ export default function InterviewReviewPage() {
                       {qtype === "code" && (
                         <div className="mt-4">
                           <div className="font-medium mb-2">Code answer</div>
-                          <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto whitespace-pre-wrap max-h-52">{q.code_answer ? String(q.code_answer) : "—"}</pre>
+                          <CodeViewer
+                            value={q.code_answer ?? ""}
+                            questionId={q.question_id}
+                            lang={q.language || guessLangFromQuestion(q) || "text"}
+                            height={280}
+                            filename={`answer-Q${q.question_id}.txt`}
+                          />
 
                           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
