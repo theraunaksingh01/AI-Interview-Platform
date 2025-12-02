@@ -2,8 +2,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import CompareModal from "./CompareModal"; 
-import ModelInspector from "@/app/components/ui/ModelInspector"; 
+import { useParams } from "next/navigation";
+import CompareModal from "./CompareModal";
+import ModelInspector from "@/app/components/ui/ModelInspector";
 
 type AuditRow = {
   id: number;
@@ -11,7 +12,7 @@ type AuditRow = {
   scored_at?: string | null;
   created_at?: string | null;
   overall_score: number;
-  section_scores: Record<string, number>;
+  section_scores: Record<string, any>;
   per_question: Array<any>;
   model_meta?: Record<string, any> | null;
   prompt_hash?: string | null;
@@ -38,7 +39,9 @@ function RawModal({
       <div className="bg-white rounded shadow-xl p-4 max-w-3xl w-full max-h-[80vh] overflow-auto">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold text-lg">Raw LLM JSON</h2>
-          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">Close</button>
+          <button onClick={onClose} className="text-sm px-2 py-1 border rounded">
+            Close
+          </button>
         </div>
         <pre className="whitespace-pre-wrap text-xs bg-gray-100 p-3 rounded border overflow-auto">
           {json || "No raw JSON available"}
@@ -57,9 +60,9 @@ function RawModal({
   );
 }
 
-export default function InterviewAuditPage({ params }: { params: { id: string } }) {
-  // Keep familiar params access for now (see Next.js migration note)
-  const interviewId = (params && (params as any).id) || "";
+export default function InterviewAuditPage() {
+  const params = useParams<{ id: string }>();
+  const interviewId = params?.id ?? "";
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
   const [audits, setAudits] = useState<AuditRow[]>([]);
@@ -68,10 +71,10 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
   const [error, setError] = useState<string | null>(null);
 
   const [selectedRun, setSelectedRun] = useState<AuditRow | null>(null);
-  const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]); // up to 2 ids
+  const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]);
   const [compareError, setCompareError] = useState<string | null>(null);
 
-  // Modals / external inspector
+  // Modals
   const [rawModalOpen, setRawModalOpen] = useState(false);
   const [rawModalJSON, setRawModalJSON] = useState<string | null>(null);
 
@@ -85,14 +88,20 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
   function getAuthHeader(): Headers {
     const h = new Headers();
     try {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("access_token") || localStorage.getItem("token")
+          : null;
       if (token) h.set("Authorization", `Bearer ${token}`);
-    } catch (e) {}
+    } catch {
+      // ignore
+    }
     h.set("Accept", "application/json");
     return h;
   }
 
   async function fetchAudits() {
+    if (!interviewId) return;
     setLoading(true);
     setError(null);
     try {
@@ -124,7 +133,6 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
     }
   }
 
-  // Download or open raw LLM presigned url (best-effort)
   async function openRaw(aid: number) {
     try {
       const url = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${aid}`;
@@ -146,7 +154,6 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
     }
   }
 
-  // Fetch raw content and show modal (Used by Selected Run -> Open Raw LLM)
   async function fetchAndShowRaw(aid: number) {
     try {
       const url = `${API_BASE}/interview/${encodeURIComponent(interviewId)}/audit/${aid}`;
@@ -174,14 +181,12 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
   function toggleCompareSelect(aid: number) {
     setCompareError(null);
     setSelectedForCompare((prev) => {
-      const found = prev.indexOf(aid);
-      if (found >= 0) {
-        // remove
+      const idx = prev.indexOf(aid);
+      if (idx >= 0) {
         return prev.filter((x) => x !== aid);
       } else {
-        // add (max 2) — if adding beyond 2 keep most recent two
         if (prev.length >= 2) {
-          return [prev[1], aid];
+          return [prev[1], aid]; // keep last two
         }
         return [...prev, aid];
       }
@@ -219,8 +224,6 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
       if (!rb.ok) throw new Error(await rb.text());
       const da = await ra.json();
       const db = await rb.json();
-
-      // Provide fetched rows to the CompareModal via state
       setCompareLeft(da);
       setCompareRight(db);
       setCompareModalOpen(true);
@@ -244,14 +247,22 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
         </div>
 
         <div className="flex gap-2 items-center">
-          <button className="px-3 py-1 border rounded text-sm" onClick={() => fetchAudits()} disabled={loading}>
+          <button
+            className="px-3 py-1 border rounded text-sm"
+            onClick={fetchAudits}
+            disabled={loading}
+          >
             {loading ? "Refreshing..." : "Refresh"}
           </button>
           <button
             className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
-            onClick={() => doCompare()}
+            onClick={doCompare}
             disabled={selectedForCompare.length !== 2}
-            title={selectedForCompare.length === 2 ? "Compare selected runs" : "Select exactly two runs to compare"}
+            title={
+              selectedForCompare.length === 2
+                ? "Compare selected runs"
+                : "Select exactly two runs to compare"
+            }
           >
             Compare ({selectedForCompare.length}/2)
           </button>
@@ -267,16 +278,22 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
 
       {audits.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Left: list */}
+          {/* LEFT: list of runs */}
           <div className="md:col-span-2 space-y-4">
             {audits.map((a) => (
-              <div key={a.id} className="border rounded p-4 flex flex-col md:flex-row md:justify-between md:items-center">
+              <div
+                key={a.id}
+                className="border rounded p-4 flex flex-col md:flex-row md:justify-between md:items-center"
+              >
                 <div>
                   <div className="text-sm text-muted-foreground">
                     {new Date(a.created_at || a.scored_at || "").toLocaleString()}
                   </div>
                   <div className="text-lg font-medium">Overall: {a.overall_score}</div>
-                  <div className="text-sm">Triggered by: {a.triggered_by || "-"} • Model: {a.model_meta?.model || a.model_meta?.provider || "unknown"}</div>
+                  <div className="text-sm">
+                    Triggered by: {a.triggered_by || "-"} • Model:{" "}
+                    {a.model_meta?.model || a.model_meta?.provider || "unknown"}
+                  </div>
                 </div>
 
                 <div className="mt-3 md:mt-0 flex items-center gap-2">
@@ -309,45 +326,39 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
             ))}
           </div>
 
-          {/* Right: selected run details */}
+          {/* RIGHT: selected run details */}
           <div className="md:col-span-1">
             <div className="border rounded p-4">
               <h3 className="text-lg font-medium mb-2">Selected Run</h3>
 
               {detailLoading && <div>Loading...</div>}
-              {!selectedRun && !detailLoading && <div className="text-sm text-muted-foreground">Select a run to view details</div>}
+              {!selectedRun && !detailLoading && (
+                <div className="text-sm text-muted-foreground">
+                  Select a run to view details
+                </div>
+              )}
 
               {selectedRun && (
                 <div className="space-y-3 text-sm">
-                  <div><strong>Overall</strong>: {selectedRun.overall_score}</div>
-
-                  <div><strong>Section scores</strong>:</div>
-                  <ul className="ml-4 list-disc">
-                    {selectedRun.section_scores && Object.entries(selectedRun.section_scores).map(([k, v]) => (
-                      <li key={k}>{k}: {v}</li>
-                    ))}
-                  </ul>
-
-                  <div><strong>Per-question:</strong></div>
-                  <div className="max-h-48 overflow-auto bg-gray-50 p-2 rounded text-xs">
-                    {selectedRun.per_question && selectedRun.per_question.length ? (
-                      selectedRun.per_question.map((q: any) => (
-                        <div key={q.question_id || q.questionId || Math.random()} className="mb-2 border-b pb-2">
-                          <div className="font-medium">Q{q.question_id} — overall: {q.overall ?? q.overall_score ?? "-"}</div>
-                          <div className="text-xs">tech: {q.technical ?? "-"} • comm: {q.communication ?? "-"} • comp: {q.completeness ?? "-"}</div>
-                          <div className="mt-1 text-xs italic">{q.ai_feedback?.summary || "-"}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No per-question data</div>
-                    )}
+                  <div>
+                    <strong>Overall</strong>: {selectedRun.overall_score}
                   </div>
+
+                  {/* SUPER SAFE: Show full JSON only, no direct object children */}
+                  <div>
+                    <strong>Full audit JSON</strong>
+                  </div>
+                  <pre className="max-h-64 overflow-auto bg-gray-50 p-2 rounded text-xs">
+                    {JSON.stringify(selectedRun, null, 2)}
+                  </pre>
 
                   <div className="mt-2 flex gap-2">
                     <button
                       className="px-3 py-1 border rounded text-sm"
                       onClick={() => {
-                        navigator.clipboard.writeText(JSON.stringify(selectedRun, null, 2));
+                        navigator.clipboard.writeText(
+                          JSON.stringify(selectedRun, null, 2)
+                        );
                         alert("Copied JSON to clipboard");
                       }}
                     >
@@ -373,16 +384,22 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
             </div>
 
             <div className="mt-4 text-xs text-muted-foreground">
-              <div>Tip: "Download Raw" opens the presigned URL stored by the backend (expires per server setting).</div>
+              <div>
+                Tip: "Download Raw" opens the presigned URL stored by the backend (expires per
+                server setting).
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Modals */}
-      <RawModal open={rawModalOpen} json={rawModalJSON} onClose={() => setRawModalOpen(false)} />
+      <RawModal
+        open={rawModalOpen}
+        json={rawModalJSON}
+        onClose={() => setRawModalOpen(false)}
+      />
 
-      {/* Use your external ModelInspector component */}
       <ModelInspector
         open={modelModalOpen}
         modelMeta={modelModalData?.model_meta}
@@ -390,15 +407,21 @@ export default function InterviewAuditPage({ params }: { params: { id: string } 
         promptText={modelModalData?.prompt_text}
         weights={modelModalData?.weights}
         taskId={modelModalData?.task_id}
-        onClose={() => { setModelModalOpen(false); setModelModalData(null); }}
+        onClose={() => {
+          setModelModalOpen(false);
+          setModelModalData(null);
+        }}
       />
 
-      {/* Use external CompareModal and pass left/right runs */}
       <CompareModal
         open={compareModalOpen}
         left={compareLeft}
         right={compareRight}
-        onClose={() => { setCompareModalOpen(false); setCompareLeft(null); setCompareRight(null); }}
+        onClose={() => {
+          setCompareModalOpen(false);
+          setCompareLeft(null);
+          setCompareRight(null);
+        }}
       />
     </div>
   );

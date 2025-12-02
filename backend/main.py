@@ -104,6 +104,27 @@ app.include_router(interview_ai.router)
 
 app.include_router(interview_router)
 
+_startup_import_error = None
+
+
+try:
+    # Prefer importing explicit router symbols (recommended)
+    from api.public_interview import router as public_router
+    app.include_router(public_router)
+    app.logger and app.logger.info("Included api.public_interview")
+except Exception as exc:
+    # Don't break app startup — capture error for /__startup_error
+    _startup_import_error = _startup_import_error or exc
+
+try:
+    from api.candidate_link import router as candidate_router
+    app.include_router(candidate_router)
+    app.logger and app.logger.info("Included api.candidate_link")
+except Exception as exc:
+    # best-effort: non-fatal
+    _startup_import_error = _startup_import_error or exc
+
+
 
 init_db()
 
@@ -185,13 +206,6 @@ except Exception as exc:  # capture import/startup error for diagnostics
 
 @app.get("/__startup_error")
 def startup_error():
-    """
-    If the automatic router import failed, this returns the exception repr for fast debugging.
-    """
     if _startup_import_error is None:
         return {"ok": True, "error": None}
-    return {
-        "ok": False,
-        "error": repr(_startup_import_error),
-        "type": type(_startup_import_error).__name__,
-    }
+    return {"ok": False, "error": repr(_startup_import_error)}
