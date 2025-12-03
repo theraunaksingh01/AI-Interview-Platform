@@ -22,7 +22,7 @@ let messageIdCounter = 1;
 
 export default function LiveInterviewPage() {
   const params = useParams();
-  const interviewId = params.id as string; 
+  const interviewId = params.id as string;
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -35,7 +35,12 @@ export default function LiveInterviewPage() {
   const [isFinished, setIsFinished] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
 
-  // Auto-scroll chat when messages change
+  // 🔊 recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
+  // Auto-scroll chat
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -121,7 +126,6 @@ export default function LiveInterviewPage() {
         appendLog(`Agent says: ${m.text}`);
       }
 
-      // when a new agent message arrives, scoring for previous question is effectively done
       setIsScoring(false);
 
       if (m.done) {
@@ -173,7 +177,6 @@ export default function LiveInterviewPage() {
     wsRef.current.send(JSON.stringify(payload));
     appendLog(`Sent answer for question_id=${currentQuestionId}`);
 
-    // Add candidate message to chat immediately
     addMessage({
       from: "candidate",
       text: trimmed,
@@ -181,9 +184,99 @@ export default function LiveInterviewPage() {
     });
 
     setAnswerText("");
-    // we'll show "Scoring…" when scoring_started arrives,
-    // but you can optimistically set it here if you want:
-    // setIsScoring(true);
+  }
+
+  // 🔊 Start recording audio
+  async function startRecording() {
+    if (!currentQuestionId || isFinished || isScoring) {
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        // stop all tracks so mic is released
+        stream.getTracks().forEach((t) => t.stop());
+        void uploadAndTranscribe();
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      addSystemMessage("Recording started. Speak your answer...");
+      appendLog("Recording started");
+    } catch (err) {
+      console.error("Error starting recording", err);
+      addSystemMessage("Could not access microphone. Please check permissions.");
+    }
+  }
+
+  // 🔊 Stop recording and send to backend
+  function stopRecording() {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      addSystemMessage("Recording stopped. Transcribing your answer…");
+      appendLog("Recording stopped");
+    }
+  }
+
+  // 🔊 Upload recorded audio to backend for transcription
+  async function uploadAndTranscribe() {
+    if (!currentQuestionId) {
+      addSystemMessage("No active question to attach audio to.");
+      return;
+    }
+
+    const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+    audioChunksRef.current = [];
+
+    const formData = new FormData();
+    formData.append("file", blob, "answer.webm");
+    formData.append("question_id", String(currentQuestionId));
+
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
+        const res = await fetch(
+          `${apiBase}/api/interview/${interviewId}/transcribe_audio`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+
+
+      if (!res.ok) {
+        addSystemMessage("Failed to transcribe audio. Please try again or type your answer.");
+        appendLog(`Transcription failed with status ${res.status}`);
+        return;
+      }
+
+      const data: { transcript: string; question_id?: number } = await res.json();
+      const transcript = data.transcript || "";
+
+      if (!transcript) {
+        addSystemMessage("Transcription returned empty text. Please try again or type your answer.");
+        return;
+      }
+
+      // Put transcript into textarea so user can review/edit
+      setAnswerText(transcript);
+      addSystemMessage("Transcription ready. Review or edit your answer, then click Send.");
+      appendLog(`Transcription received: ${transcript.slice(0, 80)}...`);
+    } catch (err) {
+      console.error("Error uploading audio", err);
+      addSystemMessage("Error uploading audio. Please try again or type your answer.");
+    }
   }
 
   const isSendDisabled =
@@ -215,7 +308,7 @@ export default function LiveInterviewPage() {
         </p>
       </header>
 
-      {/* Chat area */}
+      {/* Chat area (same as before) */}
       <section
         style={{
           flex: 1,
@@ -283,7 +376,7 @@ export default function LiveInterviewPage() {
         <div ref={messagesEndRef} />
       </section>
 
-      {/* Answer input */}
+      {/* Answer input + mic controls */}
       <section>
         <h2 style={{ marginBottom: 8 }}>Your Answer</h2>
         <p style={{ marginBottom: 8 }}>
@@ -301,7 +394,7 @@ export default function LiveInterviewPage() {
               ? "Interview is completed."
               : !currentQuestionId
               ? "Waiting for the next question from the agent…"
-              : "Type your answer here (later this will come from audio ASR)…"
+              : "Type your answer or use the mic to speak your answer…"
           }
         />
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -318,6 +411,29 @@ export default function LiveInterviewPage() {
           >
             Send Answer
           </button>
+
+          {/* Mic button */}
+          <button
+            type="button"
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={!connected || !currentQuestionId || isFinished || isScoring}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              border: "1px solid #ccc",
+              cursor:
+                !connected || !currentQuestionId || isFinished || isScoring
+                  ? "not-allowed"
+                  : "pointer",
+              opacity:
+                !connected || !currentQuestionId || isFinished || isScoring
+                  ? 0.6
+                  : 1,
+            }}
+          >
+            {isRecording ? "Stop & Transcribe" : "🎙 Record Answer"}
+          </button>
+
           {isScoring && <span>Scoring in progress…</span>}
         </div>
       </section>
