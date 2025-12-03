@@ -17,6 +17,15 @@ import enum
 from sqlalchemy.types import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, JSON
+
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from datetime import datetime
+import uuid
+
+
+
 
 # association table between users and roles
 user_roles = Table(
@@ -84,3 +93,23 @@ class Upload(Base):
 
     # relationship back to user
     user = relationship("User", back_populates="uploads")
+    
+
+class InterviewTurn(Base):
+    __tablename__ = "interview_turns"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # ✅ no ForeignKey() here – DB still has FK, but ORM doesn’t need to know
+    interview_id = Column(UUID(as_uuid=True), nullable=False)
+    question_id = Column(Integer, nullable=True)
+
+    speaker = Column(String(16), nullable=False)  # 'candidate' or 'agent'
+
+    started_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
+    ended_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    transcript = Column(Text, nullable=True)
+    asr_latency_ms = Column(Integer, nullable=True)
+    audio_s3_key = Column(Text, nullable=True)
+    meta = Column(JSON, nullable=False, default=dict)

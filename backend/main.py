@@ -68,6 +68,7 @@ from api import interview_link
 from api import interview_generate
 from api import interview_ai
 from api.interview import router as interview_router
+from api import ws_interview
 
 from dotenv import load_dotenv
 
@@ -103,6 +104,8 @@ app.include_router(interview_generate.router)
 app.include_router(interview_ai.router)
 
 app.include_router(interview_router)
+
+app.include_router(ws_interview.router)
 
 _startup_import_error = None
 
