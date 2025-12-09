@@ -70,6 +70,8 @@ from api import interview_ai
 from api.interview import router as interview_router
 from api import ws_interview
 from api import interview_audio
+from fastapi.staticfiles import StaticFiles
+
 
 from dotenv import load_dotenv
 
@@ -142,6 +144,13 @@ setup_json_logging()
 
 Base.metadata.create_all(bind=engine)
 
+
+# serve agent audio files
+app.mount(
+    "/media/agent_audio",
+    StaticFiles(directory="agent_audio"),
+    name="agent_audio",
+)
 
 
 # Read CORS env (simple comma-separated fallback)

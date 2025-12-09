@@ -22,47 +22,64 @@ export default function CandidateInterviewPage() {
   const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
 
   async function loadQuestions() {
-    if (!interviewId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      // 🔁 NOW USING PUBLIC ENDPOINT
-      const url = `${API_BASE}/public/interview/${encodeURIComponent(
-        interviewId
-      )}/questions`;
-      const resp = await fetch(url);
+  if (!interviewId) return;
+  setLoading(true);
+  setError(null);
 
-      if (resp.status === 404) {
-        setQuestions([]);
+  // Try the public questions endpoint (candidate-view)
+  const questionsUrl = `${API_BASE}/public/interview/${encodeURIComponent(interviewId)}/questions`;
+
+  // Polling loop: try up to N times (3s interval) until questions present
+  const maxAttempts = 20; // ~1 minute (20 * 3s). Tune as needed.
+  const delayMs = 3000;
+
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const resp = await fetch(questionsUrl, { method: "GET" });
+
+        // If 404 -> questions not created yet
+        if (resp.status === 404) {
+          // if last attempt show friendly message
+          if (attempt === maxAttempts) {
+            setQuestions([]);
+            return;
+          }
+          // wait then retry
+          await new Promise((res) => setTimeout(res, delayMs));
+          continue;
+        }
+
+        if (!resp.ok) {
+          // other errors -> show and stop polling
+          const txt = await resp.text().catch(() => resp.statusText);
+          throw new Error(txt || resp.statusText);
+        }
+
+        const json = await resp.json();
+        // normalize shape: expecting array of { question_id, question_text, type }
+        const qlist = (json || []).map((q: any) => ({
+          question_id: q.question_id ?? q.id ?? q.questionId,
+          question_text: q.question_text ?? q.question_text ?? q.prompt ?? q.text ?? "",
+          type: q.type ?? "voice",
+        })).filter((x: any) => !!x.question_id);
+
+        setQuestions(qlist);
         return;
+      } catch (innerErr: any) {
+        // If attemptable error, wait and retry; otherwise surface it on final attempt
+        if (attempt === maxAttempts) throw innerErr;
+        await new Promise((res) => setTimeout(res, delayMs));
       }
-      if (!resp.ok) {
-        const txt = await resp.text();
-        throw new Error(txt || resp.statusText);
-      }
-
-      const json = await resp.json();
-      const arr = Array.isArray(json) ? json : [];
-
-      const qlist: QItem[] = arr.map((q: any) => ({
-        question_id: Number(q.question_id ?? q.id),
-        question_text:
-          q.question_text || q.prompt || q.text || "Untitled question",
-        type: q.type || "voice",
-      }));
-
-      setQuestions(qlist);
-    } catch (e: any) {
-      setError(String(e?.message || e));
-    } finally {
-      setLoading(false);
     }
+  } catch (e: any) {
+    setQuestions([]);
+    setError(String(e?.message || e));
+  } finally {
+    setLoading(false);
   }
+}
 
-  useEffect(() => {
-    loadQuestions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interviewId]);
 
   async function submitAnswer(qid: number) {
     const txt = answers[qid] || "";

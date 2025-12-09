@@ -13,7 +13,7 @@ type ChatMessage = {
 };
 
 type WSMessage =
-  | { type: "agent_message"; text: string; question_id?: number; done?: boolean }
+  | { type: "agent_message"; text: string; question_id?: number; done?: boolean; audio_url?: string }
   | { type: "scoring_started"; turn_id: number; question_id?: number; task_id: string }
   | { type: "error"; message: string }
   | { type: string; [key: string]: any };
@@ -39,6 +39,135 @@ export default function LiveInterviewPage() {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
+
+  // 🔊 agent speaking state (for small UI indicator)
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+
+  // ----------------- TTS queue + playback refs -----------------
+  const ttsQueueRef = useRef<string[]>([]);
+  const ttsProcessingRef = useRef(false);
+  const userGestureRef = useRef(false);
+
+  // record a user gesture so autoplay policies allow audio
+  useEffect(() => {
+    function handleUserGesture() {
+      userGestureRef.current = true;
+      window.removeEventListener("click", handleUserGesture);
+      appendLog("Audio enabled by user gesture.");
+    }
+    window.addEventListener("click", handleUserGesture);
+    return () => window.removeEventListener("click", handleUserGesture);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // low-level speak via browser speechSynthesis, returns a promise that resolves when finished
+  function _speakViaBrowser(text: string) {
+    if (typeof window === "undefined") return Promise.resolve();
+    if (!("speechSynthesis" in window)) {
+      appendLog("speechSynthesis not available in this browser.");
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.0;
+        u.pitch = 1.0;
+        u.onstart = () => setIsAgentSpeaking(true);
+        u.onend = () => {
+          setIsAgentSpeaking(false);
+          resolve();
+        };
+        u.onerror = (err) => {
+          console.error("speechSynthesis error", err);
+          setIsAgentSpeaking(false);
+          resolve();
+        };
+        window.speechSynthesis.speak(u);
+      } catch (e) {
+        console.error("speak failed", e);
+        setIsAgentSpeaking(false);
+        resolve();
+      }
+    });
+  }
+
+  // queueing wrapper so utterances don't cut each other off
+  async function enqueueSpeak(text: string) {
+    if (!text || !text.trim()) return;
+    ttsQueueRef.current.push(text);
+    if (ttsProcessingRef.current) return;
+    ttsProcessingRef.current = true;
+
+    while (ttsQueueRef.current.length > 0) {
+      const t = ttsQueueRef.current.shift()!;
+
+      // wait for a user gesture or a short timeout (autoplay rules)
+      if (!userGestureRef.current) {
+        appendLog("Waiting for user gesture to enable audio (click anywhere)...");
+        await new Promise<void>((res) => {
+          let done = false;
+          function onClick() {
+            if (done) return;
+            done = true;
+            res();
+          }
+          window.addEventListener("click", onClick, { once: true });
+          setTimeout(() => {
+            if (!done) {
+              done = true;
+              res();
+            }
+          }, 5000);
+        });
+      }
+
+      await _speakViaBrowser(t).catch(() => {});
+      // small gap between utterances
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 120));
+    }
+
+    ttsProcessingRef.current = false;
+  }
+
+  // play server audio_url if present, otherwise fallback to enqueueSpeak(browser TTS)
+  async function playAgentAudioOrTTS(m: any) {
+    const audioUrl = m.audio_url ?? null;
+    const text = m.text ?? "";
+
+    if (audioUrl) {
+      const base = process.env.NEXT_PUBLIC_API_BASE || "";
+      const full = audioUrl.startsWith("http") ? audioUrl : `${base}${audioUrl}`;
+      try {
+        const audio = new Audio(full);
+        audio.onended = () => setIsAgentSpeaking(false);
+        audio.onerror = (ev) => {
+          console.warn("audio playback failed, falling back to TTS", ev);
+          enqueueSpeak(text);
+        };
+        setIsAgentSpeaking(true);
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          await playPromise.catch((err) => {
+            console.warn("audio.play() rejected, falling back to TTS", err);
+            setIsAgentSpeaking(false);
+            enqueueSpeak(text);
+          });
+        }
+        return;
+      } catch (e) {
+        console.warn("Exception while playing audio_url, fallback to TTS", e);
+        setIsAgentSpeaking(false);
+        enqueueSpeak(text);
+        return;
+      }
+    }
+
+    // no server audio — use browser TTS
+    enqueueSpeak(text);
+  }
+
+  // ----------------- end TTS playback logic -----------------
 
   // Auto-scroll chat
   useEffect(() => {
@@ -76,17 +205,25 @@ export default function LiveInterviewPage() {
     };
 
     ws.onmessage = (event) => {
+      // raw log to UI debug box
+      appendLog(`RAW_WS: ${event.data}`);
+
       try {
         const msg: WSMessage = JSON.parse(event.data);
+        appendLog(`PARSED_WS type=${msg.type}`);
         handleWSMessage(msg);
       } catch (e) {
         console.error("Error parsing WS message", e);
-        appendLog("Error parsing WS message");
+        appendLog("Error parsing WS message: " + String(e));
       }
     };
 
     return () => {
-      ws.close();
+      try {
+        ws.close();
+      } catch (e) {
+        // ignore
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
@@ -111,7 +248,7 @@ export default function LiveInterviewPage() {
 
   function handleWSMessage(msg: WSMessage) {
     if (msg.type === "agent_message") {
-      const m = msg as WSMessage & { text: string; question_id?: number; done?: boolean };
+      const m = msg as WSMessage & { text: string; question_id?: number; done?: boolean; audio_url?: string };
 
       addMessage({
         from: "agent",
@@ -119,12 +256,17 @@ export default function LiveInterviewPage() {
         questionId: m.question_id ?? null,
       });
 
-      if (typeof m.question_id === "number") {
-        setCurrentQuestionId(m.question_id);
-        appendLog(`Agent asked question_id=${m.question_id}`);
+      // accept both question_id or questionId (defensive)
+      const qid = (m as any).question_id ?? (m as any).questionId ?? null;
+      if (qid !== null && !Number.isNaN(Number(qid))) {
+        setCurrentQuestionId(Number(qid));
+        appendLog(`Agent asked question_id=${qid}`);
       } else {
         appendLog(`Agent says: ${m.text}`);
       }
+
+      // Play server audio (if provided) else use browser TTS fallback (queued)
+      void playAgentAudioOrTTS(m);
 
       setIsScoring(false);
 
@@ -174,8 +316,12 @@ export default function LiveInterviewPage() {
       text: trimmed,
     };
 
-    wsRef.current.send(JSON.stringify(payload));
-    appendLog(`Sent answer for question_id=${currentQuestionId}`);
+    try {
+      wsRef.current.send(JSON.stringify(payload));
+      appendLog(`Sent answer for question_id=${currentQuestionId}`);
+    } catch (e) {
+      appendLog("Failed to send answer over WebSocket: " + String(e));
+    }
 
     addMessage({
       from: "candidate",
@@ -203,7 +349,6 @@ export default function LiveInterviewPage() {
       };
 
       mediaRecorder.onstop = () => {
-        // stop all tracks so mic is released
         stream.getTracks().forEach((t) => t.stop());
         void uploadAndTranscribe();
       };
@@ -219,7 +364,6 @@ export default function LiveInterviewPage() {
     }
   }
 
-  // 🔊 Stop recording and send to backend
   function stopRecording() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -229,7 +373,6 @@ export default function LiveInterviewPage() {
     }
   }
 
-  // 🔊 Upload recorded audio to backend for transcription
   async function uploadAndTranscribe() {
     if (!currentQuestionId) {
       addSystemMessage("No active question to attach audio to.");
@@ -246,14 +389,13 @@ export default function LiveInterviewPage() {
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
-        const res = await fetch(
-          `${apiBase}/api/interview/${interviewId}/transcribe_audio`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
-
+      const res = await fetch(
+        `${apiBase}/api/interview/${interviewId}/transcribe_audio`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
 
       if (!res.ok) {
         addSystemMessage("Failed to transcribe audio. Please try again or type your answer.");
@@ -269,7 +411,6 @@ export default function LiveInterviewPage() {
         return;
       }
 
-      // Put transcript into textarea so user can review/edit
       setAnswerText(transcript);
       addSystemMessage("Transcription ready. Review or edit your answer, then click Send.");
       appendLog(`Transcription received: ${transcript.slice(0, 80)}...`);
@@ -306,9 +447,14 @@ export default function LiveInterviewPage() {
             {connected ? "Connected" : "Disconnected"}
           </b>
         </p>
+        {isAgentSpeaking && (
+          <p style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+            🔊 Agent is speaking…
+          </p>
+        )}
       </header>
 
-      {/* Chat area (same as before) */}
+      {/* Chat area */}
       <section
         style={{
           flex: 1,
@@ -412,7 +558,6 @@ export default function LiveInterviewPage() {
             Send Answer
           </button>
 
-          {/* Mic button */}
           <button
             type="button"
             onClick={isRecording ? stopRecording : startRecording}
