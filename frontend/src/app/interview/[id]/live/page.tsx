@@ -48,17 +48,64 @@ export default function LiveInterviewPage() {
   const ttsProcessingRef = useRef(false);
   const userGestureRef = useRef(false);
 
+  // pending audio attempts to retry after user gesture
+  const pendingAudioRef = useRef<{ fullUrl: string; text: string }[]>([]);
+
+  // UI state for audio enablement button
+  const [audioEnabled, setAudioEnabled] = useState(false);
+
   // record a user gesture so autoplay policies allow audio
   useEffect(() => {
     function handleUserGesture() {
-      userGestureRef.current = true;
-      window.removeEventListener("click", handleUserGesture);
-      appendLog("Audio enabled by user gesture.");
+      // If user clicks anywhere (fallback), act as enabling audio.
+      enableAudio();
     }
     window.addEventListener("click", handleUserGesture);
     return () => window.removeEventListener("click", handleUserGesture);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // function to enable audio (call on explicit button click or initial document click)
+  function enableAudio() {
+    if (userGestureRef.current) return;
+    userGestureRef.current = true;
+    setAudioEnabled(true);
+    appendLog("Audio enabled by user gesture.");
+
+    // drain pending audio attempts sequentially
+    (async () => {
+      try {
+        while (pendingAudioRef.current.length > 0) {
+          const p = pendingAudioRef.current.shift()!;
+          appendLog("Retrying queued audio...");
+          try {
+            const audio = new Audio(p.fullUrl);
+            audio.onended = () => setIsAgentSpeaking(false);
+            audio.onerror = (ev) => {
+              console.warn("retry audio playback failed, falling back to TTS", ev);
+              enqueueSpeak(p.text);
+            };
+            setIsAgentSpeaking(true);
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+              await playPromise.catch((err) => {
+                console.warn("retry audio.play() rejected, fallback to TTS", err);
+                setIsAgentSpeaking(false);
+                enqueueSpeak(p.text);
+              });
+            }
+          } catch (err) {
+            console.warn("Exception retrying queued audio, fallback to TTS", err);
+            enqueueSpeak(p.text);
+          }
+          // tiny gap
+          await new Promise((r) => setTimeout(r, 120));
+        }
+      } catch (e) {
+        console.error("Error draining pending audio", e);
+      }
+    })();
+  }
 
   // low-level speak via browser speechSynthesis, returns a promise that resolves when finished
   function _speakViaBrowser(text: string) {
@@ -146,12 +193,15 @@ export default function LiveInterviewPage() {
           enqueueSpeak(text);
         };
         setIsAgentSpeaking(true);
+
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           await playPromise.catch((err) => {
-            console.warn("audio.play() rejected, falling back to TTS", err);
+            // play rejected — queue for retry after explicit user gesture
+            console.warn("audio.play() rejected, queuing for retry after gesture", err);
             setIsAgentSpeaking(false);
-            enqueueSpeak(text);
+            pendingAudioRef.current.push({ fullUrl: full, text });
+            appendLog("Queued audio for retry after user gesture");
           });
         }
         return;
@@ -166,8 +216,6 @@ export default function LiveInterviewPage() {
     // no server audio — use browser TTS
     enqueueSpeak(text);
   }
-
-  // ----------------- end TTS playback logic -----------------
 
   // Auto-scroll chat
   useEffect(() => {
@@ -447,6 +495,30 @@ export default function LiveInterviewPage() {
             {connected ? "Connected" : "Disconnected"}
           </b>
         </p>
+
+        {/* prominent enable-audio CTA */}
+        {!audioEnabled && (
+          <div style={{ marginTop: 12 }}>
+            <button
+              onClick={enableAudio}
+              style={{
+                padding: "10px 16px",
+                background: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              Enable audio & start interview
+            </button>
+            <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
+              Click the button to enable agent voice playback (required by browser autoplay policies).
+            </div>
+          </div>
+        )}
+
         {isAgentSpeaking && (
           <p style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
             🔊 Agent is speaking…
