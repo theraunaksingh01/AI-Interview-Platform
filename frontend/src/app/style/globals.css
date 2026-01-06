@@ -78,7 +78,6 @@ main, [data-app-scroll] {
 
 /* The content container that sits inside a full-bleed section */
 .bleed-inner {
-  /* pick a wide but sane max width; tweak as you like */
   max-width: min(80rem, 100%);
   margin-inline: auto;
   padding-inline: 1.5rem; /* gutters so content doesn’t hug the edge */
