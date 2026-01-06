@@ -1,18 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 /* ---------------- Types ---------------- */
-
-type ChatMessage = {
-  id: number;
-  from: "agent" | "candidate" | "system";
-  text: string;
-  questionId?: number | null;
-};
 
 type WSMessage =
   | {
@@ -22,13 +15,18 @@ type WSMessage =
       done?: boolean;
       audio_url?: string;
     }
-  | { type: "scoring_started"; turn_id: number; question_id?: number; task_id: string }
+  | { type: "scoring_started"; turn_id: number; question_id?: number }
   | { type: "error"; message: string }
   | { type: string; [key: string]: any };
 
-let messageIdCounter = 1;
+type TranscriptLine = {
+  id: number;
+  speaker: "agent" | "candidate";
+  text: string;
+};
 
-// Debug visible only in dev
+let idCounter = 1;
+
 const SHOW_DEBUG =
   process.env.NEXT_PUBLIC_SHOW_DEBUG === "true" ||
   process.env.NODE_ENV === "development";
@@ -37,145 +35,89 @@ const SHOW_DEBUG =
 
 export default function LiveInterviewPage() {
   const params = useParams();
+  const router = useRouter();
   const interviewId = params.id as string;
 
+  /* ---------- WebSocket ---------- */
   const wsRef = useRef<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  /* ---------- State ---------- */
   const [connected, setConnected] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [currentQuestionId, setCurrentQuestionId] = useState<number | null>(null);
-  const [answerText, setAnswerText] = useState("");
-  const [log, setLog] = useState<string[]>([]);
-  const [isFinished, setIsFinished] = useState(false);
-  const [isScoring, setIsScoring] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
 
-  /* -------- Recording (candidate voice answers) -------- */
+  const [currentQuestionId, setCurrentQuestionId] = useState<number | null>(null);
+  const [questionIndex, setQuestionIndex] = useState(1);
+
+  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [answerText, setAnswerText] = useState("");
 
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
 
-  /* -------- Agent audio / TTS handling -------- */
-
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
 
-  const userGestureRef = useRef(false);
-  const pendingAudioRef = useRef<{ fullUrl: string; text: string }[]>([]);
-  const ttsQueueRef = useRef<string[]>([]);
-  const ttsProcessingRef = useRef(false);
+  const [log, setLog] = useState<string[]>([]);
 
-  /* ---------------- Helpers ---------------- */
-
-  function appendLog(line: string) {
-    setLog((prev) => [...prev, line]);
-  }
-
-  function addMessage(partial: Omit<ChatMessage, "id">) {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: messageIdCounter++,
-        ...partial,
-      },
-    ]);
-  }
-
-  function addSystemMessage(text: string) {
-    addMessage({ from: "system", text });
-  }
-
-  /* ---------------- Audio Enable (Autoplay Policy) ---------------- */
-
-  function enableAudio() {
-    if (userGestureRef.current) return;
-    userGestureRef.current = true;
-    setAudioEnabled(true);
-    appendLog("Audio enabled by user gesture.");
-
-    (async () => {
-      while (pendingAudioRef.current.length > 0) {
-        const p = pendingAudioRef.current.shift()!;
-        try {
-          const audio = new Audio(p.fullUrl);
-          setIsAgentSpeaking(true);
-          await audio.play();
-          setIsAgentSpeaking(false);
-        } catch {
-          enqueueSpeak(p.text);
-        }
-      }
-    })();
-  }
-
+  /* ---------- Timer ---------- */
+  const [seconds, setSeconds] = useState(0);
   useEffect(() => {
-    function onClick() {
-      enableAudio();
-    }
-    window.addEventListener("click", onClick);
-    return () => window.removeEventListener("click", onClick);
-  }, []);
+    if (!started || finished) return;
+    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [started, finished]);
 
-  /* ---------------- Browser TTS (fallback) ---------------- */
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
 
-  function speakViaBrowser(text: string) {
-    if (!("speechSynthesis" in window)) return Promise.resolve();
+  /* ---------- Helpers ---------- */
 
-    return new Promise<void>((resolve) => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1;
-      u.pitch = 1;
-      u.onstart = () => setIsAgentSpeaking(true);
-      u.onend = () => {
-        setIsAgentSpeaking(false);
-        resolve();
-      };
-      u.onerror = () => {
-        setIsAgentSpeaking(false);
-        resolve();
-      };
-      window.speechSynthesis.speak(u);
-    });
+  function addTranscript(speaker: "agent" | "candidate", text: string) {
+    setTranscript((t) => [...t, { id: idCounter++, speaker, text }]);
   }
 
-  async function enqueueSpeak(text: string) {
-    if (!text.trim()) return;
-    ttsQueueRef.current.push(text);
-    if (ttsProcessingRef.current) return;
+  function appendLog(l: string) {
+    setLog((x) => [...x, l]);
+  }
 
-    ttsProcessingRef.current = true;
-    while (ttsQueueRef.current.length > 0) {
-      const t = ttsQueueRef.current.shift()!;
-      if (!userGestureRef.current) {
-        appendLog("Waiting for user gesture to enable audio...");
-        await new Promise((r) => window.addEventListener("click", r, { once: true }));
-      }
-      await speakViaBrowser(t);
-      await new Promise((r) => setTimeout(r, 120));
-    }
-    ttsProcessingRef.current = false;
+  /* ---------- Audio ---------- */
+
+  function enableAudioAndStart() {
+    if (audioEnabled) return;
+    setAudioEnabled(true);
+    setStarted(true);
+    appendLog("Audio enabled & interview started");
   }
 
   async function playAgentAudioOrTTS(m: any) {
     const text = m.text ?? "";
+
     if (m.audio_url) {
-      const base = process.env.NEXT_PUBLIC_API_BASE || "";
-      const full = m.audio_url.startsWith("http") ? m.audio_url : `${base}${m.audio_url}`;
       try {
-        const audio = new Audio(full);
+        const base = process.env.NEXT_PUBLIC_API_BASE || "";
+        const audio = new Audio(
+          m.audio_url.startsWith("http") ? m.audio_url : `${base}${m.audio_url}`,
+        );
         setIsAgentSpeaking(true);
         await audio.play();
         setIsAgentSpeaking(false);
         return;
       } catch {
-        pendingAudioRef.current.push({ fullUrl: full, text });
+        /* fallback below */
       }
     }
-    enqueueSpeak(text);
+
+    if ("speechSynthesis" in window) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.onstart = () => setIsAgentSpeaking(true);
+      u.onend = () => setIsAgentSpeaking(false);
+      window.speechSynthesis.speak(u);
+    }
   }
 
-  /* ---------------- WebSocket ---------------- */
+  /* ---------- WebSocket ---------- */
 
   useEffect(() => {
     if (!interviewId) return;
@@ -184,61 +126,47 @@ export default function LiveInterviewPage() {
     const ws = new WebSocket(`${wsBase}/ws/interview/${interviewId}`);
     wsRef.current = ws;
 
-    appendLog("Connecting to WebSocket…");
-
     ws.onopen = () => {
       setConnected(true);
-      addSystemMessage("Connected. Waiting for agent…");
+      appendLog("WS connected");
     };
 
     ws.onclose = () => {
       setConnected(false);
-      addSystemMessage("Connection closed.");
+      appendLog("WS closed");
     };
 
     ws.onmessage = (e) => {
       appendLog(`RAW_WS: ${e.data}`);
       const msg: WSMessage = JSON.parse(e.data);
-      handleWSMessage(msg);
+
+      if (msg.type === "agent_message") {
+        addTranscript("agent", msg.text);
+        if (msg.question_id) {
+          setCurrentQuestionId(msg.question_id);
+          setQuestionIndex((i) => i + 1);
+        }
+        if (audioEnabled) playAgentAudioOrTTS(msg);
+        if (msg.done) setFinished(true);
+      }
+
+      if (msg.type === "scoring_started") {
+        /* no-op UI */
+      }
+
+      if (msg.type === "error") {
+        addTranscript("agent", msg.message);
+      }
     };
 
     return () => ws.close();
-  }, [interviewId]);
+  }, [interviewId, audioEnabled]);
 
-  function handleWSMessage(msg: WSMessage) {
-    if (msg.type === "agent_message") {
-      addMessage({
-        from: "agent",
-        text: msg.text,
-        questionId: msg.question_id ?? null,
-      });
-
-      if (msg.question_id) {
-        setCurrentQuestionId(msg.question_id);
-      }
-
-      void playAgentAudioOrTTS(msg);
-
-      if (msg.done) {
-        setIsFinished(true);
-        addSystemMessage("Interview completed.");
-      }
-    }
-
-    if (msg.type === "scoring_started") {
-      setIsScoring(true);
-      addSystemMessage("Scoring your answer…");
-    }
-
-    if (msg.type === "error") {
-      addSystemMessage(`Error: ${msg.message}`);
-    }
-  }
-
-  /* ---------------- Candidate Answer ---------------- */
+  /* ---------- Candidate Answer ---------- */
 
   function sendAnswer() {
-    if (!wsRef.current || !currentQuestionId) return;
+    if (!wsRef.current || !currentQuestionId || !answerText.trim()) return;
+
     wsRef.current.send(
       JSON.stringify({
         type: "candidate_text",
@@ -246,7 +174,8 @@ export default function LiveInterviewPage() {
         text: answerText.trim(),
       }),
     );
-    addMessage({ from: "candidate", text: answerText, questionId: currentQuestionId });
+
+    addTranscript("candidate", answerText.trim());
     setAnswerText("");
   }
 
@@ -255,7 +184,7 @@ export default function LiveInterviewPage() {
     const mr = new MediaRecorder(stream);
     audioChunksRef.current = [];
     mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-    mr.onstop = () => uploadAndTranscribe();
+    mr.onstop = uploadAndTranscribe;
     mr.start();
     mediaRecorderRef.current = mr;
     setIsRecording(true);
@@ -267,6 +196,8 @@ export default function LiveInterviewPage() {
   }
 
   async function uploadAndTranscribe() {
+    if (!currentQuestionId) return;
+
     const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
     const fd = new FormData();
     fd.append("file", blob);
@@ -284,201 +215,112 @@ export default function LiveInterviewPage() {
   /* ---------------- UI ---------------- */
 
   return (
-  <div
-    style={{
-      height: "100vh",
-      display: "grid",
-      gridTemplateColumns: "1fr 480px",
-      background: "#0b1220",
-      color: "#e5e7eb",
-      fontFamily: "Inter, system-ui, sans-serif",
-    }}
-  >
-    {/* ===== MAIN INTERVIEW CANVAS ===== */}
-    <main
-      style={{
-        padding: 24,
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
-      {/* Interviewer Identity (Fabric-like) */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          paddingBottom: 12,
-          borderBottom: "1px solid #1f2937",
-        }}
-      >
-        <img
-          src="/avatar/interviewer.jpg"
-          alt="AI Interviewer"
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: "50%",
-            border: "2px solid #334155",
-          }}
-        />
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>AI Interviewer</div>
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>
-            {isAgentSpeaking ? "Speaking…" : "Live interview"}
-          </div>
+    <div className="h-screen flex flex-col bg-neutral-950 text-white">
+      {/* TOP BAR */}
+      <header className="h-14 px-6 flex items-center justify-between border-b border-neutral-800">
+        <div className="font-semibold">AI Interview · Software Engineer</div>
+        <div className="text-sm text-neutral-400">
+          ⏱ {mm}:{ss} · Question {currentQuestionId ?? "—"}
         </div>
       </header>
 
-      {/* Enable audio CTA */}
-      {!audioEnabled && (
-        <div
-          style={{
-            background: "#111827",
-            padding: 12,
-            borderRadius: 8,
-            fontSize: 14,
-          }}
-        >
-          <button
-            onClick={enableAudio}
-            style={{
-              background: "#2563eb",
-              color: "white",
-              padding: "10px 16px",
-              borderRadius: 6,
-              border: "none",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-          >
-            Enable audio & start interview
-          </button>
-          <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
-            Required once due to browser audio policies.
-          </div>
-        </div>
-      )}
-
-      {/* Conversation Stream */}
-      <section
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          background: "#020617",
-          borderRadius: 12,
-          padding: 16,
-        }}
-      >
-        {messages.map((m) => {
-          const isAgent = m.from === "agent";
-          const isCandidate = m.from === "candidate";
-
-          return (
-            <div
-              key={m.id}
-              style={{
-                marginBottom: 16,
-                display: "flex",
-                justifyContent: isCandidate ? "flex-end" : "flex-start",
-              }}
-            >
-              <div
-                style={{
-                  maxWidth: "75%",
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background: isAgent ? "#1e293b" : "#2563eb",
-                  color: "white",
-                  fontSize: 14,
-                }}
-              >
-                {m.text}
+      {/* MAIN */}
+      <main className="flex-1 grid grid-cols-[1fr_360px]">
+        {/* STAGE */}
+        <section className="flex flex-col p-6 gap-4">
+          {/* AI Interviewer */}
+          <div className="flex items-center gap-4 bg-neutral-900 rounded-xl p-4">
+            <img
+              src="/avatar/interviewer.jpg"
+              className="w-16 h-16 rounded-full"
+              alt="AI"
+            />
+            <div>
+              <div className="font-semibold">AI Interviewer</div>
+              <div className="text-sm text-neutral-400">
+                {isAgentSpeaking ? "Speaking…" : "Listening"}
               </div>
             </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </section>
+          </div>
 
-      {/* Answer Controls */}
-      <div>
-        <textarea
-          rows={3}
-          value={answerText}
-          onChange={(e) => setAnswerText(e.target.value)}
-          disabled={!currentQuestionId || isFinished}
-          placeholder="Speak or type your answer…"
-          style={{
-            width: "100%",
-            borderRadius: 8,
-            padding: 12,
-            background: "#020617",
-            border: "1px solid #1f2937",
-            color: "white",
-          }}
-        />
+          {/* Candidate */}
+          <div className="flex items-center gap-4 bg-neutral-900 rounded-xl p-4">
+            <div className="w-16 h-16 rounded-full bg-neutral-700 flex items-center justify-center">
+              You
+            </div>
+            <div>
+              <div className="font-semibold">You</div>
+              <div className="text-sm text-neutral-400">
+                {isRecording ? "Recording…" : "Idle"}
+              </div>
+            </div>
+          </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
-          <button
-            onClick={sendAnswer}
-            disabled={!answerText.trim()}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              background: "#22c55e",
-              border: "none",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Send
-          </button>
+          {/* Transcript */}
+          <div className="flex-1 overflow-auto bg-neutral-900 rounded-xl p-4 space-y-2 text-sm">
+            {transcript.map((t) => (
+              <div key={t.id}>
+                <span className="text-neutral-400 mr-2">
+                  {t.speaker === "agent" ? "Agent:" : "You:"}
+                </span>
+                {t.text}
+              </div>
+            ))}
+          </div>
+        </section>
 
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              background: "#1f2937",
-              border: "1px solid #334155",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            {isRecording ? "Stop recording" : "🎙 Record"}
-          </button>
-        </div>
-      </div>
-    </main>
+        {/* SIDE PANEL */}
+        <aside className="border-l border-neutral-800 p-4 flex flex-col gap-3">
+          {!started && (
+            <button
+              onClick={enableAudioAndStart}
+              className="bg-blue-600 hover:bg-blue-700 rounded-lg py-2 font-semibold"
+            >
+              Start Interview
+            </button>
+          )}
 
-    {/* ===== STATUS SIDEBAR ===== */}
-    <aside
-      style={{
-        padding: 16,
-        borderLeft: "1px solid #1f2937",
-        background: "#020617",
-      }}
-    >
-      <h3 style={{ marginBottom: 12 }}>Interview Status</h3>
-      <p>Question: {currentQuestionId ?? "Waiting…"}</p>
-      <p>Status: {connected ? "Connected" : "Disconnected"}</p>
-      {isAgentSpeaking && <p style={{ marginTop: 8 }}>🔊 Agent speaking</p>}
+          <textarea
+            rows={4}
+            value={answerText}
+            onChange={(e) => setAnswerText(e.target.value)}
+            disabled={!currentQuestionId || finished}
+            className="bg-neutral-900 rounded-lg p-2 text-sm"
+            placeholder="Your answer…"
+          />
 
-      {SHOW_DEBUG && (
-        <pre
-          style={{
-            fontSize: 11,
-            marginTop: 16,
-            color: "#9ca3af",
-            whiteSpace: "pre-wrap",
-          }}
+          <div className="flex gap-2">
+            <button
+              onClick={sendAnswer}
+              className="flex-1 bg-green-600 rounded-lg py-2"
+            >
+              Send
+            </button>
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              className="bg-neutral-700 rounded-lg px-4"
+            >
+              🎙
+            </button>
+          </div>
+
+          {SHOW_DEBUG && (
+            <pre className="mt-4 text-xs text-neutral-400 overflow-auto">
+              {log.join("\n")}
+            </pre>
+          )}
+        </aside>
+      </main>
+
+      {/* BOTTOM BAR */}
+      <footer className="h-14 border-t border-neutral-800 flex items-center justify-center gap-6">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="bg-red-600 px-6 py-2 rounded-full"
         >
-          {log.join("\n")}
-        </pre>
-      )}
-    </aside>
-  </div>
-);
+          Leave Interview
+        </button>
+      </footer>
+    </div>
+  );
 }
