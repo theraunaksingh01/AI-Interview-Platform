@@ -7,6 +7,8 @@ import os
 import sys
 import logging
 from dotenv import load_dotenv
+from pathlib import Path
+
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 _log = logging.getLogger("env_loader")
@@ -148,7 +150,7 @@ Base.metadata.create_all(bind=engine)
 # serve agent audio files
 app.mount(
     "/media/agent_audio",
-    StaticFiles(directory="agent_audio"),
+    StaticFiles(directory=str(Path(os.getcwd()) / "agent_audio")),
     name="agent_audio",
 )
 
