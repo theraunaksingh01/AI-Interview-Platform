@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 
+/* ---------------- Types ---------------- */
+
 type WSMessage =
   | {
       type: "agent_message";
@@ -22,19 +24,32 @@ export default function LiveInterviewPage() {
   const { id } = useParams();
   const interviewId = id as string;
 
+  /* ---------------- Refs ---------------- */
+
   const wsRef = useRef<WebSocket | null>(null);
   const candidateVideoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  /* ---------------- State ---------------- */
+
   const [connected, setConnected] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [questionId, setQuestionId] = useState<number | null>(null);
+
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(300); // 5 minutes
 
-  /* ---------------- Restore camera stream ---------------- */
+  const [secondsLeft, setSecondsLeft] = useState(300);
+
+  // 🔥 Phase 6D-7
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [partialTranscript, setPartialTranscript] = useState("");
+  const [confidence, setConfidence] =
+    useState<"listening" | "speaking" | "paused">("listening");
+
+  /* ---------------- Restore Camera ---------------- */
+
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -46,6 +61,7 @@ export default function LiveInterviewPage() {
   }, []);
 
   /* ---------------- Timer ---------------- */
+
   useEffect(() => {
     if (!questionId) return;
 
@@ -65,6 +81,7 @@ export default function LiveInterviewPage() {
   }, [questionId]);
 
   /* ---------------- WebSocket ---------------- */
+
   useEffect(() => {
     const ws = new WebSocket(
       `${process.env.NEXT_PUBLIC_WS_BASE ?? "ws://localhost:8000"}/ws/interview/${interviewId}`,
@@ -82,6 +99,7 @@ export default function LiveInterviewPage() {
 
         await playAgentSpeech(msg);
 
+        // 🔥 Start candidate turn AFTER agent finishes
         if (msg.question_id) {
           startCandidateTurn();
         }
@@ -92,6 +110,7 @@ export default function LiveInterviewPage() {
   }, [interviewId]);
 
   /* ---------------- Agent Speech ---------------- */
+
   async function playAgentSpeech(msg: {
     text: string;
     audio_url?: string;
@@ -117,24 +136,65 @@ export default function LiveInterviewPage() {
     setAgentSpeaking(false);
   }
 
-  /* ---------------- Candidate Recording ---------------- */
+  /* ---------------- Candidate Recording (6D-7) ---------------- */
+
   function startCandidateTurn() {
+    if (!questionId) return;
+
     setCandidateSpeaking(true);
+    setConfidence("listening");
+    setLiveTranscript("");
+    setPartialTranscript("");
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
       const mr = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
-      mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-      mr.onstop = stopRecordingAndSubmit;
+      mr.ondataavailable = async (e) => {
+        if (e.data.size === 0) return;
 
-      mr.start();
+        audioChunksRef.current.push(e.data);
+        setConfidence("speaking");
+
+        await sendPartialChunk(e.data);
+      };
+
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setCandidateSpeaking(false);
+      };
+
+      mr.start(2000); // every 2 seconds
       mediaRecorderRef.current = mr;
-
-      setTimeout(() => {
-        if (mr.state === "recording") mr.stop();
-      }, 15000);
     });
+  }
+
+  async function sendPartialChunk(blob: Blob) {
+    if (!questionId) return;
+
+    const fd = new FormData();
+    fd.append("file", blob, "chunk.webm");
+    fd.append("question_id", String(questionId));
+    fd.append("partial", "true");
+
+    const api = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
+    const res = await fetch(
+      `${api}/api/interview/${interviewId}/transcribe_audio`,
+      {
+        method: "POST",
+        body: fd,
+      },
+    );
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+
+    if (data.transcript) {
+      setPartialTranscript(data.transcript);
+      setLiveTranscript((prev) => prev + " " + data.transcript);
+    }
   }
 
   async function stopRecordingAndSubmit() {
@@ -153,7 +213,20 @@ export default function LiveInterviewPage() {
     setCandidateSpeaking(false);
   }
 
+  /* ---------------- Pause Detection ---------------- */
+
+  useEffect(() => {
+    if (!candidateSpeaking) return;
+
+    const t = setTimeout(() => {
+      setConfidence("paused");
+    }, 4000);
+
+    return () => clearTimeout(t);
+  }, [partialTranscript, candidateSpeaking]);
+
   /* ---------------- UI ---------------- */
+
   return (
     <div className="grid grid-cols-[1fr_360px] h-screen bg-gray-100">
       {/* LEFT */}
@@ -179,8 +252,23 @@ export default function LiveInterviewPage() {
         <div className="bg-white rounded-xl p-6 shadow flex-1">
           <div className="text-gray-500 mb-2">Interviewer</div>
           <div className="text-lg font-medium">{questionText}</div>
+
+          {/* 🔥 Live Transcription */}
           {candidateSpeaking && (
-            <div className="mt-4 text-blue-600">🎙 Recording…</div>
+            <div className="mt-6 bg-gray-50 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-2">
+                Live transcription
+              </div>
+              <div className="text-gray-900 leading-relaxed">
+                {liveTranscript}
+                <span className="opacity-60"> {partialTranscript}</span>
+              </div>
+              <div className="mt-2 text-xs">
+                {confidence === "speaking" && "🟢 Speaking clearly"}
+                {confidence === "listening" && "🎙 Listening…"}
+                {confidence === "paused" && "🟡 Pause detected"}
+              </div>
+            </div>
           )}
         </div>
       </div>
