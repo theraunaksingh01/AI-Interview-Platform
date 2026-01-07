@@ -30,6 +30,7 @@ export default function LiveInterviewPage() {
   const candidateVideoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const spokenUtterancesRef = useRef<Set<string>>(new Set());
 
   /* ---------------- State ---------------- */
 
@@ -69,7 +70,7 @@ export default function LiveInterviewPage() {
     const t = setInterval(() => {
       setSecondsLeft((s) => {
         if (s <= 1) {
-          stopRecordingAndSubmit();
+          stopRecordingAndSubmit(questionId);
           clearInterval(t);
           return 0;
         }
@@ -94,14 +95,22 @@ export default function LiveInterviewPage() {
       const msg: WSMessage = JSON.parse(e.data);
 
       if (msg.type === "agent_message") {
-        setQuestionText(msg.text);
-        setQuestionId(msg.question_id ?? null);
+        const agentMsg = msg;
 
-        await playAgentSpeech(msg);
+        setQuestionText(agentMsg.text);
+        setQuestionId(agentMsg.question_id ?? null);
 
-        // 🔥 Start candidate turn AFTER agent finishes
-        if (msg.question_id) {
-          startCandidateTurn();
+        // prevent duplicate speech
+        const key =
+          agentMsg.audio_url ??
+          `${agentMsg.text}-${agentMsg.question_id ?? "greeting"}`;
+        if (spokenUtterancesRef.current.has(key)) return;
+        spokenUtterancesRef.current.add(key);
+
+        await playAgentSpeech(agentMsg);
+
+        if (typeof agentMsg.question_id === "number") {
+          startCandidateTurn(agentMsg.question_id);
         }
       }
     };
@@ -118,29 +127,29 @@ export default function LiveInterviewPage() {
     setAgentSpeaking(true);
     setCandidateSpeaking(false);
 
-    if (msg.audio_url) {
-      const audio = new Audio(
-        msg.audio_url.startsWith("http")
-          ? msg.audio_url
-          : `${process.env.NEXT_PUBLIC_API_BASE}${msg.audio_url}`,
-      );
-      await audio.play();
-    } else {
-      const u = new SpeechSynthesisUtterance(msg.text);
-      await new Promise<void>((res) => {
-        u.onend = () => res();
-        speechSynthesis.speak(u);
-      });
+    try {
+      if (msg.audio_url) {
+        const audio = new Audio(
+          msg.audio_url.startsWith("http")
+            ? msg.audio_url
+            : `${process.env.NEXT_PUBLIC_API_BASE}${msg.audio_url}`,
+        );
+        await audio.play();
+      } else {
+        const u = new SpeechSynthesisUtterance(msg.text);
+        await new Promise<void>((res) => {
+          u.onend = () => res();
+          speechSynthesis.speak(u);
+        });
+      }
+    } finally {
+      setAgentSpeaking(false);
     }
-
-    setAgentSpeaking(false);
   }
 
   /* ---------------- Candidate Recording (6D-7) ---------------- */
 
-  function startCandidateTurn() {
-    if (!questionId) return;
-
+  function startCandidateTurn(qid: number) {
     setCandidateSpeaking(true);
     setConfidence("listening");
     setLiveTranscript("");
@@ -156,12 +165,13 @@ export default function LiveInterviewPage() {
         audioChunksRef.current.push(e.data);
         setConfidence("speaking");
 
-        await sendPartialChunk(e.data);
+        await sendPartialChunk(e.data, qid);
       };
 
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         setCandidateSpeaking(false);
+        setConfidence("paused");
       };
 
       mr.start(2000); // every 2 seconds
@@ -169,22 +179,17 @@ export default function LiveInterviewPage() {
     });
   }
 
-  async function sendPartialChunk(blob: Blob) {
-    if (!questionId) return;
-
+  async function sendPartialChunk(blob: Blob, qid: number) {
     const fd = new FormData();
     fd.append("file", blob, "chunk.webm");
-    fd.append("question_id", String(questionId));
+    fd.append("question_id", String(qid));
     fd.append("partial", "true");
 
     const api = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
     const res = await fetch(
       `${api}/api/interview/${interviewId}/transcribe_audio`,
-      {
-        method: "POST",
-        body: fd,
-      },
+      { method: "POST", body: fd },
     );
 
     if (!res.ok) return;
@@ -197,13 +202,11 @@ export default function LiveInterviewPage() {
     }
   }
 
-  async function stopRecordingAndSubmit() {
-    if (!questionId) return;
-
+  async function stopRecordingAndSubmit(qid: number) {
     const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
     const fd = new FormData();
     fd.append("file", blob, "answer.webm");
-    fd.append("question_id", String(questionId));
+    fd.append("question_id", String(qid));
 
     await fetch(
       `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
@@ -253,7 +256,6 @@ export default function LiveInterviewPage() {
           <div className="text-gray-500 mb-2">Interviewer</div>
           <div className="text-lg font-medium">{questionText}</div>
 
-          {/* 🔥 Live Transcription */}
           {candidateSpeaking && (
             <div className="mt-6 bg-gray-50 rounded-xl p-4">
               <div className="text-xs text-gray-500 mb-2">

@@ -10,6 +10,10 @@ from db.session import get_db
 from sqlalchemy import text
 from faster_whisper import WhisperModel
 
+from services.streaming_asr import append_audio, clear_stream
+from services.asr_service import transcribe_audio_bytes
+
+
 asr_model = WhisperModel("base", device="cpu", compute_type="int8")
 
 
@@ -41,30 +45,34 @@ def transcribe_audio_bytes(audio_bytes: bytes) -> str:
 async def transcribe_audio(
     interview_id: UUID,
     file: UploadFile = File(...),
-    question_id: int | None = Form(None),
-    db: Session = Depends(get_db),
+    question_id: int = Form(...),
+    partial: bool = Form(False),
 ):
-    # Basic validation: interview exists?
-    row = db.execute(
-        text("SELECT 1 FROM interviews WHERE id = :iid"),
-        {"iid": interview_id},
-    ).scalar()
-
-    if row is None:
-        raise HTTPException(status_code=404, detail="Interview not found")
-
     audio_bytes = await file.read()
-    if not audio_bytes:
-        raise HTTPException(status_code=400, detail="Empty audio file")
 
-    # 🔊 Run ASR
+    if partial:
+        # 🔥 STREAMING MODE
+        rolling_audio = append_audio(
+            str(interview_id),
+            question_id,
+            audio_bytes,
+        )
+
+        transcript = transcribe_audio_bytes(rolling_audio)
+
+        return {
+            "transcript": transcript,
+            "partial": True,
+            "question_id": question_id,
+        }
+
+    # ✅ FINAL SUBMIT
     transcript = transcribe_audio_bytes(audio_bytes)
 
-    # We DO NOT create InterviewTurn or trigger scoring here.
-    # Frontend will send this transcript via WebSocket as `candidate_text`
-    # so all the existing logic in interview_ws is reused.
+    clear_stream(str(interview_id), question_id)
 
     return {
         "transcript": transcript,
         "question_id": question_id,
+        "partial": False,
     }

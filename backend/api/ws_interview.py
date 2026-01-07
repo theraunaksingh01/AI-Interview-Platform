@@ -195,6 +195,7 @@ async def handle_on_connect(
     """Send initial greeting + first question, with optional TTS (run in thread)."""
     greeting_text = "Hi! We'll start your interview now. Please answer in detail."
     logger.info(f"[WS] handle_on_connect for interview_id={interview_id}")
+    
 
     greeting_turn = InterviewTurn(
         interview_id=interview_id,
