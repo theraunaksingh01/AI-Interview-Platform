@@ -1,3 +1,4 @@
+// join/page.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -86,9 +87,19 @@ export default function JoinInterviewPage() {
   }, [cameraOn, micOn]);
 
   function startInterview() {
-    if (!permissionsReady) return;
-    router.push(`/interview/${interviewId}/live`);
-  }
+  if (!permissionsReady) return;
+
+  //  HARD audio unlock via user gesture
+  const a = new Audio();
+  a.muted = true;
+  a.play().catch(() => {});
+
+  // persist unlock for live page
+  sessionStorage.setItem("audioUnlocked", "true");
+
+  router.push(`/interview/${interviewId}/live`);
+}
+
 
   /* ---------------- UI ---------------- */
 

@@ -146,11 +146,11 @@ setup_json_logging()
 
 Base.metadata.create_all(bind=engine)
 
-
+BASE_DIR = Path(__file__).resolve().parent
 # serve agent audio files
 app.mount(
     "/media/agent_audio",
-    StaticFiles(directory=str(Path(os.getcwd()) / "agent_audio")),
+    StaticFiles(directory=BASE_DIR / "agent_audio"),
     name="agent_audio",
 )
 

@@ -27,7 +27,7 @@ def save_agent_audio_file(mp3_bytes: bytes, interview_id: Optional[str] = None) 
     if not mp3_bytes:
         raise ValueError("Empty audio bytes")
 
-    filename = f"agent_{uuid4().hex}.mp3"
+    filename = f"agent_{uuid4().hex}.wav"
     out_path = AGENT_AUDIO_DIR / filename
 
     try:
@@ -55,4 +55,5 @@ def save_agent_audio_file(mp3_bytes: bytes, interview_id: Optional[str] = None) 
             logger.exception("Error while enforcing files-per-interview limit")
 
     # Return path the frontend can request. Your StaticFiles mount should serve AUDIO_URL_PREFIX -> AGENT_AUDIO_DIR
-    return f"{AUDIO_URL_PREFIX}/{filename}"
+    return f"/media/agent_audio/{filename}"
+

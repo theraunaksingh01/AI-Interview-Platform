@@ -13,11 +13,6 @@ type WSMessage =
       audio_url?: string;
       done?: boolean;
     }
-  | {
-      type: "scoring_started";
-      turn_id: number;
-      question_id?: number;
-    }
   | { type: "error"; message: string };
 
 export default function LiveInterviewPage() {
@@ -29,48 +24,48 @@ export default function LiveInterviewPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const candidateVideoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const spokenUtterancesRef = useRef<Set<string>>(new Set());
+
+  const agentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingRef = useRef(false);
+
+  const pendingQuestionIdRef = useRef<number | null>(null);
 
   /* ---------------- State ---------------- */
 
-  const [connected, setConnected] = useState(false);
   const [questionText, setQuestionText] = useState("");
-  const [questionId, setQuestionId] = useState<number | null>(null);
-
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
 
   const [secondsLeft, setSecondsLeft] = useState(300);
 
-  // 🔥 Phase 6D-7
-  const [liveTranscript, setLiveTranscript] = useState("");
   const [partialTranscript, setPartialTranscript] = useState("");
   const [confidence, setConfidence] =
     useState<"listening" | "speaking" | "paused">("listening");
 
-  /* ---------------- Restore Camera ---------------- */
+  /* ---------------- Camera ---------------- */
 
   useEffect(() => {
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
+      .getUserMedia({ video: true, audio: false })
       .then((stream) => {
         if (candidateVideoRef.current) {
           candidateVideoRef.current.srcObject = stream;
         }
-      });
+      })
+      .catch(() => {});
   }, []);
 
   /* ---------------- Timer ---------------- */
 
   useEffect(() => {
-    if (!questionId) return;
+    if (!candidateSpeaking) return;
 
     setSecondsLeft(300);
     const t = setInterval(() => {
       setSecondsLeft((s) => {
         if (s <= 1) {
-          stopRecordingAndSubmit(questionId);
+          mediaRecorderRef.current?.stop();
           clearInterval(t);
           return 0;
         }
@@ -79,7 +74,7 @@ export default function LiveInterviewPage() {
     }, 1000);
 
     return () => clearInterval(t);
-  }, [questionId]);
+  }, [candidateSpeaking]);
 
   /* ---------------- WebSocket ---------------- */
 
@@ -89,83 +84,87 @@ export default function LiveInterviewPage() {
     );
     wsRef.current = ws;
 
-    ws.onopen = () => setConnected(true);
-
-    ws.onmessage = async (e) => {
+    ws.onmessage = (e) => {
       const msg: WSMessage = JSON.parse(e.data);
+      if (msg.type !== "agent_message") return;
 
-      if (msg.type === "agent_message") {
-        const agentMsg = msg;
+      setQuestionText(msg.text);
 
-        setQuestionText(agentMsg.text);
-        setQuestionId(agentMsg.question_id ?? null);
+      if (msg.audio_url) {
+        enqueueAgentAudio(msg.audio_url);
+      }
 
-        // prevent duplicate speech
-        const key =
-          agentMsg.audio_url ??
-          `${agentMsg.text}-${agentMsg.question_id ?? "greeting"}`;
-        if (spokenUtterancesRef.current.has(key)) return;
-        spokenUtterancesRef.current.add(key);
-
-        await playAgentSpeech(agentMsg);
-
-        if (typeof agentMsg.question_id === "number") {
-          startCandidateTurn(agentMsg.question_id);
-        }
+      // 👉 store question_id, but DO NOT start candidate yet
+      if (typeof msg.question_id === "number") {
+        pendingQuestionIdRef.current = msg.question_id;
       }
     };
 
     return () => ws.close();
   }, [interviewId]);
 
-  /* ---------------- Agent Speech ---------------- */
+  /* =========================================================
+     🔊 AGENT AUDIO QUEUE (CRITICAL)
+     ========================================================= */
 
-  async function playAgentSpeech(msg: {
-    text: string;
-    audio_url?: string;
-  }) {
+  function enqueueAgentAudio(audioUrl: string) {
+    const fullUrl = audioUrl.startsWith("http")
+      ? audioUrl
+      : `${process.env.NEXT_PUBLIC_API_BASE}${audioUrl}`;
+
+    audioQueueRef.current.push(fullUrl);
+    tryPlayNextAudio();
+  }
+
+  function tryPlayNextAudio() {
+    if (!agentAudioRef.current) return;
+    if (isPlayingRef.current) return;
+
+    if (audioQueueRef.current.length === 0) {
+      // ✅ Agent finished speaking → now start candidate turn
+      if (pendingQuestionIdRef.current !== null) {
+        startCandidateTurn();
+        pendingQuestionIdRef.current = null;
+      }
+      return;
+    }
+
+    const audio = agentAudioRef.current;
+    const nextSrc = audioQueueRef.current.shift()!;
+
+    isPlayingRef.current = true;
     setAgentSpeaking(true);
     setCandidateSpeaking(false);
 
-    try {
-      if (msg.audio_url) {
-        const audio = new Audio(
-          msg.audio_url.startsWith("http")
-            ? msg.audio_url
-            : `${process.env.NEXT_PUBLIC_API_BASE}${msg.audio_url}`,
-        );
-        await audio.play();
-      } else {
-        const u = new SpeechSynthesisUtterance(msg.text);
-        await new Promise<void>((res) => {
-          u.onend = () => res();
-          speechSynthesis.speak(u);
-        });
-      }
-    } finally {
-      setAgentSpeaking(false);
-    }
+    audio.src = nextSrc;
+    audio.muted = false;
+    audio.volume = 1;
+
+    audio.onended = finishAudioAndContinue;
+    audio.onerror = finishAudioAndContinue;
+
+    audio.play().catch(finishAudioAndContinue);
   }
 
-  /* ---------------- Candidate Recording (6D-7) ---------------- */
+  function finishAudioAndContinue() {
+    isPlayingRef.current = false;
+    setAgentSpeaking(false);
+    tryPlayNextAudio();
+  }
 
-  function startCandidateTurn(qid: number) {
+  /* ---------------- Candidate Recording ---------------- */
+
+  function startCandidateTurn() {
     setCandidateSpeaking(true);
     setConfidence("listening");
-    setLiveTranscript("");
     setPartialTranscript("");
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
       const mr = new MediaRecorder(stream);
-      audioChunksRef.current = [];
 
-      mr.ondataavailable = async (e) => {
-        if (e.data.size === 0) return;
-
-        audioChunksRef.current.push(e.data);
+      mr.ondataavailable = () => {
         setConfidence("speaking");
-
-        await sendPartialChunk(e.data, qid);
+        setPartialTranscript("Listening…");
       };
 
       mr.onstop = () => {
@@ -174,65 +173,18 @@ export default function LiveInterviewPage() {
         setConfidence("paused");
       };
 
-      mr.start(2000); // every 2 seconds
+      mr.start(2000);
       mediaRecorderRef.current = mr;
     });
   }
-
-  async function sendPartialChunk(blob: Blob, qid: number) {
-    const fd = new FormData();
-    fd.append("file", blob, "chunk.webm");
-    fd.append("question_id", String(qid));
-    fd.append("partial", "true");
-
-    const api = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
-
-    const res = await fetch(
-      `${api}/api/interview/${interviewId}/transcribe_audio`,
-      { method: "POST", body: fd },
-    );
-
-    if (!res.ok) return;
-
-    const data = await res.json();
-
-    if (data.transcript) {
-      setPartialTranscript(data.transcript);
-      setLiveTranscript((prev) => prev + " " + data.transcript);
-    }
-  }
-
-  async function stopRecordingAndSubmit(qid: number) {
-    const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-    const fd = new FormData();
-    fd.append("file", blob, "answer.webm");
-    fd.append("question_id", String(qid));
-
-    await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
-      { method: "POST", body: fd },
-    );
-
-    setCandidateSpeaking(false);
-  }
-
-  /* ---------------- Pause Detection ---------------- */
-
-  useEffect(() => {
-    if (!candidateSpeaking) return;
-
-    const t = setTimeout(() => {
-      setConfidence("paused");
-    }, 4000);
-
-    return () => clearTimeout(t);
-  }, [partialTranscript, candidateSpeaking]);
 
   /* ---------------- UI ---------------- */
 
   return (
     <div className="grid grid-cols-[1fr_360px] h-screen bg-gray-100">
-      {/* LEFT */}
+      {/* 🔊 SINGLE AUDIO ELEMENT (REQUIRED) */}
+      <audio ref={agentAudioRef} preload="auto" playsInline />
+
       <div className="p-6 flex flex-col gap-4">
         <header className="flex items-center gap-3">
           <img src="/avatar/interviewer.jpg" className="w-12 h-12 rounded-full" />
@@ -261,13 +213,10 @@ export default function LiveInterviewPage() {
               <div className="text-xs text-gray-500 mb-2">
                 Live transcription
               </div>
-              <div className="text-gray-900 leading-relaxed">
-                {liveTranscript}
-                <span className="opacity-60"> {partialTranscript}</span>
-              </div>
+              <div className="text-gray-900">{partialTranscript}</div>
               <div className="mt-2 text-xs">
-                {confidence === "speaking" && "🟢 Speaking clearly"}
-                {confidence === "listening" && "🎙 Listening…"}
+                {confidence === "speaking" && "🟢 Speaking"}
+                {confidence === "listening" && "🎙 Listening"}
                 {confidence === "paused" && "🟡 Pause detected"}
               </div>
             </div>
@@ -275,27 +224,14 @@ export default function LiveInterviewPage() {
         </div>
       </div>
 
-      {/* RIGHT */}
-      <aside className="bg-gray-900 text-white p-4 flex flex-col gap-4">
-        <div className="bg-gray-800 rounded-xl p-3 text-center">
-          <img
-            src="/avatar/interviewer.jpg"
-            className={`mx-auto w-32 h-32 rounded-full ${
-              agentSpeaking ? "ring-4 ring-green-400" : ""
-            }`}
-          />
-          <div className="mt-2 text-sm">AI Interviewer</div>
-        </div>
-
-        <div className="bg-black rounded-xl overflow-hidden flex-1">
-          <video
-            ref={candidateVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        </div>
+      <aside className="bg-gray-900 p-4">
+        <video
+          ref={candidateVideoRef}
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-cover rounded-xl"
+        />
       </aside>
     </div>
   );
