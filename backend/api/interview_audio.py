@@ -1,57 +1,41 @@
-# backend/api/interview_audio.py
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, Body
 from uuid import UUID
-import os
-import tempfile
+from typing import List
 
-from faster_whisper import WhisperModel
+from services.streaming_asr import append_audio, clear_stream
 
 router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
-
-# ⚠️ IMPORTANT: int8 causes crashes on many Windows CPUs
-asr_model = WhisperModel(
-    "base",
-    device="cpu",
-    compute_type="float32",  # ← SAFE
-)
-
-
-def transcribe_audio_bytes(audio_bytes: bytes) -> str:
-    fd, path = tempfile.mkstemp(suffix=".webm")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(audio_bytes)
-
-        segments, _ = asr_model.transcribe(path)
-        return " ".join(seg.text.strip() for seg in segments).strip()
-    finally:
-        try:
-            os.remove(path)
-        except OSError:
-            pass
 
 
 @router.post("/{interview_id}/transcribe_audio")
 async def transcribe_audio(
     interview_id: UUID,
-    file: UploadFile = File(...),
-    question_id: int = Form(...),
-    partial: bool = Form(False),
+    question_id: int = Body(...),
+    audio_bytes: List[int] = Body(...),
+    partial: bool = Body(True),
 ):
-    audio_bytes = await file.read()
+    """
+    Streaming ASR endpoint.
+    Expects raw PCM/WEBM bytes sent as JSON array.
+    """
 
-    # 🔥 Phase 6D-7: ignore partial chunks (UI-only)
+    # Convert list[int] → bytes
+    chunk = bytes(audio_bytes)
+
+    text = append_audio(str(interview_id), question_id, chunk)
+
     if partial:
         return {
             "partial": True,
             "question_id": question_id,
+            "text": text,
         }
 
-    # ✅ FINAL SUBMIT ONLY
-    transcript = transcribe_audio_bytes(audio_bytes)
+    # Final flush
+    clear_stream(str(interview_id), question_id)
 
     return {
-        "transcript": transcript,
-        "question_id": question_id,
         "partial": False,
+        "question_id": question_id,
+        "transcript": text,
     }

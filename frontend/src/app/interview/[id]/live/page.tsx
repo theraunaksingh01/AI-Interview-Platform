@@ -29,7 +29,7 @@ export default function LiveInterviewPage() {
   const audioQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef(false);
 
-  const pendingQuestionIdRef = useRef<number | null>(null);
+  const currentQuestionIdRef = useRef<number | null>(null);
 
   /* ---------------- State ---------------- */
 
@@ -94,18 +94,15 @@ export default function LiveInterviewPage() {
         enqueueAgentAudio(msg.audio_url);
       }
 
-      // 👉 store question_id, but DO NOT start candidate yet
       if (typeof msg.question_id === "number") {
-        pendingQuestionIdRef.current = msg.question_id;
+        currentQuestionIdRef.current = msg.question_id;
       }
     };
 
     return () => ws.close();
   }, [interviewId]);
 
-  /* =========================================================
-     🔊 AGENT AUDIO QUEUE (CRITICAL)
-     ========================================================= */
+  /* ---------------- Agent Audio Queue ---------------- */
 
   function enqueueAgentAudio(audioUrl: string) {
     const fullUrl = audioUrl.startsWith("http")
@@ -121,56 +118,90 @@ export default function LiveInterviewPage() {
     if (isPlayingRef.current) return;
 
     if (audioQueueRef.current.length === 0) {
-      // ✅ Agent finished speaking → now start candidate turn
-      if (pendingQuestionIdRef.current !== null) {
-        startCandidateTurn();
-        pendingQuestionIdRef.current = null;
-      }
+      // Agent finished → start candidate
+      startCandidateTurn();
       return;
     }
 
     const audio = agentAudioRef.current;
-    const nextSrc = audioQueueRef.current.shift()!;
+    const src = audioQueueRef.current.shift()!;
 
     isPlayingRef.current = true;
     setAgentSpeaking(true);
     setCandidateSpeaking(false);
 
-    audio.src = nextSrc;
-    audio.muted = false;
+    audio.src = src;
     audio.volume = 1;
 
-    audio.onended = finishAudioAndContinue;
-    audio.onerror = finishAudioAndContinue;
+    audio.onended = finishAgentAudio;
+    audio.onerror = finishAgentAudio;
 
-    audio.play().catch(finishAudioAndContinue);
+    audio.play().catch(finishAgentAudio);
   }
 
-  function finishAudioAndContinue() {
+  function finishAgentAudio() {
     isPlayingRef.current = false;
     setAgentSpeaking(false);
     tryPlayNextAudio();
   }
 
-  /* ---------------- Candidate Recording ---------------- */
+  /* ---------------- Candidate Recording + Streaming ASR ---------------- */
 
   function startCandidateTurn() {
+    if (!currentQuestionIdRef.current) return;
+
     setCandidateSpeaking(true);
     setConfidence("listening");
     setPartialTranscript("");
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      const mr = new MediaRecorder(stream);
+      const mr = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
 
-      mr.ondataavailable = () => {
-        setConfidence("speaking");
-        setPartialTranscript("Listening…");
+      mr.ondataavailable = async (e) => {
+        if (!e.data || e.data.size === 0) return;
+            
+        const buffer = await e.data.arrayBuffer();
+            
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              question_id: currentQuestionIdRef.current,
+              audio_bytes: Array.from(new Uint8Array(buffer)),
+            }),
+          }
+        )
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.text) setPartialTranscript(d.text);
+          })
+          .catch(() => {});
       };
+      
 
-      mr.onstop = () => {
+
+      mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         setCandidateSpeaking(false);
         setConfidence("paused");
+
+        // final submit
+        const blob = new Blob([], { type: "audio/webm" });
+        const form = new FormData();
+        form.append("file", blob);
+        form.append("question_id", String(currentQuestionIdRef.current));
+        form.append("partial", "false");
+
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
+          { method: "POST", body: form },
+        );
       };
 
       mr.start(2000);
@@ -182,7 +213,6 @@ export default function LiveInterviewPage() {
 
   return (
     <div className="grid grid-cols-[1fr_360px] h-screen bg-gray-100">
-      {/* 🔊 SINGLE AUDIO ELEMENT (REQUIRED) */}
       <audio ref={agentAudioRef} preload="auto" playsInline />
 
       <div className="p-6 flex flex-col gap-4">
