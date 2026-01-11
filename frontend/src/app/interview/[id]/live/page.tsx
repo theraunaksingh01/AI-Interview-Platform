@@ -30,6 +30,8 @@ export default function LiveInterviewPage() {
   const isPlayingRef = useRef(false);
 
   const currentQuestionIdRef = useRef<number | null>(null);
+  const pendingQuestionIdRef = useRef<number | null>(null);
+
 
   /* ---------------- State ---------------- */
 
@@ -161,29 +163,44 @@ export default function LiveInterviewPage() {
 
       mr.ondataavailable = async (e) => {
         if (!e.data || e.data.size === 0) return;
-            
-        const buffer = await e.data.arrayBuffer();
-            
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              question_id: currentQuestionIdRef.current,
-              audio_bytes: Array.from(new Uint8Array(buffer)),
-            }),
+
+        const formData = new FormData();
+
+        // ✅ REQUIRED by FastAPI
+        formData.append("file", e.data, "chunk.webm");
+        if (!currentQuestionIdRef.current) return;
+
+        formData.append(
+          "question_id",
+          String(currentQuestionIdRef.current)
+        );
+        
+        formData.append("partial", "true"); // MUST be string
+
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+        
+          if (!res.ok) {
+            console.error("ASR failed", await res.text());
+            return;
           }
-        )
-          .then((r) => r.json())
-          .then((d) => {
-            if (d.text) setPartialTranscript(d.text);
-          })
-          .catch(() => {});
+        
+          const data = await res.json();
+        
+          if (data?.text) {
+            setPartialTranscript(data.text);
+          }
+        } catch (err) {
+          console.error("ASR error", err);
+        }
       };
-      
+
 
 
       mr.onstop = async () => {

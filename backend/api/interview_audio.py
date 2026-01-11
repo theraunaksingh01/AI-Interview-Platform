@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, UploadFile, File, Form
 from uuid import UUID
 from typing import List
 
@@ -10,28 +10,27 @@ router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
 @router.post("/{interview_id}/transcribe_audio")
 async def transcribe_audio(
     interview_id: UUID,
-    question_id: int = Body(...),
-    audio_bytes: List[int] = Body(...),
-    partial: bool = Body(True),
+    file: UploadFile = File(...),
+    question_id: int = Form(...),
+    partial: bool = Form(False),
 ):
-    """
-    Streaming ASR endpoint.
-    Expects raw PCM/WEBM bytes sent as JSON array.
-    """
+    audio_bytes = await file.read()
 
-    # Convert list[int] → bytes
-    chunk = bytes(audio_bytes)
-
-    text = append_audio(str(interview_id), question_id, chunk)
+    text, speech_ended = append_audio(
+        str(interview_id),
+        question_id,
+        audio_bytes,
+    )
 
     if partial:
         return {
             "partial": True,
             "question_id": question_id,
             "text": text,
+            "speech_ended": speech_ended,
         }
 
-    # Final flush
+    # Final submit
     clear_stream(str(interview_id), question_id)
 
     return {
