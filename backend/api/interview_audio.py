@@ -12,7 +12,6 @@ async def transcribe_audio(
     interview_id: UUID,
     file: UploadFile = File(...),
     question_id: int = Form(...),
-    partial: bool = Form(False),
 ):
     audio_bytes = await file.read()
 
@@ -22,15 +21,15 @@ async def transcribe_audio(
         audio_bytes,
     )
 
-    if partial:
+    # Partial update
+    if not speech_ended:
         return {
             "partial": True,
             "question_id": question_id,
             "text": text,
-            "speech_ended": speech_ended,
         }
 
-    # Final submit
+    # Final flush
     clear_stream(str(interview_id), question_id)
 
     return {
@@ -38,3 +37,4 @@ async def transcribe_audio(
         "question_id": question_id,
         "transcript": text,
     }
+
