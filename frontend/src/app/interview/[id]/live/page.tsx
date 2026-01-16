@@ -42,6 +42,10 @@ export default function LiveInterviewPage() {
   const [confidence, setConfidence] =
     useState<"listening" | "speaking" | "paused">("listening");
 
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const finalChunksRef = useRef<Blob[]>([]);
+
+
   /* ---------------- Browser ASR (ONLY SOURCE) ---------------- */
 
   const {
@@ -163,48 +167,63 @@ export default function LiveInterviewPage() {
     setConfidence("listening");
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    finalChunksRef.current = [];
 
-      mr.ondataavailable = async (e) => {
-        if (!e.data || e.data.size === 0) return;
+    const mr = new MediaRecorder(stream, {
+      mimeType: "audio/webm",
+    });
 
-        const formData = new FormData();
-        formData.append("file", e.data, "chunk.webm");
-        formData.append(
-          "question_id",
-          String(currentQuestionIdRef.current)
-        );
-        formData.append("partial", "true");
+    mr.ondataavailable = async (e) => {
+      if (!e.data || e.data.size === 0) return;
 
+      // 🔹 Collect for final submit
+      finalChunksRef.current.push(e.data);
+
+      // 🔹 Live backend ASR (optional, already stable)
+      const formData = new FormData();
+      if (!currentQuestionIdRef.current) return;
+
+      formData.append("file", e.data, "chunk.webm");
+      formData.append("question_id", String(currentQuestionIdRef.current));
+      formData.append("partial", "true");
+
+      try {
         await fetch(
           `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
           { method: "POST", body: formData }
         );
-      };
+      } catch {}
+    };
 
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setCandidateSpeaking(false);
-        setConfidence("paused");
+    mr.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      setCandidateSpeaking(false);
+      setConfidence("paused");
+        
+      if (!currentQuestionIdRef.current) return;
+        
+      const finalBlob = new Blob(finalChunksRef.current, {
+        type: "audio/webm",
+      });
+    
+      const form = new FormData();
+      form.append("file", finalBlob, "final.webm");
+      form.append("question_id", String(currentQuestionIdRef.current));
+      form.append("partial", "false");
+    
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
+        { method: "POST", body: form }
+      );
+    
+      finalChunksRef.current = [];
+    };
 
-        const blob = new Blob([], { type: "audio/webm" });
-        const form = new FormData();
-        form.append("file", blob);
-        form.append(
-          "question_id",
-          String(currentQuestionIdRef.current)
-        );
-        form.append("partial", "false");
 
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
-          { method: "POST", body: form }
-        );
-      };
+    mr.start(2000); // 2s chunks
+    mediaRecorderRef.current = mr;
+  });
 
-      mr.start(2000);
-      mediaRecorderRef.current = mr;
-    });
   }
 
   /* ---------------- UI ---------------- */

@@ -1,7 +1,10 @@
-from faster_whisper import WhisperModel
-import tempfile
 import os
-from pydub import AudioSegment
+import tempfile
+import logging
+
+from faster_whisper import WhisperModel
+
+logger = logging.getLogger(__name__)
 
 model = WhisperModel(
     "base",
@@ -9,36 +12,47 @@ model = WhisperModel(
     compute_type="float32",
 )
 
+
 def transcribe_audio_bytes(audio_bytes: bytes) -> str:
-    if not audio_bytes:
+    """
+    Final ASR transcription.
+    Uses backend-buffered audio.
+    Fails safely if container is invalid.
+    """
+
+    # 🛑 Guard: empty or too small
+    if not audio_bytes or len(audio_bytes) < 4000:
+        logger.warning("Final ASR skipped: empty / insufficient audio")
         return ""
 
-    raw_path = None
-    wav_path = None
+    fd, path = tempfile.mkstemp(suffix=".webm")
 
     try:
-        # Write combined WebM buffer
-        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+        with os.fdopen(fd, "wb") as f:
             f.write(audio_bytes)
-            raw_path = f.name
 
-        wav_path = raw_path.replace(".webm", ".wav")
+        try:
+            segments, _ = model.transcribe(
+                path,
+                language="en",
+                beam_size=5,
+                vad_filter=True,
+                condition_on_previous_text=False,
+                temperature=0.0,
+            )
+        except Exception:
+            # 🚨 INVALID WEBM (fragmented MediaRecorder output)
+            logger.error(
+                "Final ASR failed: invalid WebM container (expected for fragmented chunks)",
+                exc_info=True,
+            )
+            return ""
 
-        audio = AudioSegment.from_file(raw_path)
-        audio = audio.set_channels(1).set_frame_rate(16000)
-        audio.export(wav_path, format="wav")
-
-        segments, _ = model.transcribe(wav_path)
-        return " ".join(seg.text.strip() for seg in segments).strip()
-
-    except Exception as e:
-        # Fail silently for partial buffers
-        return ""
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+        return text
 
     finally:
-        for p in (raw_path, wav_path):
-            if p and os.path.exists(p):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
+        try:
+            os.remove(path)
+        except OSError:
+            pass
