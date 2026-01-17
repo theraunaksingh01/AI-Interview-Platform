@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+import numpy as np
 
 from faster_whisper import WhisperModel
 
@@ -56,3 +57,23 @@ def transcribe_audio_bytes(audio_bytes: bytes) -> str:
             os.remove(path)
         except OSError:
             pass
+
+def transcribe_pcm_bytes(pcm_bytes: bytes) -> str:
+    """
+    Transcribe raw PCM Int16 LE audio (16kHz, mono).
+    """
+    if not pcm_bytes:
+        return ""
+
+    audio = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+
+    segments, _ = model.transcribe(
+        audio,
+        language="en",
+        beam_size=5,
+        vad_filter=True,
+        condition_on_previous_text=False,
+        temperature=0.0,
+    )
+
+    return " ".join(seg.text.strip() for seg in segments).strip()

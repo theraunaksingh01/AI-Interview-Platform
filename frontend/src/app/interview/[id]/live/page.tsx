@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useBrowserASR } from "@/hooks/useBrowserASR";
+import { usePCMAudioCapture } from "@/hooks/usePCMAudioCapture";
+
 
 /* ---------------- Types ---------------- */
 
@@ -14,7 +16,18 @@ type WSMessage =
       audio_url?: string;
       done?: boolean;
     }
-  | { type: "error"; message: string };
+  | {
+      type: "ai_interrupt";
+      text: string;
+      audio_url?: string;
+      reason?: string; 
+    }
+  | {
+      type: "error";
+      message: string;
+    };
+
+
 
 export default function LiveInterviewPage() {
   const { id } = useParams();
@@ -44,6 +57,9 @@ export default function LiveInterviewPage() {
 
   const recordedChunksRef = useRef<Blob[]>([]);
   const finalChunksRef = useRef<Blob[]>([]);
+
+  const { start: startPCM, stop: stopPCM } = usePCMAudioCapture();
+
 
 
   /* ---------------- Browser ASR (ONLY SOURCE) ---------------- */
@@ -98,19 +114,42 @@ export default function LiveInterviewPage() {
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
-      const msg: WSMessage = JSON.parse(e.data);
-      if (msg.type !== "agent_message") return;
+  const msg: WSMessage = JSON.parse(e.data);
 
+  // 🟢 Normal agent message (question / follow-up)
+  if (msg.type === "agent_message") {
+    if (msg.text) {
       setQuestionText(msg.text);
+    }
 
-      if (msg.audio_url) {
-        enqueueAgentAudio(msg.audio_url);
-      }
+    if (msg.audio_url) {
+      enqueueAgentAudio(msg.audio_url);
+    }
 
-      if (typeof msg.question_id === "number") {
-        currentQuestionIdRef.current = msg.question_id;
-      }
-    };
+    if (typeof msg.question_id === "number") {
+      currentQuestionIdRef.current = msg.question_id;
+    }
+    return;
+  }
+
+  // 🔴 AI interrupt while candidate is speaking
+  if (msg.type === "ai_interrupt") {
+    console.log("[AI INTERRUPT]", msg.reason);
+
+    // stop candidate recording immediately
+    mediaRecorderRef.current?.stop();
+    setCandidateSpeaking(false);
+    setConfidence("paused");
+
+    if (msg.text) {
+      setQuestionText(msg.text);
+    }
+
+    if (msg.audio_url) {
+      enqueueAgentAudio(msg.audio_url);
+    }
+  }
+};
 
     return () => ws.close();
   }, [interviewId]);
@@ -160,29 +199,49 @@ export default function LiveInterviewPage() {
   /* ---------------- Candidate Recording (UPLOAD ONLY) ---------------- */
 
   function startCandidateTurn() {
-    if (!currentQuestionIdRef.current) return;
+  if (!currentQuestionIdRef.current) return;
 
-    resetTranscript();
-    setCandidateSpeaking(true);
-    setConfidence("listening");
+  resetTranscript();
+  setCandidateSpeaking(true);
+  setConfidence("listening");
 
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
     finalChunksRef.current = [];
 
     const mr = new MediaRecorder(stream, {
       mimeType: "audio/webm",
     });
 
+    /* ---------------- PCM CAPTURE (PARALLEL) ---------------- */
+    startPCM((pcmChunk: Int16Array) => {
+      if (!currentQuestionIdRef.current) return;
+
+      fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/stream_pcm?question_id=${currentQuestionIdRef.current}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            samples: Array.from(pcmChunk),
+          }),
+        }
+      ).catch(() => {});
+    });
+
+    /* ---------------- EXISTING WEBM FLOW (UNCHANGED) ---------------- */
+
     mr.ondataavailable = async (e) => {
       if (!e.data || e.data.size === 0) return;
 
-      // 🔹 Collect for final submit
+      // Collect for final submit
       finalChunksRef.current.push(e.data);
 
-      // 🔹 Live backend ASR (optional, already stable)
-      const formData = new FormData();
+      // Live backend ASR (existing & stable)
       if (!currentQuestionIdRef.current) return;
 
+      const formData = new FormData();
       formData.append("file", e.data, "chunk.webm");
       formData.append("question_id", String(currentQuestionIdRef.current));
       formData.append("partial", "true");
@@ -192,39 +251,50 @@ export default function LiveInterviewPage() {
           `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
           { method: "POST", body: formData }
         );
-      } catch {}
+      } catch (err) {
+        console.error("Live ASR failed", err);
+      }
     };
 
     mr.onstop = async () => {
+      // 1️⃣ Stop mic tracks
       stream.getTracks().forEach((t) => t.stop());
+
+      // 2️⃣ Stop PCM capture
+      stopPCM();
+
+      // 3️⃣ UI state
       setCandidateSpeaking(false);
       setConfidence("paused");
-        
+
       if (!currentQuestionIdRef.current) return;
-        
-      const finalBlob = new Blob(finalChunksRef.current, {
-        type: "audio/webm",
-      });
+
+      // 4️⃣ Tell backend: "PCM stream finished, transcribe now"
+      try {
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/finalize_pcm?question_id=${currentQuestionIdRef.current}`,
+          { method: "POST" }
+        );
+      } catch (err) {
+        console.error("Final PCM ASR failed", err);
+      }
     
-      const form = new FormData();
-      form.append("file", finalBlob, "final.webm");
-      form.append("question_id", String(currentQuestionIdRef.current));
-      form.append("partial", "false");
-    
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
-        { method: "POST", body: form }
-      );
-    
+      // 5️⃣ Cleanup (no WebM buffers anymore)
       finalChunksRef.current = [];
     };
 
-
-    mr.start(2000); // 2s chunks
+    mr.start(2000); // 2s chunks (unchanged)
     mediaRecorderRef.current = mr;
   });
+}
 
-  }
+
+function stopCandidateTurn() {
+  mediaRecorderRef.current?.stop(); // triggers mr.onstop
+  stopPCM();
+  setCandidateSpeaking(false);
+}
+
 
   /* ---------------- UI ---------------- */
 

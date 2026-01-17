@@ -1,7 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Dict, Any
 from uuid import UUID
 from datetime import datetime
 import logging
@@ -13,30 +12,28 @@ from tasks.live_scoring import score_turn
 
 from services.tts_service import synthesize_speech
 from utils.audio_storage import save_agent_audio_file
+from services.ws_broadcast import ACTIVE_CONNECTIONS
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-connections: Dict[UUID, WebSocket] = {}
 
-
-async def send_json_safe(ws: WebSocket, payload: Dict[str, Any]) -> None:
+async def send_json_safe(ws: WebSocket, payload: dict):
     try:
         await ws.send_json(payload)
     except Exception:
-        logger.exception("[WS] send_json failed")
+        logger.exception("[WS] send failed")
 
 
 def get_next_question(db: Session, interview_id: UUID):
     rows = db.execute(
-        text(
-            """
+        text("""
             SELECT id, question_text
             FROM interview_questions
             WHERE interview_id = :iid
             ORDER BY id ASC
-            """
-        ),
+        """),
         {"iid": interview_id},
     ).fetchall()
 
@@ -44,15 +41,13 @@ def get_next_question(db: Session, interview_id: UUID):
         return None
 
     answered = db.execute(
-        text(
-            """
+        text("""
             SELECT DISTINCT question_id
             FROM interview_turns
             WHERE interview_id = :iid
               AND speaker = 'candidate'
               AND question_id IS NOT NULL
-            """
-        ),
+        """),
         {"iid": interview_id},
     ).fetchall()
 
@@ -72,29 +67,17 @@ async def interview_ws(
     db: Session = Depends(get_db),
 ):
     await websocket.accept()
-    logger.info("[WS] connected interview_id=%s", interview_id)
+    logger.info("[WS] connected %s", interview_id)
 
-    exists = db.execute(
-        text("SELECT 1 FROM interviews WHERE id = :iid"),
-        {"iid": interview_id},
-    ).scalar()
-
-    if not exists:
-        await send_json_safe(websocket, {"type": "error", "message": "Interview not found"})
-        await websocket.close()
-        return
-
-    connections[interview_id] = websocket
-
-    # Greeting + first question (strict order)
-    await handle_on_connect(db, interview_id, websocket)
+    ACTIVE_CONNECTIONS.setdefault(str(interview_id), set()).add(websocket)
 
     try:
+        await handle_on_connect(db, interview_id, websocket)
+
         while True:
             msg = await websocket.receive_json()
-            mtype = msg.get("type")
 
-            if mtype == "candidate_text":
+            if msg.get("type") == "candidate_text":
                 turn = InterviewTurn(
                     interview_id=interview_id,
                     question_id=msg.get("question_id"),
@@ -107,17 +90,7 @@ async def interview_ws(
                 db.commit()
                 db.refresh(turn)
 
-                score_task = score_turn.delay(turn.id)
-
-                await send_json_safe(
-                    websocket,
-                    {
-                        "type": "scoring_started",
-                        "turn_id": turn.id,
-                        "question_id": turn.question_id,
-                        "task_id": score_task.id,
-                    },
-                )
+                score_turn.delay(turn.id)
 
                 next_q = get_next_question(db, interview_id)
                 if next_q:
@@ -131,24 +104,20 @@ async def interview_ws(
                             "done": True,
                         },
                     )
-                    db.execute(
-                        text("UPDATE interviews SET status='completed' WHERE id=:iid"),
-                        {"iid": interview_id},
-                    )
-                    db.commit()
 
-            elif mtype == "ping":
+            elif msg.get("type") == "ping":
                 await send_json_safe(websocket, {"type": "pong"})
 
     except WebSocketDisconnect:
-        connections.pop(interview_id, None)
-        logger.info("[WS] disconnected interview_id=%s", interview_id)
+        logger.info("[WS] disconnected %s", interview_id)
+
+    finally:
+        ACTIVE_CONNECTIONS.get(str(interview_id), set()).discard(websocket)
 
 
 async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     greeting = "Hi! We'll start your interview now. Please answer in detail."
 
-    # save greeting turn
     db.add(
         InterviewTurn(
             interview_id=interview_id,
@@ -160,99 +129,67 @@ async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     )
     db.commit()
 
-    # 1️⃣ Send greeting text immediately
-    await send_json_safe(
-        ws,
-        {
-            "type": "agent_message",
-            "text": greeting,
-        },
-    )
+    await send_json_safe(ws, {"type": "agent_message", "text": greeting})
 
-    # 2️⃣ Try generating audio (SAFE)
-    audio_path = None
     try:
         audio_bytes = await asyncio.to_thread(synthesize_speech, greeting)
         if audio_bytes:
             audio_path = await asyncio.to_thread(
                 save_agent_audio_file, audio_bytes, str(interview_id)
             )
-    except Exception as e:
-        logger.exception("[TTS] Greeting synthesis failed: %s", e)
+            await send_json_safe(
+                ws,
+                {
+                    "type": "agent_message",
+                    "text": greeting,
+                    "audio_url": audio_path,
+                },
+            )
+    except Exception:
+        logger.exception("[TTS] greeting failed")
 
-    # 3️⃣ Send greeting audio ONLY if it exists
-    if audio_path:
-        await send_json_safe(
-            ws,
-            {
-                "type": "agent_message",
-                "text": greeting,
-                "audio_url": audio_path,
-            },
-        )
-
-    # 4️⃣ Send first question
     first_q = get_next_question(db, interview_id)
     if first_q:
         await send_agent_question(db, interview_id, first_q, ws)
-    else:
-        await send_json_safe(
-            ws,
-            {
-                "type": "agent_message",
-                "text": "No questions configured.",
-                "done": True,
-            },
-        )
 
 
-
-async def send_agent_question(
-    db: Session,
-    interview_id: UUID,
-    question: dict,
-    ws: WebSocket,
-):
-    qid = question["id"]
-    qtext = question["question_text"]
+async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebSocket):
+    qid = q["id"]
+    text_q = q["question_text"]
 
     db.add(
         InterviewTurn(
             interview_id=interview_id,
             question_id=qid,
             speaker="agent",
-            transcript=qtext,
+            transcript=text_q,
             started_at=datetime.utcnow(),
             ended_at=datetime.utcnow(),
         )
     )
     db.commit()
 
-    # 1️⃣ Send question text
     await send_json_safe(
         ws,
         {
             "type": "agent_message",
             "question_id": qid,
-            "text": qtext,
+            "text": text_q,
         },
     )
-    
-    # 2️⃣ Generate audio
-    audio_bytes = await asyncio.to_thread(synthesize_speech, qtext)
-    if audio_bytes:
-        audio_path = await asyncio.to_thread(save_agent_audio_file, audio_bytes)
-    
-        # 🔥 SEND AUDIO AS SEPARATE EVENT
-        await send_json_safe(
-            ws,
-            {
-                "type": "agent_message",
-                "role": "agent",
-                "text": qtext,
-                "question_id": qid,
-                "audio_url": audio_path,
-            },
-        )
 
-    
+    try:
+        audio = await asyncio.to_thread(synthesize_speech, text_q)
+        if audio:
+            path = await asyncio.to_thread(save_agent_audio_file, audio)
+            await send_json_safe(
+                ws,
+                {
+                    "type": "agent_message",
+                    "question_id": qid,
+                    "text": text_q,
+                    "audio_url": path,
+                },
+            )
+    except Exception:
+        logger.exception("[TTS] question failed")
