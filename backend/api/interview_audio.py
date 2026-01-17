@@ -6,10 +6,15 @@ from typing import List
 from db.session import get_db
 from models.interview_answers import InterviewAnswer
 
+# WebM streaming (MediaRecorder)
 from services.streaming_asr import (
     append_audio,
     pop_full_audio,
-    append_pcm_audio,
+)
+
+# PCM streaming (WebAudio)
+from services.pcm_buffer import (
+    append_pcm,
     pop_full_pcm,
 )
 
@@ -17,9 +22,6 @@ from services.asr_service import (
     transcribe_audio_bytes,
     transcribe_pcm_bytes,
 )
-
-from services.ws_broadcast import broadcast_to_interview
-
 
 router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
 
@@ -62,11 +64,12 @@ async def transcribe_audio(
     if answer:
         answer.transcript = transcript
     else:
-        answer = InterviewAnswer(
-            interview_question_id=question_id,
-            transcript=transcript,
+        db.add(
+            InterviewAnswer(
+                interview_question_id=question_id,
+                transcript=transcript,
+            )
         )
-        db.add(answer)
 
     db.commit()
 
@@ -96,7 +99,7 @@ async def stream_pcm_audio(
     for s in samples:
         pcm_bytes += int(s).to_bytes(2, byteorder="little", signed=True)
 
-    append_pcm_audio(str(interview_id), question_id, bytes(pcm_bytes))
+    append_pcm(str(interview_id), question_id, bytes(pcm_bytes))
     return {"ok": True}
 
 

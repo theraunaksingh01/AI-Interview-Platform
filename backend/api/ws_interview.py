@@ -12,8 +12,10 @@ from tasks.live_scoring import score_turn
 
 from services.tts_service import synthesize_speech
 from utils.audio_storage import save_agent_audio_file
-from services.ws_broadcast import ACTIVE_CONNECTIONS
-
+from services.ws_broadcast import (
+    register_connection,
+    unregister_connection,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -69,7 +71,7 @@ async def interview_ws(
     await websocket.accept()
     logger.info("[WS] connected %s", interview_id)
 
-    ACTIVE_CONNECTIONS.setdefault(str(interview_id), set()).add(websocket)
+    await register_connection(interview_id, websocket)
 
     try:
         await handle_on_connect(db, interview_id, websocket)
@@ -112,7 +114,7 @@ async def interview_ws(
         logger.info("[WS] disconnected %s", interview_id)
 
     finally:
-        ACTIVE_CONNECTIONS.get(str(interview_id), set()).discard(websocket)
+        unregister_connection(interview_id)
 
 
 async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):

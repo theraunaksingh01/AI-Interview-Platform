@@ -1,55 +1,33 @@
-# backend/services/ws_broadcast.py
+# services/ws_broadcast.py
 
-from typing import Dict, Any, Set
+from typing import Dict, Any
 from uuid import UUID
 from fastapi import WebSocket
-import json
+import logging
 
-from backend.api.ws_interview import connections  # the in-memory dict from ws_interview
+logger = logging.getLogger(__name__)
 
-def broadcast_score_update(interview_id: UUID, payload: Dict[str, Any]) -> None:
-    """
-    Very simple broadcast: if a WebSocket connection exists for this interview,
-    send the payload. Works for single-process dev.
-    """
-    ws = connections.get(interview_id)
+# 🔑 SINGLE SOURCE OF TRUTH
+ACTIVE_CONNECTIONS: Dict[UUID, WebSocket] = {}
+
+
+async def register_connection(interview_id: UUID, ws: WebSocket):
+    ACTIVE_CONNECTIONS[interview_id] = ws
+    logger.info("[WS] registered interview_id=%s", interview_id)
+
+
+def unregister_connection(interview_id: UUID):
+    ACTIVE_CONNECTIONS.pop(interview_id, None)
+    logger.info("[WS] unregistered interview_id=%s", interview_id)
+
+
+async def broadcast_to_interview(interview_id: UUID, payload: Dict[str, Any]):
+    ws = ACTIVE_CONNECTIONS.get(interview_id)
     if not ws:
+        logger.warning("[WS] no active connection for interview_id=%s", interview_id)
         return
 
-    # We can't 'await' here because Celery tasks are sync.
-    # We can dispatch via loop, or just ignore for now and
-    # switch to polling on frontend.
-    #
-    # Easiest approach: don't call this for now,
-    # and instead let frontend poll /interview/{id}/scores.
-    #
-    # But if you want this working, you can:
-    # - use anyio.from_thread blocking call
-    # - or redesign to send via Redis pub/sub
-    #
-    # For now, you can leave this function empty to avoid errors.
-    pass
-
-ACTIVE_CONNECTIONS: Dict[str, Set[WebSocket]] = {}
-
-
-async def broadcast_to_interview(interview_id: str, payload: dict):
-    """
-    Send a JSON message to all clients in an interview room
-    """
-    sockets = ACTIVE_CONNECTIONS.get(interview_id, set())
-    if not sockets:
-        return
-
-    message = json.dumps(payload)
-
-    dead = set()
-    for ws in sockets:
-        try:
-            await ws.send_text(message)
-        except Exception:
-            dead.add(ws)
-
-    # Cleanup dead connections
-    for ws in dead:
-        sockets.discard(ws)
+    try:
+        await ws.send_json(payload)
+    except Exception:
+        logger.exception("[WS] broadcast failed interview_id=%s", interview_id)
