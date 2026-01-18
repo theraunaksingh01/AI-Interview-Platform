@@ -30,6 +30,11 @@ from services.asr_service import (
     transcribe_pcm_bytes,
 )
 
+from services.live_signals import get_final_confidence
+from services.turn_reasoning import decide_turn_action
+from services.ws_broadcast import broadcast_to_interview
+
+
 router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
 
 
@@ -111,13 +116,38 @@ async def transcribe_audio(
 
     db.commit()
 
-    print(f"[FINAL TRANSCRIPT][Q{question_id}] {transcript}")
+    # 🧠 Decide what the interviewer should do next (6D-15)
+    final_confidence = get_final_confidence(
+        str(interview_id),
+        question_id,
+    )
+
+    decision = decide_turn_action(
+        transcript=transcript,
+        confidence=final_confidence,
+    )
+
+    # 📡 Notify frontend
+    await broadcast_to_interview(
+        interview_id,
+        {
+            "type": "turn_decision",
+            "question_id": question_id,
+            "decision": decision,
+        },
+    )
+
+    print(
+        f"[FINAL TRANSCRIPT][Q{question_id}] "
+        f"confidence={final_confidence} decision={decision}"
+    )
 
     return {
         "partial": False,
         "question_id": question_id,
         "transcript": transcript,
     }
+
 
 
 # ===============================

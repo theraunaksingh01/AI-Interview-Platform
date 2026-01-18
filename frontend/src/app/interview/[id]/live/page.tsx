@@ -124,50 +124,60 @@ export default function LiveInterviewPage() {
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
-  const msg: WSMessage = JSON.parse(e.data);
+      const msg: WSMessage = JSON.parse(e.data);
+        
+      // 🟢 Normal agent message (question / follow-up)
+      if (msg.type === "agent_message") {
+        if (msg.text) {
+          setQuestionText(msg.text);
+        }
+      
+        if (msg.audio_url) {
+          enqueueAgentAudio(msg.audio_url);
+        }
+      
+        if (typeof msg.question_id === "number") {
+          currentQuestionIdRef.current = msg.question_id;
+        }
+        return;
+      }
+    
+      // 🔴 AI interrupt while candidate is speaking
+      if (msg.type === "ai_interrupt") {
+        console.log("[AI INTERRUPT]", msg.reason ?? "no-reason");
+      
+        // Stop candidate recording immediately
+        mediaRecorderRef.current?.stop();
+        setCandidateSpeaking(false);
+        setConfidence("paused");
+      
+        if (msg.text) {
+          setQuestionText(msg.text);
+        }
+      
+        if (msg.audio_url) {
+          enqueueAgentAudio(msg.audio_url);
+        }
+        return;
+      }
+    
+      // 🟡 Live confidence signal (NO UI state collision)
+      if (msg.type === "live_signal") {
+        // This is a SEPARATE signal, not the speaking state
+        setAnswerConfidence(msg.confidence);
+        return;
+      }
+    
+      // 🔵 Error fallback
+      if (msg.type === "error") {
+        console.error("[WS ERROR]", msg.message);
+        return;
+      }
+    };
+    
 
-  // 🟢 Normal agent message (question / follow-up)
-  if (msg.type === "agent_message") {
-    if (msg.text) {
-      setQuestionText(msg.text);
-    }
-
-    if (msg.audio_url) {
-      enqueueAgentAudio(msg.audio_url);
-    }
-
-    if (typeof msg.question_id === "number") {
-      currentQuestionIdRef.current = msg.question_id;
-    }
-    return;
-  }
-
-  // 🔴 AI interrupt while candidate is speaking
-  if (msg.type === "ai_interrupt") {
-    console.log("[AI INTERRUPT]", msg.reason);
-
-    // stop candidate recording immediately
-    mediaRecorderRef.current?.stop();
-    setCandidateSpeaking(false);
-    setConfidence("paused");
-
-    if (msg.text) {
-      setQuestionText(msg.text);
-    }
-
-    if (msg.audio_url) {
-      enqueueAgentAudio(msg.audio_url);
-    }
-  }
-
-  if (msg.type === "live_signal") {
-    setAnswerConfidence(msg.confidence);
-  }
-
-};
-
-    return () => ws.close();
-  }, [interviewId]);
+        return () => ws.close();
+      }, [interviewId]);
 
   useEffect(() => {
   if (!candidateSpeaking) return;

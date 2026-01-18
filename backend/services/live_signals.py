@@ -106,3 +106,11 @@ def clear_live_state(interview_id: str, question_id: int):
     Clear live rolling state once a question is finalized.
     """
     _LIVE_STATE.get(interview_id, {}).pop(question_id, None)
+    
+
+def get_final_confidence(interview_id: str, question_id: int) -> str:
+    state = _LIVE_STATE.get(interview_id, {}).get(question_id)
+    if not state:
+        return "medium"
+    return state.get("confidence", "medium")
+
