@@ -20,12 +20,19 @@ type WSMessage =
       type: "ai_interrupt";
       text: string;
       audio_url?: string;
-      reason?: string; 
+      reason?: string;
+    }
+  | {
+      type: "live_signal";
+      question_id: number;
+      confidence: "low" | "medium" | "high";
+      word_count: number;
     }
   | {
       type: "error";
       message: string;
     };
+
 
 
 
@@ -59,6 +66,9 @@ export default function LiveInterviewPage() {
   const finalChunksRef = useRef<Blob[]>([]);
 
   const { start: startPCM, stop: stopPCM } = usePCMAudioCapture();
+
+  const [answerConfidence, setAnswerConfidence] =
+  useState<"low" | "medium" | "high" | null>(null);
 
 
 
@@ -149,10 +159,33 @@ export default function LiveInterviewPage() {
       enqueueAgentAudio(msg.audio_url);
     }
   }
+
+  if (msg.type === "live_signal") {
+    setAnswerConfidence(msg.confidence);
+  }
+
 };
 
     return () => ws.close();
   }, [interviewId]);
+
+  useEffect(() => {
+  if (!candidateSpeaking) return;
+  if (!browserTranscript) return;
+  if (!currentQuestionIdRef.current) return;
+
+  fetch(
+    `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/live_text`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question_id: currentQuestionIdRef.current,
+        text: browserTranscript,
+      }),
+    }
+  ).catch(() => {});
+}, [browserTranscript]);
 
   /* ---------------- Agent Audio Queue ---------------- */
 

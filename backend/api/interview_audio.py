@@ -1,18 +1,25 @@
-from fastapi import APIRouter, UploadFile, File, Form, Body, Depends
+from fastapi import APIRouter, UploadFile, File, Form, Body, Depends, Query
 from uuid import UUID
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List
 
 from db.session import get_db
 from models.interview_answers import InterviewAnswer
 
-# WebM streaming (MediaRecorder)
+# 🔹 Live confidence signals
+from services.live_signals import update_live_answer
+
+# 🔹 WebSocket broadcast (NO import from ws_interview)
+from services.ws_broadcast import broadcast_to_interview
+
+# 🔹 WebM streaming (MediaRecorder)
 from services.streaming_asr import (
     append_audio,
     pop_full_audio,
 )
 
-# PCM streaming (WebAudio)
+# 🔹 PCM streaming (WebAudio)
 from services.pcm_buffer import (
     append_pcm,
     pop_full_pcm,
@@ -40,21 +47,52 @@ async def transcribe_audio(
 ):
     audio_bytes = await file.read()
 
-    # 🔁 Always buffer chunks
+    # 🔁 Always buffer incoming chunks
     append_audio(str(interview_id), question_id, audio_bytes)
 
-    # 🔁 Partial chunks → no Whisper, no DB
+   # 🔁 PARTIAL → live confidence + adaptive follow-up
     if partial:
+        signal = update_live_answer(
+            str(interview_id),
+            question_id,
+            text,  # 
+        )
+
+        # 📡 Send live confidence to UI
+        await broadcast_to_interview(
+            interview_id,
+            {
+                "type": "live_signal",
+                "question_id": question_id,
+                "confidence": signal["confidence"],
+                "word_count": signal["word_count"],
+            },
+        )
+
+        # 🧠 Adaptive follow-up decision
+        from services.live_followup import decide_followup
+
+        followup = decide_followup(
+            confidence=signal["confidence"],
+            word_count=signal["word_count"],
+            last_text=text,
+        )
+
+        if followup:
+            await broadcast_to_interview(interview_id, followup)
+
         return {"partial": True, "question_id": question_id}
 
-    # 🟢 FINAL → pop + transcribe ONCE
+
+
+    # 🟢 FINAL → transcribe ONCE
     full_audio = pop_full_audio(str(interview_id), question_id)
 
     transcript = ""
     if full_audio:
         transcript = transcribe_audio_bytes(full_audio)
 
-    # 🔒 Persist transcript (idempotent)
+    # 🔒 Persist transcript
     answer = (
         db.query(InterviewAnswer)
         .filter(InterviewAnswer.interview_question_id == question_id)
@@ -89,18 +127,16 @@ async def transcribe_audio(
 @router.post("/{interview_id}/stream_pcm")
 async def stream_pcm_audio(
     interview_id: UUID,
-    question_id: int,
+    question_id: int = Query(...),
     samples: List[int] = Body(...),
 ):
-    """
-    Receive PCM Int16 samples from browser.
-    """
     pcm_bytes = bytearray()
     for s in samples:
-        pcm_bytes += int(s).to_bytes(2, byteorder="little", signed=True)
+        pcm_bytes += int(s).to_bytes(2, "little", signed=True)
 
     append_pcm(str(interview_id), question_id, bytes(pcm_bytes))
     return {"ok": True}
+
 
 
 @router.post("/{interview_id}/finalize_pcm")
@@ -120,3 +156,45 @@ async def finalize_pcm(
         "question_id": question_id,
         "transcript": transcript,
     }
+
+@router.post("/{interview_id}/live_text")
+async def live_text(
+    interview_id: UUID,
+    question_id: int = Body(...),
+    text: str = Body(...),
+):
+    """
+    Receive live transcript text from browser ASR.
+    Used ONLY for semantic drift + confidence.
+    """
+
+    signal = update_live_answer(
+        str(interview_id),
+        question_id,
+        text,
+    )
+
+    # 🟢 Always broadcast live signal
+    await broadcast_to_interview(
+        str(interview_id),
+        {
+            "type": "live_signal",
+            "question_id": question_id,
+            "confidence": signal["confidence"],
+            "word_count": signal["word_count"],
+        },
+    )
+
+    # 🔴 Optional interrupt
+    if signal.get("interrupt"):
+        await broadcast_to_interview(
+            str(interview_id),
+            {
+                "type": "ai_interrupt",
+                "question_id": question_id,
+                "text": signal.get("followup", "Can you stay on topic?"),
+                "reason": signal.get("interrupt_reason", "semantic_drift"),
+            },
+        )
+
+    return {"ok": True}
