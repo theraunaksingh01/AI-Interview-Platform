@@ -6,6 +6,7 @@ from datetime import datetime
 import logging
 import asyncio
 
+from services.timeline_logger import log_timeline_event
 from db.session import get_db
 from db.models import InterviewTurn
 from tasks.live_scoring import score_turn
@@ -16,6 +17,9 @@ from services.ws_broadcast import (
     register_connection,
     unregister_connection,
 )
+
+from services.timeline_logger import log_timeline_event
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -170,6 +174,14 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         )
     )
     db.commit()
+    
+    log_timeline_event(
+        db,
+        interview_id=interview_id,
+        question_id=qid,
+        event_type="agent_question",
+        payload={"text": text_q},
+    )
 
     await send_json_safe(
         ws,

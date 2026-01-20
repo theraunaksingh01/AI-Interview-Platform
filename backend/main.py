@@ -76,6 +76,8 @@ from fastapi.staticfiles import StaticFiles
 
 
 from dotenv import load_dotenv
+from api import interview_replay
+
 
 
 
@@ -113,6 +115,9 @@ app.include_router(interview_router)
 app.include_router(ws_interview.router)
 
 app.include_router(interview_audio.router)
+
+app.include_router(interview_replay.router)
+
 
 
 _startup_import_error = None

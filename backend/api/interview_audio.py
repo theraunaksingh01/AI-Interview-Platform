@@ -1,46 +1,40 @@
+#api/interview_audio.py
 from fastapi import APIRouter, UploadFile, File, Form, Body, Depends, Query
 from uuid import UUID
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List
 
 from db.session import get_db
 from models.interview_answers import InterviewAnswer
 
-# 🔹 Live confidence signals
-from services.live_signals import update_live_answer
+# 🔹 Timeline logging (6E-1)
+from services.timeline_logger import log_timeline_event
 
-# 🔹 WebSocket broadcast (NO import from ws_interview)
-from services.ws_broadcast import broadcast_to_interview
+# 🔹 Live confidence
+from services.live_signals import update_live_answer, get_final_confidence
 
-# 🔹 WebM streaming (MediaRecorder)
-from services.streaming_asr import (
-    append_audio,
-    pop_full_audio,
-)
-
-# 🔹 PCM streaming (WebAudio)
-from services.pcm_buffer import (
-    append_pcm,
-    pop_full_pcm,
-)
-
-from services.asr_service import (
-    transcribe_audio_bytes,
-    transcribe_pcm_bytes,
-)
-
-from services.live_signals import get_final_confidence
+# 🔹 Turn reasoning (6D-15)
 from services.turn_reasoning import decide_turn_action
+
+# 🔹 WebSocket broadcast
 from services.ws_broadcast import broadcast_to_interview
+
+# 🔹 WebM streaming
+from services.streaming_asr import append_audio, pop_full_audio
+
+# 🔹 PCM streaming
+from services.pcm_buffer import append_pcm, pop_full_pcm
+
+# 🔹 ASR
+from services.asr_service import transcribe_audio_bytes, transcribe_pcm_bytes
 
 
 router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
 
 
-# ===============================
-# 🎙️ WEBM AUDIO (MediaRecorder)
-# ===============================
+# ==========================================================
+# 🎙️ MediaRecorder (WebM) — main answer pipeline
+# ==========================================================
 
 @router.post("/{interview_id}/transcribe_audio")
 async def transcribe_audio(
@@ -52,45 +46,18 @@ async def transcribe_audio(
 ):
     audio_bytes = await file.read()
 
-    # 🔁 Always buffer incoming chunks
+    # 🔁 Always buffer
     append_audio(str(interview_id), question_id, audio_bytes)
 
-   # 🔁 PARTIAL → live confidence + adaptive follow-up
+    # ------------------------------------------------------
+    # PARTIAL chunks → NO Whisper, NO DB, NO reasoning
+    # ------------------------------------------------------
     if partial:
-        signal = update_live_answer(
-            str(interview_id),
-            question_id,
-            text,  # 
-        )
-
-        # 📡 Send live confidence to UI
-        await broadcast_to_interview(
-            interview_id,
-            {
-                "type": "live_signal",
-                "question_id": question_id,
-                "confidence": signal["confidence"],
-                "word_count": signal["word_count"],
-            },
-        )
-
-        # 🧠 Adaptive follow-up decision
-        from services.live_followup import decide_followup
-
-        followup = decide_followup(
-            confidence=signal["confidence"],
-            word_count=signal["word_count"],
-            last_text=text,
-        )
-
-        if followup:
-            await broadcast_to_interview(interview_id, followup)
-
         return {"partial": True, "question_id": question_id}
 
-
-
-    # 🟢 FINAL → transcribe ONCE
+    # ------------------------------------------------------
+    # FINAL chunk → transcribe ONCE
+    # ------------------------------------------------------
     full_audio = pop_full_audio(str(interview_id), question_id)
 
     transcript = ""
@@ -116,7 +83,18 @@ async def transcribe_audio(
 
     db.commit()
 
-    # 🧠 Decide what the interviewer should do next (6D-15)
+    # 🧾 Timeline: candidate answer
+    log_timeline_event(
+        db,
+        interview_id=interview_id,
+        question_id=question_id,
+        event_type="candidate_answer",
+        payload={"transcript": transcript},
+    )
+
+    # ------------------------------------------------------
+    # 🧠 Turn-level reasoning (6D-15)
+    # ------------------------------------------------------
     final_confidence = get_final_confidence(
         str(interview_id),
         question_id,
@@ -125,6 +103,18 @@ async def transcribe_audio(
     decision = decide_turn_action(
         transcript=transcript,
         confidence=final_confidence,
+    )
+
+    # 🧾 Timeline: turn decision
+    log_timeline_event(
+        db,
+        interview_id=interview_id,
+        question_id=question_id,
+        event_type="turn_decision",
+        payload={
+            "decision": decision,
+            "confidence": final_confidence,
+        },
     )
 
     # 📡 Notify frontend
@@ -138,7 +128,7 @@ async def transcribe_audio(
     )
 
     print(
-        f"[FINAL TRANSCRIPT][Q{question_id}] "
+        f"[FINAL][Q{question_id}] "
         f"confidence={final_confidence} decision={decision}"
     )
 
@@ -149,10 +139,9 @@ async def transcribe_audio(
     }
 
 
-
-# ===============================
+# ==========================================================
 # 🔊 PCM STREAM (WebAudio API)
-# ===============================
+# ==========================================================
 
 @router.post("/{interview_id}/stream_pcm")
 async def stream_pcm_audio(
@@ -168,7 +157,6 @@ async def stream_pcm_audio(
     return {"ok": True}
 
 
-
 @router.post("/{interview_id}/finalize_pcm")
 async def finalize_pcm(
     interview_id: UUID,
@@ -180,12 +168,17 @@ async def finalize_pcm(
     if pcm:
         transcript = transcribe_pcm_bytes(pcm)
 
-    print(f"[FINAL PCM TRANSCRIPT][Q{question_id}] {transcript}")
+    print(f"[FINAL PCM][Q{question_id}] {transcript}")
 
     return {
         "question_id": question_id,
         "transcript": transcript,
     }
+
+
+# ==========================================================
+# 📝 Live text from Browser ASR (confidence only)
+# ==========================================================
 
 @router.post("/{interview_id}/live_text")
 async def live_text(
@@ -193,20 +186,15 @@ async def live_text(
     question_id: int = Body(...),
     text: str = Body(...),
 ):
-    """
-    Receive live transcript text from browser ASR.
-    Used ONLY for semantic drift + confidence.
-    """
-
     signal = update_live_answer(
         str(interview_id),
         question_id,
         text,
     )
 
-    # 🟢 Always broadcast live signal
+    # 🟢 Always send live signal
     await broadcast_to_interview(
-        str(interview_id),
+        interview_id,
         {
             "type": "live_signal",
             "question_id": question_id,
@@ -215,16 +203,17 @@ async def live_text(
         },
     )
 
-    # 🔴 Optional interrupt
-    if signal.get("interrupt"):
+    # 🔴 INTERRUPT IF NEEDED
+    if signal["interrupt"]:
         await broadcast_to_interview(
-            str(interview_id),
+            interview_id,
             {
                 "type": "ai_interrupt",
                 "question_id": question_id,
-                "text": signal.get("followup", "Can you stay on topic?"),
-                "reason": signal.get("interrupt_reason", "semantic_drift"),
+                "text": signal["followup"],
+                "reason": signal["interrupt_reason"],
             },
         )
 
     return {"ok": True}
+# ==========================================================

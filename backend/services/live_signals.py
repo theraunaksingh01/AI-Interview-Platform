@@ -1,14 +1,16 @@
 from collections import defaultdict
 from typing import Dict, Optional
+import time
 
 
 # interview_id -> question_id -> live state
 _LIVE_STATE: Dict[str, Dict[int, dict]] = defaultdict(dict)
 
 
-FILLER_WORDS = {
+FILLERS = {
     "uh", "um", "like", "you", "know",
-    "basically", "actually", "so",
+    "basically", "actually", "so", "i mean", "right",
+    "well", "hmm", "ah", "er",
 }
 
 
@@ -47,56 +49,100 @@ def _detect_semantic_drift(
     return None
 
 
+MIN_WORDS_BEFORE_INTERRUPT = 30
+MIN_SECONDS_BEFORE_INTERRUPT = 5
+
 def update_live_answer(
     interview_id: str,
     question_id: int,
     text: str,
 ) -> dict:
+    now = time.time()
+
     state = _LIVE_STATE[interview_id].setdefault(
         question_id,
         {
             "word_count": 0,
             "filler_count": 0,
             "last_text": "",
-            "drift_score": 0,
+            "low_conf_streak": 0,
+            "started_at": now,
+            "last_interrupt_at": 0,
         }
     )
 
     words = text.lower().split()
+    fillers = sum(1 for w in words if w in FILLERS)
+
     state["word_count"] = len(words)
+    state["filler_count"] += fillers
     state["last_text"] = text
 
-    fillers = {
-        "uh", "um", "like", "you", "know",
-        "basically", "actually", "so"
-    }
+    elapsed = now - state["started_at"]
 
-    state["filler_count"] += sum(1 for w in words if w in fillers)
-
-    # 🔍 Semantic drift heuristic (simple but effective)
-    if len(words) > 20 and state["filler_count"] > 5:
-        state["drift_score"] += 1
-    else:
-        state["drift_score"] = max(0, state["drift_score"] - 1)
-
-    confidence = "high"
-    if state["word_count"] < 15:
+    # -----------------------------
+    # Confidence
+    # -----------------------------
+    if state["word_count"] < 20:
         confidence = "low"
-    elif state["drift_score"] > 2:
+        state["low_conf_streak"] += 1
+    elif state["filler_count"] > 8:
         confidence = "medium"
+    else:
+        confidence = "high"
+        state["low_conf_streak"] = 0
 
-    interrupt = state["drift_score"] >= 4
+    interrupt = False
+    interrupt_reason = None
+    followup = None
+
+    # 🚫 HARD GUARDS
+    if elapsed < MIN_SECONDS_BEFORE_INTERRUPT:
+        return {
+            "question_id": question_id,
+            "confidence": confidence,
+            "word_count": state["word_count"],
+            "interrupt": False,
+        }
+
+    if state["word_count"] < MIN_WORDS_BEFORE_INTERRUPT:
+        return {
+            "question_id": question_id,
+            "confidence": confidence,
+            "word_count": state["word_count"],
+            "interrupt": False,
+        }
+
+    # ⏱ Cooldown
+    if now - state["last_interrupt_at"] < 6:
+        return {
+            "question_id": question_id,
+            "confidence": confidence,
+            "word_count": state["word_count"],
+            "interrupt": False,
+        }
+
+    # 🔴 Real interrupt conditions
+    if state["low_conf_streak"] >= 4:
+        interrupt = True
+        interrupt_reason = "low_confidence"
+        followup = "Can you be more specific or give a concrete example?"
+
+    if state["word_count"] > 150 and confidence != "high":
+        interrupt = True
+        interrupt_reason = "rambling"
+        followup = "Let’s pause there. Can you summarize your main point?"
+
+    if interrupt:
+        state["last_interrupt_at"] = now
 
     return {
         "question_id": question_id,
-        "word_count": state["word_count"],
-        "filler_count": state["filler_count"],
         "confidence": confidence,
+        "word_count": state["word_count"],
         "interrupt": interrupt,
-        "interrupt_reason": "semantic_drift" if interrupt else None,
-        "followup": "Can you focus on the core concept of the question?"
-        if interrupt
-        else None,
+        "interrupt_reason": interrupt_reason,
+        "followup": followup,
     }
 
 
