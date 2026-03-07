@@ -14,7 +14,7 @@ A prototype AI-powered interview platform built with FastAPI + Next.js + Docker.
 .\.venv311\Scripts\Activate.ps1
 
 ## Uvicorn start
-uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload
 
 Celery Start
 celery -A celery_app.app worker -l info -P solo

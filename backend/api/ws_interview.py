@@ -6,7 +6,6 @@ from datetime import datetime
 import logging
 import asyncio
 
-from services.timeline_logger import log_timeline_event
 from db.session import get_db
 from db.models import InterviewTurn
 from tasks.live_scoring import score_turn
@@ -20,18 +19,29 @@ from services.ws_broadcast import (
 
 from services.timeline_logger import log_timeline_event
 
+from starlette.websockets import WebSocketState
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# ------------------------------------------------------------------
+# SAFE SEND (prevents crash after disconnect)
+# ------------------------------------------------------------------
 async def send_json_safe(ws: WebSocket, payload: dict):
+    if ws.application_state != WebSocketState.CONNECTED:
+        return
+
     try:
         await ws.send_json(payload)
     except Exception:
-        logger.exception("[WS] send failed")
+        logger.warning("[WS] send failed (socket likely closed)")
 
 
+# ------------------------------------------------------------------
+# GET NEXT QUESTION
+# ------------------------------------------------------------------
 def get_next_question(db: Session, interview_id: UUID):
     rows = db.execute(
         text("""
@@ -66,6 +76,9 @@ def get_next_question(db: Session, interview_id: UUID):
     return None
 
 
+# ------------------------------------------------------------------
+# MAIN WS HANDLER
+# ------------------------------------------------------------------
 @router.websocket("/ws/interview/{interview_id}")
 async def interview_ws(
     websocket: WebSocket,
@@ -78,49 +91,27 @@ async def interview_ws(
     await register_connection(interview_id, websocket)
 
     try:
+        # Send greeting + first question
         await handle_on_connect(db, interview_id, websocket)
 
+        # Only keep alive — we don't need client JSON messages
         while True:
-            msg = await websocket.receive_json()
-
-            if msg.get("type") == "candidate_text":
-                turn = InterviewTurn(
-                    interview_id=interview_id,
-                    question_id=msg.get("question_id"),
-                    speaker="candidate",
-                    transcript=msg.get("text") or "",
-                    started_at=datetime.utcnow(),
-                    ended_at=datetime.utcnow(),
-                )
-                db.add(turn)
-                db.commit()
-                db.refresh(turn)
-
-                score_turn.delay(turn.id)
-
-                next_q = get_next_question(db, interview_id)
-                if next_q:
-                    await send_agent_question(db, interview_id, next_q, websocket)
-                else:
-                    await send_json_safe(
-                        websocket,
-                        {
-                            "type": "agent_message",
-                            "text": "Thanks, this completes your interview.",
-                            "done": True,
-                        },
-                    )
-
-            elif msg.get("type") == "ping":
-                await send_json_safe(websocket, {"type": "pong"})
+            await websocket.receive_text()
 
     except WebSocketDisconnect:
         logger.info("[WS] disconnected %s", interview_id)
 
+    except Exception:
+        logger.exception("[WS] unexpected error")
+
     finally:
         unregister_connection(interview_id)
+        logger.info("[WS] unregistered interview_id=%s", interview_id)
 
 
+# ------------------------------------------------------------------
+# ON CONNECT
+# ------------------------------------------------------------------
 async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     greeting = "Hi! We'll start your interview now. Please answer in detail."
 
@@ -135,14 +126,22 @@ async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     )
     db.commit()
 
-    await send_json_safe(ws, {"type": "agent_message", "text": greeting})
+    await send_json_safe(
+        ws,
+        {
+            "type": "agent_message",
+            "text": greeting,
+        },
+    )
 
+    # TTS greeting
     try:
         audio_bytes = await asyncio.to_thread(synthesize_speech, greeting)
         if audio_bytes:
             audio_path = await asyncio.to_thread(
                 save_agent_audio_file, audio_bytes, str(interview_id)
             )
+
             await send_json_safe(
                 ws,
                 {
@@ -154,11 +153,15 @@ async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     except Exception:
         logger.exception("[TTS] greeting failed")
 
+    # First question
     first_q = get_next_question(db, interview_id)
     if first_q:
         await send_agent_question(db, interview_id, first_q, ws)
 
 
+# ------------------------------------------------------------------
+# SEND QUESTION
+# ------------------------------------------------------------------
 async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebSocket):
     qid = q["id"]
     text_q = q["question_text"]
@@ -174,7 +177,7 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         )
     )
     db.commit()
-    
+
     log_timeline_event(
         db,
         interview_id=interview_id,
@@ -192,10 +195,14 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         },
     )
 
+    # TTS for question
     try:
         audio = await asyncio.to_thread(synthesize_speech, text_q)
         if audio:
-            path = await asyncio.to_thread(save_agent_audio_file, audio)
+            path = await asyncio.to_thread(
+                save_agent_audio_file, audio, str(interview_id)
+            )
+
             await send_json_safe(
                 ws,
                 {

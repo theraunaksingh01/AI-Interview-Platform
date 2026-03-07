@@ -49,14 +49,12 @@ def _detect_semantic_drift(
     return None
 
 
-MIN_WORDS_BEFORE_INTERRUPT = 30
-MIN_SECONDS_BEFORE_INTERRUPT = 5
+MIN_SECONDS_BEFORE_INTERRUPT = 12
+MAX_SILENCE_SECONDS = 7
+INTERRUPT_COOLDOWN = 12
 
-def update_live_answer(
-    interview_id: str,
-    question_id: int,
-    text: str,
-) -> dict:
+
+def update_live_answer(interview_id: str, question_id: int, text: str) -> dict:
     now = time.time()
 
     state = _LIVE_STATE[interview_id].setdefault(
@@ -64,29 +62,33 @@ def update_live_answer(
         {
             "word_count": 0,
             "filler_count": 0,
-            "last_text": "",
             "low_conf_streak": 0,
             "started_at": now,
             "last_interrupt_at": 0,
+            "last_update_at": now,
+            "last_text": "",
         }
     )
+
+    elapsed = now - state["started_at"]
+    silence = now - state["last_update_at"]
 
     words = text.lower().split()
     fillers = sum(1 for w in words if w in FILLERS)
 
-    state["word_count"] = len(words)
-    state["filler_count"] += fillers
-    state["last_text"] = text
+    if text.strip():
+        state["last_update_at"] = now
+        state["word_count"] += len(words)
+        state["filler_count"] += fillers
+        state["last_text"] = text
 
-    elapsed = now - state["started_at"]
-
-    # -----------------------------
-    # Confidence
-    # -----------------------------
-    if state["word_count"] < 20:
+    # -------------------------
+    # CONFIDENCE
+    # -------------------------
+    if state["word_count"] < 25:
         confidence = "low"
         state["low_conf_streak"] += 1
-    elif state["filler_count"] > 8:
+    elif state["filler_count"] > 10:
         confidence = "medium"
     else:
         confidence = "high"
@@ -96,7 +98,9 @@ def update_live_answer(
     interrupt_reason = None
     followup = None
 
-    # 🚫 HARD GUARDS
+    # -------------------------
+    # GUARDS
+    # -------------------------
     if elapsed < MIN_SECONDS_BEFORE_INTERRUPT:
         return {
             "question_id": question_id,
@@ -105,7 +109,7 @@ def update_live_answer(
             "interrupt": False,
         }
 
-    if state["word_count"] < MIN_WORDS_BEFORE_INTERRUPT:
+    if now - state["last_interrupt_at"] < INTERRUPT_COOLDOWN:
         return {
             "question_id": question_id,
             "confidence": confidence,
@@ -113,28 +117,43 @@ def update_live_answer(
             "interrupt": False,
         }
 
-    # ⏱ Cooldown
-    if now - state["last_interrupt_at"] < 6:
-        return {
-            "question_id": question_id,
-            "confidence": confidence,
-            "word_count": state["word_count"],
-            "interrupt": False,
-        }
+    # -------------------------
+    # SILENCE INTERRUPT
+    # -------------------------
+    if silence > MAX_SILENCE_SECONDS and state["word_count"] > 5:
+        interrupt = True
+        interrupt_reason = "silence"
+        followup = "Are you done, or would you like to add more details?"
 
-    # 🔴 Real interrupt conditions
+    # -------------------------
+    # LOW CONFIDENCE INTERRUPT
+    # -------------------------
     if state["low_conf_streak"] >= 4:
         interrupt = True
         interrupt_reason = "low_confidence"
-        followup = "Can you be more specific or give a concrete example?"
+        followup = "Can you explain that more clearly with a concrete example?"
 
-    if state["word_count"] > 150 and confidence != "high":
+    # -------------------------
+    # RAMBLING INTERRUPT
+    # -------------------------
+    if state["word_count"] > 180 and confidence != "high":
         interrupt = True
         interrupt_reason = "rambling"
-        followup = "Let’s pause there. Can you summarize your main point?"
+        followup = "Let’s pause there. Can you summarize your main idea?"
+
+    # -------------------------
+    # SEMANTIC DRIFT
+    # -------------------------
+    drift = _detect_semantic_drift(None, text)
+    if drift:
+        interrupt = True
+        interrupt_reason = drift["reason"]
+        followup = drift["followup"]
 
     if interrupt:
         state["last_interrupt_at"] = now
+
+    state["confidence"] = confidence
 
     return {
         "question_id": question_id,

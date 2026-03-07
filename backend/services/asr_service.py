@@ -7,6 +7,7 @@ from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
 
+# "base" (~74M params) fits 8GB RAM; "small" is more accurate but needs ~2GB+ RAM
 model = WhisperModel(
     "base",
     device="cpu",
@@ -65,13 +66,17 @@ def transcribe_pcm_bytes(pcm_bytes: bytes) -> str:
     if not pcm_bytes:
         return ""
 
+    # Int16 LE → float32 in [-1, 1]
     audio = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+
+    if audio.size < 1600:  # <0.1s at 16kHz
+        return ""
 
     segments, _ = model.transcribe(
         audio,
         language="en",
         beam_size=5,
-        vad_filter=True,
+        vad_filter=False,
         condition_on_previous_text=False,
         temperature=0.0,
     )
