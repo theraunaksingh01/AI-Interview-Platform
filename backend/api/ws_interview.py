@@ -96,7 +96,10 @@ async def interview_ws(
                 db.commit()
                 db.refresh(turn)
 
-                score_turn.delay(turn.id)
+                try:
+                    score_turn.delay(turn.id)
+                except Exception:
+                    logger.exception("[Celery] score_turn failed to queue — continuing interview")
 
                 next_q = get_next_question(db, interview_id)
                 if next_q:
@@ -135,28 +138,36 @@ async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     )
     db.commit()
 
-    await send_json_safe(ws, {"type": "agent_message", "text": greeting})
-
+    # Generate TTS first so we send text + audio in ONE message (avoids
+    # the frontend triggering candidate recording before audio plays).
+    audio_url = None
     try:
         audio_bytes = await asyncio.to_thread(synthesize_speech, greeting)
         if audio_bytes:
             audio_path = await asyncio.to_thread(
                 save_agent_audio_file, audio_bytes, str(interview_id)
             )
-            await send_json_safe(
-                ws,
-                {
-                    "type": "agent_message",
-                    "text": greeting,
-                    "audio_url": audio_path,
-                },
-            )
+            audio_url = audio_path
     except Exception:
         logger.exception("[TTS] greeting failed")
+
+    greeting_msg: dict = {"type": "agent_message", "text": greeting}
+    if audio_url:
+        greeting_msg["audio_url"] = audio_url
+    await send_json_safe(ws, greeting_msg)
 
     first_q = get_next_question(db, interview_id)
     if first_q:
         await send_agent_question(db, interview_id, first_q, ws)
+    else:
+        await send_json_safe(
+            ws,
+            {
+                "type": "agent_message",
+                "text": "This interview has already been completed. Thank you!",
+                "done": True,
+            },
+        )
 
 
 async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebSocket):
@@ -174,7 +185,7 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         )
     )
     db.commit()
-    
+
     log_timeline_event(
         db,
         interview_id=interview_id,
@@ -183,27 +194,22 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         payload={"text": text_q},
     )
 
-    await send_json_safe(
-        ws,
-        {
-            "type": "agent_message",
-            "question_id": qid,
-            "text": text_q,
-        },
-    )
-
+    # Generate TTS first so we send text + audio in ONE message (avoids
+    # the frontend triggering candidate recording before audio plays).
+    audio_url = None
     try:
         audio = await asyncio.to_thread(synthesize_speech, text_q)
         if audio:
             path = await asyncio.to_thread(save_agent_audio_file, audio)
-            await send_json_safe(
-                ws,
-                {
-                    "type": "agent_message",
-                    "question_id": qid,
-                    "text": text_q,
-                    "audio_url": path,
-                },
-            )
+            audio_url = path
     except Exception:
         logger.exception("[TTS] question failed")
+
+    question_msg: dict = {
+        "type": "agent_message",
+        "question_id": qid,
+        "text": text_q,
+    }
+    if audio_url:
+        question_msg["audio_url"] = audio_url
+    await send_json_safe(ws, question_msg)

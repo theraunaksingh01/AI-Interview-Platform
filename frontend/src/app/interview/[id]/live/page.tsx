@@ -2,284 +2,414 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { useBrowserASR } from "@/hooks/useBrowserASR";
 
-/* ---------------- Types ---------------- */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+const WS_BASE  = process.env.NEXT_PUBLIC_WS_BASE  ?? "ws://localhost:8000";
+
+const PCM_SEND_THRESHOLD = 16000; // ~1 s at 16 kHz — for confidence scoring only
+const ANSWER_TIME_LIMIT  = 120;   // 2-minute countdown
 
 type WSMessage =
-  | {
-      type: "agent_message";
-      text: string;
-      question_id?: number;
-      audio_url?: string;
-      done?: boolean;
-    }
-  | {
-      type: "ai_interrupt";
-      text: string;
-      reason?: string;
-    }
-  | {
-      type: "live_signal";
-      question_id: number;
-      confidence: "low" | "medium" | "high";
-      word_count: number;
-    }
-  | {
-      type: "error";
-      message: string;
-    };
+  | { type: "agent_message"; text: string; question_id?: number; audio_url?: string; done?: boolean }
+  | { type: "live_signal"; question_id: number; confidence: "low" | "medium" | "high"; word_count: number; transcript?: string }
+  | { type: "ai_interrupt"; text: string; reason?: string }
+  | { type: "turn_decision"; question_id: number; decision: string };
 
 export default function LiveInterviewPage() {
   const { id } = useParams();
   const interviewId = id as string;
 
-  /* ---------------- Refs ---------------- */
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const candidateVideoRef = useRef<HTMLVideoElement | null>(null);
-
-  const agentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingRef = useRef(false);
-
+  // ── Refs (never stale in effects/callbacks) ──────────────────────
+  const wsRef               = useRef<WebSocket | null>(null);
+  const mediaRecorderRef    = useRef<MediaRecorder | null>(null);
+  const audioContextRef     = useRef<AudioContext | null>(null);
+  const sampleBufferRef     = useRef<number[]>([]);
+  const recognitionRef      = useRef<any>(null);          // Web Speech instance
+  const finalTranscriptRef  = useRef("");                 // confirmed SpeechRecognition text
+  const candidateSpeakingRef = useRef(false);             // mirrors state — avoids stale closure
+  const liveTextDebounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const candidateVideoRef   = useRef<HTMLVideoElement | null>(null);
+  const agentAudioRef       = useRef<HTMLAudioElement | null>(null);
   const currentQuestionIdRef = useRef<number | null>(null);
 
-  /* ---------------- State ---------------- */
-
-  const [questionText, setQuestionText] = useState("");
-  const [agentSpeaking, setAgentSpeaking] = useState(false);
+  // ── State ─────────────────────────────────────────────────────────
+  const [questionText, setQuestionText]         = useState("");
+  const [agentStatus, setAgentStatus]           = useState<"idle" | "speaking" | "listening">("idle");
+  const [answerConfidence, setAnswerConfidence] = useState<"low" | "medium" | "high" | null>(null);
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(300);
+  const [liveTranscript, setLiveTranscript]     = useState("");
+  const [timeLeft, setTimeLeft]                 = useState(ANSWER_TIME_LIMIT);
+  const [interviewDone, setInterviewDone]       = useState(false);
+  const [asrWarning, setAsrWarning]             = useState("");
 
-  const [answerConfidence, setAnswerConfidence] =
-    useState<"low" | "medium" | "high" | null>(null);
+  // ── Countdown timer ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!candidateSpeaking) {
+      setTimeLeft(ANSWER_TIME_LIMIT);
+      return;
+    }
+    setTimeLeft(ANSWER_TIME_LIMIT); // reset at start of each turn
+    const id = setInterval(() => {
+      setTimeLeft((t) => (t > 0 ? t - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [candidateSpeaking]);
 
-  /* ---------------- Browser ASR ---------------- */
+  // Auto-submit when time runs out
+  useEffect(() => {
+    if (candidateSpeaking && timeLeft === 0) {
+      submitAnswer();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, candidateSpeaking]);
 
-  const {
-    transcript: browserTranscript,
-    listening: asrListening,
-    resetTranscript,
-  } = useBrowserASR({
-    enabled: candidateSpeaking,
-  });
-
-  /* ---------------- Camera ---------------- */
-
+  // ── Camera preview ────────────────────────────────────────────────
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true })
       .then((stream) => {
-        if (candidateVideoRef.current) {
-          candidateVideoRef.current.srcObject = stream;
-        }
+        if (candidateVideoRef.current) candidateVideoRef.current.srcObject = stream;
       })
       .catch(() => {});
   }, []);
 
-  /* ---------------- Timer (FIXED) ---------------- */
-
+  // ── WebSocket ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (!candidateSpeaking) return;
-
-    setSecondsLeft(300);
-    const t = setInterval(() => {
-      setSecondsLeft((s) => Math.max(0, s - 1));
-    }, 1000);
-
-    return () => clearInterval(t);
-  }, [candidateSpeaking]);
-
-  /* ---------------- WebSocket ---------------- */
-
-  useEffect(() => {
-    const ws = new WebSocket(
-      `${process.env.NEXT_PUBLIC_WS_BASE ?? "ws://localhost:8000"}/ws/interview/${interviewId}`
-    );
+    const ws = new WebSocket(`${WS_BASE}/ws/interview/${interviewId}`);
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
       const msg: WSMessage = JSON.parse(e.data);
 
-      /* 🟢 Normal agent message */
       if (msg.type === "agent_message") {
         setQuestionText(msg.text);
+        setAnswerConfidence(null);
+        setLiveTranscript("");
+        finalTranscriptRef.current = "";
 
-        if (msg.audio_url) enqueueAgentAudio(msg.audio_url);
+        if (msg.question_id) currentQuestionIdRef.current = msg.question_id;
 
-        if (typeof msg.question_id === "number") {
-          currentQuestionIdRef.current = msg.question_id;
+        if (msg.done) {
+          setInterviewDone(true);
+          setAgentStatus("idle");
+          return;
         }
-        return;
+
+        if (msg.audio_url && agentAudioRef.current) {
+          setAgentStatus("speaking");
+          const audio = agentAudioRef.current;
+          audio.src = `${API_BASE}${msg.audio_url}`;
+          audio.play()
+            .then(() => {
+              audio.onended = () => {
+                setAgentStatus("listening");
+                if (currentQuestionIdRef.current) startCandidateTurn();
+              };
+            })
+            .catch(() => {
+              setAgentStatus("listening");
+              if (currentQuestionIdRef.current) startCandidateTurn();
+            });
+        } else if (msg.question_id) {
+          setAgentStatus("listening");
+          startCandidateTurn();
+        }
       }
 
-      /* 🔴 AI interrupt (ADVISORY ONLY) */
-      if (msg.type === "ai_interrupt") {
-        console.log("[AI INTERRUPT]", msg.reason ?? "unknown");
-
-        // ❌ DO NOT stop recorder
-        // ❌ DO NOT stop timer
-        // ❌ DO NOT change candidateSpeaking
-
-        setQuestionText(msg.text);
-        return;
-      }
-
-      /* 🟡 Live confidence signal */
       if (msg.type === "live_signal") {
         setAnswerConfidence(msg.confidence);
-        return;
+        // Only show Whisper fallback transcript when Web Speech is unavailable
+        if (!recognitionRef.current && msg.transcript) {
+          setLiveTranscript(msg.transcript);
+        }
       }
 
-      if (msg.type === "error") {
-        console.error("[WS ERROR]", msg.message);
+      if (msg.type === "ai_interrupt") {
+        setQuestionText(msg.text);
       }
     };
 
     return () => ws.close();
   }, [interviewId]);
 
-  /* ---------------- Send live text ---------------- */
-
-  useEffect(() => {
-    if (!candidateSpeaking) return;
-    if (!browserTranscript) return;
+  // ── Start candidate recording turn ────────────────────────────────
+  async function startCandidateTurn() {
     if (!currentQuestionIdRef.current) return;
 
-    fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/live_text`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question_id: currentQuestionIdRef.current,
-          text: browserTranscript,
-        }),
-      }
-    ).catch(() => {});
-  }, [browserTranscript]);
+    setLiveTranscript("");
+    finalTranscriptRef.current = "";
+    setCandidateSpeaking(true);
+    candidateSpeakingRef.current = true;
+    setAsrWarning("");
 
-  /* ---------------- Agent Audio ---------------- */
-
-  function enqueueAgentAudio(audioUrl: string) {
-    const fullUrl = audioUrl.startsWith("http")
-      ? audioUrl
-      : `${process.env.NEXT_PUBLIC_API_BASE}${audioUrl}`;
-
-    audioQueueRef.current.push(fullUrl);
-    tryPlayNextAudio();
-  }
-
-  function tryPlayNextAudio() {
-    if (!agentAudioRef.current) return;
-    if (isPlayingRef.current) return;
-
-    if (audioQueueRef.current.length === 0) {
-      startCandidateTurn();
+    let audioStream: MediaStream;
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch {
       return;
     }
 
-    const audio = agentAudioRef.current;
-    const src = audioQueueRef.current.shift()!;
+    // ── Web Speech API — primary live transcription (Chrome / Edge) ──
+    // Sends audio to browser's built-in ASR. Real-time, sentence-accurate.
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    isPlayingRef.current = true;
-    setAgentSpeaking(true);
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous     = true;
+        recognition.interimResults = true;
+        recognition.lang           = "en-US";
+        recognitionRef.current     = recognition;
+
+        recognition.onresult = (event: any) => {
+          let interim = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const t = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscriptRef.current += t + " ";
+            } else {
+              interim += t;
+            }
+          }
+          const display = (finalTranscriptRef.current + interim).trim();
+          setLiveTranscript(display);
+
+          // Debounce confidence scoring: send transcript to backend every ~1.5 s
+          if (liveTextDebounceRef.current) clearTimeout(liveTextDebounceRef.current);
+          liveTextDebounceRef.current = setTimeout(() => {
+            const qid = currentQuestionIdRef.current;
+            if (!qid || !display) return;
+            fetch(`${API_BASE}/api/interview/${interviewId}/live_text`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ question_id: qid, text: display }),
+            }).catch(() => {});
+          }, 1500);
+        };
+
+        recognition.onerror = (event: any) => {
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            setAsrWarning("Mic permission denied — using Whisper fallback.");
+            recognitionRef.current = null;
+          } else if (event.error === "network") {
+            setAsrWarning("Speech recognition needs internet — using Whisper fallback.");
+            recognitionRef.current = null;
+          }
+          // other transient errors (no-speech, aborted) are ignored; onend restarts
+        };
+
+        // Auto-restart on pause (browser stops recognition after silence)
+        recognition.onend = () => {
+          // Only restart if this instance is still active (not cleared by submitAnswer)
+          if (recognitionRef.current === recognition && candidateSpeakingRef.current) {
+            try { recognition.start(); } catch { /* already started */ }
+          }
+        };
+
+        recognition.start();
+      } catch {
+        recognitionRef.current = null;
+        setAsrWarning("Speech recognition unavailable — using Whisper fallback.");
+      }
+    } else {
+      setAsrWarning("Browser speech recognition not supported — using Whisper fallback.");
+    }
+
+    // ── MediaRecorder — buffers WebM for final Whisper pass on submit ──
+    const mr = new MediaRecorder(audioStream, { mimeType: "audio/webm" });
+    mr.ondataavailable = async (e) => {
+      if (!e.data || e.data.size === 0) return;
+      const form = new FormData();
+      form.append("file", e.data, "chunk.webm");
+      form.append("question_id", String(currentQuestionIdRef.current));
+      form.append("partial", "true");
+      await fetch(`${API_BASE}/api/interview/${interviewId}/transcribe_audio`, {
+        method: "POST",
+        body: form,
+      }).catch(() => {});
+    };
+    mr.start(5000);
+    mediaRecorderRef.current = mr;
+
+    // ── WebAudio PCM → /stream_pcm — confidence scoring only ──────────
+    // Whisper on short windows is inaccurate; we only use it for signal strength.
+    try {
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioCtx;
+      sampleBufferRef.current = [];
+
+      const source    = audioCtx.createMediaStreamSource(audioStream);
+      // eslint-disable-next-line deprecation/deprecation
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (e) => {
+        const floats = e.inputBuffer.getChannelData(0);
+        const buf = sampleBufferRef.current;
+        for (let i = 0; i < floats.length; i++) {
+          buf.push(Math.max(-32768, Math.min(32767, Math.round(floats[i] * 32768))));
+        }
+        if (buf.length >= PCM_SEND_THRESHOLD) {
+          const toSend = buf.splice(0, PCM_SEND_THRESHOLD);
+          const qid = currentQuestionIdRef.current;
+          if (!qid) return;
+          fetch(
+            `${API_BASE}/api/interview/${interviewId}/stream_pcm?question_id=${qid}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(toSend),
+            }
+          ).catch(() => {});
+        }
+      };
+
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+    } catch {
+      /* PCM unavailable — confidence badge won't show */
+    }
+  }
+
+  // ── Submit answer ─────────────────────────────────────────────────
+  function submitAnswer() {
+    const qid = currentQuestionIdRef.current;
+    if (!qid || !wsRef.current) return;
+
+    // Stop Web Speech first — null ref BEFORE .stop() so onend won't restart
+    candidateSpeakingRef.current = false;
+    if (liveTextDebounceRef.current) {
+      clearTimeout(liveTextDebounceRef.current);
+      liveTextDebounceRef.current = null;
+    }
+    if (recognitionRef.current) {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      try { rec.stop(); } catch { /* already stopped */ }
+    }
+
+    // Stop MediaRecorder
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+
+    // Stop PCM capture
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    sampleBufferRef.current = [];
+
     setCandidateSpeaking(false);
+    setAgentStatus("idle");
 
-    audio.src = src;
-    audio.onended = finishAgentAudio;
-    audio.onerror = finishAgentAudio;
+    // Prefer Web Speech accumulated text; fall back to last Whisper broadcast
+    const transcript = finalTranscriptRef.current.trim() || liveTranscript;
 
-    audio.play().catch(finishAgentAudio);
+    wsRef.current.send(
+      JSON.stringify({ type: "candidate_text", question_id: qid, text: transcript })
+    );
+
+    setAnswerConfidence(null);
+    setLiveTranscript("");
+    finalTranscriptRef.current = "";
   }
 
-  function finishAgentAudio() {
-    isPlayingRef.current = false;
-    setAgentSpeaking(false);
-    tryPlayNextAudio();
-  }
+  // ── UI helpers ────────────────────────────────────────────────────
+  const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const seconds = String(timeLeft % 60).padStart(2, "0");
+  const timerColor =
+    timeLeft <= 30 ? "text-red-600" : timeLeft <= 60 ? "text-yellow-600" : "text-gray-700";
 
-  /* ---------------- Candidate Recording ---------------- */
+  const confidenceBadge: Record<"low" | "medium" | "high", string> = {
+    low:    "bg-red-100 text-red-700",
+    medium: "bg-yellow-100 text-yellow-700",
+    high:   "bg-green-100 text-green-700",
+  };
 
-  function startCandidateTurn() {
-    if (!currentQuestionIdRef.current) return;
-
-    resetTranscript();
-    setCandidateSpeaking(true);
-
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
-
-      mr.ondataavailable = async (e) => {
-        if (!e.data || e.data.size === 0) return;
-
-        const form = new FormData();
-        form.append("file", e.data, "chunk.webm");
-        form.append("question_id", String(currentQuestionIdRef.current));
-        form.append("partial", "true");
-
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE}/api/interview/${interviewId}/transcribe_audio`,
-          { method: "POST", body: form }
-        );
-      };
-
-      mr.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setCandidateSpeaking(false);
-      };
-
-      mr.start(2000);
-      mediaRecorderRef.current = mr;
-    });
-  }
-
-  /* ---------------- UI ---------------- */
+  const agentStatusLabel: Record<typeof agentStatus, string> = {
+    idle:      "Ready",
+    speaking:  "Speaking...",
+    listening: "Listening...",
+  };
 
   return (
     <div className="grid grid-cols-[1fr_360px] h-screen bg-gray-100">
       <audio ref={agentAudioRef} preload="auto" />
 
+      {/* ── Main panel ── */}
       <div className="p-6 flex flex-col gap-4">
         <header className="flex items-center gap-3">
-          <img src="/avatar/interviewer.jpg" className="w-12 h-12 rounded-full" />
+          <img src="/avatar/interviewer.jpg" className="w-12 h-12 rounded-full" alt="interviewer" />
           <div>
             <div className="font-semibold">AI Interviewer</div>
-            <div className="text-xs text-gray-500">
-              {agentSpeaking
-                ? "Speaking…"
-                : candidateSpeaking
-                ? "Your turn"
-                : "Listening"}
-            </div>
-          </div>
-
-          <div className="ml-auto font-mono">
-            ⏱ {Math.floor(secondsLeft / 60)}:
-            {String(secondsLeft % 60).padStart(2, "0")}
+            <div className="text-xs text-gray-500">{agentStatusLabel[agentStatus]}</div>
           </div>
         </header>
 
-        <div className="bg-white rounded-xl p-6 shadow flex-1">
-          <div className="text-gray-500 mb-2">Interviewer</div>
-          <div className="text-lg font-medium">{questionText}</div>
+        <div className="bg-white rounded-xl p-6 shadow flex-1 flex flex-col">
+          <div className="text-gray-500 text-sm mb-2">Interviewer</div>
+          <div className="text-lg font-medium">{questionText || "Connecting..."}</div>
 
+          {/* ── Candidate answer panel ── */}
           {candidateSpeaking && (
-            <div className="mt-6 bg-gray-50 rounded-xl p-4">
-              <div className="text-xs text-gray-500 mb-2">
-                Live transcription
+            <div className="mt-6 bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+
+              {/* Header: label + countdown timer */}
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-500 font-medium">Live transcription</div>
+                <div className={`text-sm font-mono font-bold ${timerColor}`}>
+                  {minutes}:{seconds}
+                </div>
               </div>
-              <div>{browserTranscript || "Listening…"}</div>
-              <div className="mt-2 text-xs">
-                Confidence: {answerConfidence ?? "…"}
+
+              {/* ASR fallback warning */}
+              {asrWarning && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">
+                  {asrWarning}
+                </div>
+              )}
+
+              {/* Live transcript */}
+              <div className="min-h-[3rem] text-sm text-gray-800 leading-relaxed">
+                {liveTranscript ? (
+                  liveTranscript
+                ) : (
+                  <span className="text-gray-400 italic">Start speaking…</span>
+                )}
               </div>
+
+              {/* Confidence badge */}
+              {answerConfidence && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Answer confidence</span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${confidenceBadge[answerConfidence]}`}>
+                    {answerConfidence.charAt(0).toUpperCase() + answerConfidence.slice(1)}
+                  </span>
+                </div>
+              )}
+
+              {/* Submit button */}
+              <button
+                onClick={submitAnswer}
+                className="mt-1 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-2 text-sm font-medium transition-colors"
+              >
+                Submit Answer
+              </button>
+            </div>
+          )}
+
+          {/* ── Interview complete ── */}
+          {interviewDone && (
+            <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 font-medium text-sm">
+              Interview complete — thank you for your time!
             </div>
           )}
         </div>
       </div>
 
+      {/* ── Camera sidebar ── */}
       <aside className="bg-gray-900 p-4">
         <video
           ref={candidateVideoRef}

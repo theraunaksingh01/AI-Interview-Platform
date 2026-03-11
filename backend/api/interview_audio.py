@@ -1,4 +1,5 @@
 #api/interview_audio.py
+from collections import Counter
 from fastapi import APIRouter, UploadFile, File, Form, Body, Depends, Query
 from uuid import UUID
 from sqlalchemy.orm import Session
@@ -23,7 +24,7 @@ from services.ws_broadcast import broadcast_to_interview
 from services.streaming_asr import append_audio, pop_full_audio
 
 # 🔹 PCM streaming
-from services.pcm_buffer import append_pcm, pop_full_pcm
+from services.pcm_buffer import append_pcm, get_pcm_buffer, pop_full_pcm
 
 # 🔹 ASR
 from services.asr_service import transcribe_audio_bytes, transcribe_pcm_bytes
@@ -53,7 +54,39 @@ async def transcribe_audio(
     # PARTIAL chunks → NO Whisper, NO DB, NO reasoning
     # ------------------------------------------------------
     if partial:
-        return {"partial": True, "question_id": question_id}
+        # partial_text = transcribe_audio_bytes(audio_bytes)
+    
+        # if partial_text:
+        #     print("[LIVE TRANSCRIPT]", partial_text)
+    
+        #     signal = update_live_answer(
+        #         str(interview_id),
+        #         question_id,
+        #         partial_text,
+        #     )
+    
+        #     await broadcast_to_interview(
+        #         interview_id,
+        #         {
+        #             "type": "live_signal",
+        #             "question_id": question_id,
+        #             "confidence": signal["confidence"],
+        #             "word_count": signal["word_count"],
+        #         },
+        #     )
+    
+        #     if signal["interrupt"]:
+        #         await broadcast_to_interview(
+        #             interview_id,
+        #             {
+        #                 "type": "ai_interrupt",
+        #                 "question_id": question_id,
+        #                 "text": signal["followup"],
+        #                 "reason": signal["interrupt_reason"],
+        #             },
+        #         )
+    
+        return {"partial": True}
 
     # ------------------------------------------------------
     # FINAL chunk → transcribe ONCE
@@ -142,6 +175,17 @@ async def transcribe_audio(
 # ==========================================================
 # 🔊 PCM STREAM (WebAudio API)
 # ==========================================================
+LIVE_TRANSCRIPTS = {}
+
+
+def _is_hallucination(text: str) -> bool:
+    """Detect Whisper hallucinations: a single word repeated > 50% of all tokens."""
+    words = text.lower().split()
+    if len(words) < 10:
+        return False
+    top_word, top_count = Counter(words).most_common(1)[0]
+    return (top_count / len(words)) > 0.50
+
 
 @router.post("/{interview_id}/stream_pcm")
 async def stream_pcm_audio(
@@ -150,10 +194,53 @@ async def stream_pcm_audio(
     samples: List[int] = Body(...),
 ):
     pcm_bytes = bytearray()
+
     for s in samples:
         pcm_bytes += int(s).to_bytes(2, "little", signed=True)
 
-    append_pcm(str(interview_id), question_id, bytes(pcm_bytes))
+    pcm = bytes(pcm_bytes)
+
+    append_pcm(str(interview_id), question_id, pcm)
+
+    buffer_audio = get_pcm_buffer(str(interview_id), question_id)
+
+    # Wait until ~5 seconds audio — short windows cause Whisper hallucinations
+    if len(buffer_audio) < 160000:
+        return {"ok": True}
+
+    # Pop window instead of using full history
+    window = pop_full_pcm(str(interview_id), question_id)
+
+    partial_text = transcribe_pcm_bytes(window)
+
+    # Discard hallucinated output (e.g. "but but but but..." or "oh oh oh oh...")
+    if not partial_text or _is_hallucination(partial_text):
+        return {"ok": True}
+
+    print("[LIVE TRANSCRIPT]", partial_text)
+
+    key = f"{interview_id}_{question_id}"
+    prev = LIVE_TRANSCRIPTS.get(key, "")
+    combined = (prev + " " + partial_text).strip()
+    LIVE_TRANSCRIPTS[key] = combined
+
+    signal = update_live_answer(
+        str(interview_id),
+        question_id,
+        combined,
+    )
+
+    await broadcast_to_interview(
+        interview_id,
+        {
+            "type": "live_signal",
+            "question_id": question_id,
+            "confidence": signal["confidence"],
+            "word_count": signal["word_count"],
+            "transcript": combined,
+        },
+    )
+
     return {"ok": True}
 
 
@@ -169,6 +256,9 @@ async def finalize_pcm(
         transcript = transcribe_pcm_bytes(pcm)
 
     print(f"[FINAL PCM][Q{question_id}] {transcript}")
+
+    key = f"{interview_id}_{question_id}"
+    LIVE_TRANSCRIPTS.pop(key, None)
 
     return {
         "question_id": question_id,

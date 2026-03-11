@@ -8,7 +8,7 @@ from faster_whisper import WhisperModel
 logger = logging.getLogger(__name__)
 
 model = WhisperModel(
-    "base",
+    "small",
     device="cpu",
     compute_type="float32",
 )
@@ -37,7 +37,7 @@ def transcribe_audio_bytes(audio_bytes: bytes) -> str:
                 path,
                 language="en",
                 beam_size=5,
-                vad_filter=True,
+                vad_filter=False,
                 condition_on_previous_text=False,
                 temperature=0.0,
             )
@@ -71,7 +71,7 @@ def transcribe_pcm_bytes(pcm_bytes: bytes) -> str:
         audio,
         language="en",
         beam_size=5,
-        vad_filter=True,
+        vad_filter=True,           # skip silent segments — main source of hallucinations
         condition_on_previous_text=False,
         temperature=0.0,
     )

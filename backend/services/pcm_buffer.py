@@ -32,3 +32,13 @@ def pop_full_pcm(interview_id: str, question_id: int) -> bytes:
             _PCM_BUFFERS.pop(interview_id, None)
 
     return b"".join(chunks)
+
+
+def get_pcm_buffer(interview_id: str, question_id: int) -> bytes:
+    """
+    Return concatenated PCM buffer without clearing it.
+    Used for partial transcription.
+    """
+    with _LOCK:
+        chunks = _PCM_BUFFERS.get(interview_id, {}).get(question_id, [])
+        return b"".join(chunks)
