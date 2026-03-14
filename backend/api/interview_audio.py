@@ -3,7 +3,10 @@ from collections import Counter
 from fastapi import APIRouter, UploadFile, File, Form, Body, Depends, Query
 from uuid import UUID
 from sqlalchemy.orm import Session
+from sqlalchemy import text as sql_text
 from typing import List
+import asyncio
+import logging
 
 from db.session import get_db
 from models.interview_answers import InterviewAnswer
@@ -12,7 +15,7 @@ from models.interview_answers import InterviewAnswer
 from services.timeline_logger import log_timeline_event
 
 # 🔹 Live confidence
-from services.live_signals import update_live_answer, get_final_confidence
+from services.live_signals import update_live_answer, get_final_confidence, clear_live_state
 
 # 🔹 Turn reasoning (6D-15)
 from services.turn_reasoning import decide_turn_action
@@ -28,9 +31,62 @@ from services.pcm_buffer import append_pcm, get_pcm_buffer, pop_full_pcm
 
 # 🔹 ASR
 from services.asr_service import transcribe_audio_bytes, transcribe_pcm_bytes
+from services.tts_service import synthesize_speech
+from utils.audio_storage import save_agent_audio_file
 
 
 router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
+logger = logging.getLogger(__name__)
+
+
+def _get_question_text(db: Session, interview_id: UUID, question_id: int) -> str:
+    row = db.execute(
+        sql_text(
+            """
+            SELECT question_text
+            FROM interview_questions
+            WHERE id = :qid
+            LIMIT 1
+            """
+        ),
+        {"qid": question_id},
+    ).fetchone()
+    if not row:
+        return ""
+    return str(row[0] or "")
+
+
+async def _build_interrupt_payload(
+    interview_id: UUID,
+    question_id: int,
+    interrupt_text: str,
+    reason: str,
+) -> dict:
+    """Build text-only interrupt payload. TTS audio is sent separately via background task."""
+    return {
+        "type": "ai_interrupt",
+        "question_id": question_id,
+        "text": interrupt_text,
+        "reason": reason,
+    }
+
+
+async def _send_interrupt_audio(interview_id: UUID, interrupt_text: str):
+    """Background task: synthesize TTS and broadcast audio follow-up."""
+    try:
+        audio_bytes = await asyncio.to_thread(synthesize_speech, interrupt_text)
+        if audio_bytes:
+            audio_url = await asyncio.to_thread(
+                save_agent_audio_file,
+                audio_bytes,
+                str(interview_id),
+            )
+            await broadcast_to_interview(
+                interview_id,
+                {"type": "ai_interrupt_audio", "audio_url": audio_url},
+            )
+    except Exception:
+        logger.exception("[TTS] interrupt audio synthesis failed")
 
 
 # ==========================================================
@@ -165,6 +221,8 @@ async def transcribe_audio(
         f"confidence={final_confidence} decision={decision}"
     )
 
+    clear_live_state(str(interview_id), question_id)
+
     return {
         "partial": False,
         "question_id": question_id,
@@ -192,6 +250,7 @@ async def stream_pcm_audio(
     interview_id: UUID,
     question_id: int = Query(...),
     samples: List[int] = Body(...),
+    db: Session = Depends(get_db),
 ):
     pcm_bytes = bytearray()
 
@@ -224,10 +283,13 @@ async def stream_pcm_audio(
     combined = (prev + " " + partial_text).strip()
     LIVE_TRANSCRIPTS[key] = combined
 
+    question_text = _get_question_text(db, interview_id, question_id)
+
     signal = update_live_answer(
         str(interview_id),
         question_id,
         combined,
+        question_text=question_text,
     )
 
     await broadcast_to_interview(
@@ -240,6 +302,20 @@ async def stream_pcm_audio(
             "transcript": combined,
         },
     )
+
+    if signal["interrupt"]:
+        payload = await _build_interrupt_payload(
+            interview_id=interview_id,
+            question_id=question_id,
+            interrupt_text=signal["followup"],
+            reason=signal["interrupt_reason"],
+        )
+        await broadcast_to_interview(
+            interview_id,
+            payload,
+        )
+        # Fire TTS audio in background — don't block the interrupt text
+        asyncio.create_task(_send_interrupt_audio(interview_id, signal["followup"]))
 
     return {"ok": True}
 
@@ -259,6 +335,7 @@ async def finalize_pcm(
 
     key = f"{interview_id}_{question_id}"
     LIVE_TRANSCRIPTS.pop(key, None)
+    clear_live_state(str(interview_id), question_id)
 
     return {
         "question_id": question_id,
@@ -275,11 +352,15 @@ async def live_text(
     interview_id: UUID,
     question_id: int = Body(...),
     text: str = Body(...),
+    db: Session = Depends(get_db),
 ):
+    question_text = _get_question_text(db, interview_id, question_id)
+
     signal = update_live_answer(
         str(interview_id),
         question_id,
         text,
+        question_text=question_text,
     )
 
     # 🟢 Always send live signal
@@ -295,15 +376,18 @@ async def live_text(
 
     # 🔴 INTERRUPT IF NEEDED
     if signal["interrupt"]:
+        payload = await _build_interrupt_payload(
+            interview_id=interview_id,
+            question_id=question_id,
+            interrupt_text=signal["followup"],
+            reason=signal["interrupt_reason"],
+        )
         await broadcast_to_interview(
             interview_id,
-            {
-                "type": "ai_interrupt",
-                "question_id": question_id,
-                "text": signal["followup"],
-                "reason": signal["interrupt_reason"],
-            },
+            payload,
         )
+        # Fire TTS audio in background — don't block the interrupt text
+        asyncio.create_task(_send_interrupt_audio(interview_id, signal["followup"]))
 
     return {"ok": True}
 # ==========================================================

@@ -12,7 +12,8 @@ const ANSWER_TIME_LIMIT  = 120;   // 2-minute countdown
 type WSMessage =
   | { type: "agent_message"; text: string; question_id?: number; audio_url?: string; done?: boolean }
   | { type: "live_signal"; question_id: number; confidence: "low" | "medium" | "high"; word_count: number; transcript?: string }
-  | { type: "ai_interrupt"; text: string; reason?: string }
+  | { type: "ai_interrupt"; text: string; reason?: string; audio_url?: string }
+  | { type: "ai_interrupt_audio"; audio_url: string }
   | { type: "turn_decision"; question_id: number; decision: string };
 
 export default function LiveInterviewPage() {
@@ -26,6 +27,7 @@ export default function LiveInterviewPage() {
   const sampleBufferRef     = useRef<number[]>([]);
   const recognitionRef      = useRef<any>(null);          // Web Speech instance
   const finalTranscriptRef  = useRef("");                 // confirmed SpeechRecognition text
+  const liveTranscriptRef   = useRef("");                 // latest transcript (for periodic re-send)
   const candidateSpeakingRef = useRef(false);             // mirrors state — avoids stale closure
   const liveTextDebounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const candidateVideoRef   = useRef<HTMLVideoElement | null>(null);
@@ -41,27 +43,49 @@ export default function LiveInterviewPage() {
   const [timeLeft, setTimeLeft]                 = useState(ANSWER_TIME_LIMIT);
   const [interviewDone, setInterviewDone]       = useState(false);
   const [asrWarning, setAsrWarning]             = useState("");
+  const [interrupted, setInterrupted]           = useState(false);
+  const [interruptText, setInterruptText]       = useState("");
+  const interruptedRef                          = useRef(false);
 
-  // ── Countdown timer ────────────────────────────────────────────────
+  // ── Countdown timer (pauses during interruption) ───────────────────
   useEffect(() => {
     if (!candidateSpeaking) {
       setTimeLeft(ANSWER_TIME_LIMIT);
       return;
     }
-    setTimeLeft(ANSWER_TIME_LIMIT); // reset at start of each turn
+    if (interrupted) return; // timer frozen — keep current value
     const id = setInterval(() => {
       setTimeLeft((t) => (t > 0 ? t - 1 : 0));
     }, 1000);
     return () => clearInterval(id);
-  }, [candidateSpeaking]);
+  }, [candidateSpeaking, interrupted]);
 
-  // Auto-submit when time runs out
+  // Auto-submit when time runs out (skip when interrupted)
   useEffect(() => {
-    if (candidateSpeaking && timeLeft === 0) {
+    if (candidateSpeaking && !interrupted && timeLeft === 0) {
       submitAnswer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, candidateSpeaking]);
+  }, [timeLeft, candidateSpeaking, interrupted]);
+
+  // ── Periodic re-send for interrupt detection ─────────────────────
+  // Even if no new speech, re-send transcript every 3 s so the backend
+  // can re-evaluate with enough elapsed time (fixes late-interrupt bug).
+  useEffect(() => {
+    if (!candidateSpeaking || interrupted) return;
+    const id = setInterval(() => {
+      const qid = currentQuestionIdRef.current;
+      const text = liveTranscriptRef.current;
+      if (!qid || !text) return;
+      console.log("[PERIODIC] Sending live_text:", text.substring(0, 60), "words:", text.split(" ").length);
+      fetch(`${API_BASE}/api/interview/${interviewId}/live_text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_id: qid, text }),
+      }).catch(() => {});
+    }, 3000);
+    return () => clearInterval(id);
+  }, [candidateSpeaking, interrupted, interviewId]);
 
   // ── Camera preview ────────────────────────────────────────────────
   useEffect(() => {
@@ -121,11 +145,37 @@ export default function LiveInterviewPage() {
         // Only show Whisper fallback transcript when Web Speech is unavailable
         if (!recognitionRef.current && msg.transcript) {
           setLiveTranscript(msg.transcript);
+          liveTranscriptRef.current = msg.transcript;
         }
       }
 
       if (msg.type === "ai_interrupt") {
-        setQuestionText(msg.text);
+        setInterrupted(true);
+        setInterruptText(msg.text);
+        interruptedRef.current = true;
+
+        // Pause MediaRecorder
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+          mediaRecorderRef.current.pause();
+        }
+        // Pause Web Speech recognition
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch { /* already stopped */ }
+        }
+        // Suspend PCM capture
+        if (audioContextRef.current && audioContextRef.current.state === "running") {
+          audioContextRef.current.suspend();
+        }
+
+        // Speak interrupt text using browser SpeechSynthesis
+        if ("speechSynthesis" in window && msg.text) {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(msg.text);
+          utter.rate = 1.0;
+          utter.pitch = 1.0;
+          utter.volume = 1.0;
+          window.speechSynthesis.speak(utter);
+        }
       }
     };
 
@@ -138,9 +188,13 @@ export default function LiveInterviewPage() {
 
     setLiveTranscript("");
     finalTranscriptRef.current = "";
+    liveTranscriptRef.current = "";
     setCandidateSpeaking(true);
     candidateSpeakingRef.current = true;
     setAsrWarning("");
+    setInterrupted(false);
+    setInterruptText("");
+    interruptedRef.current = false;
 
     let audioStream: MediaStream;
     try {
@@ -174,12 +228,14 @@ export default function LiveInterviewPage() {
           }
           const display = (finalTranscriptRef.current + interim).trim();
           setLiveTranscript(display);
+          liveTranscriptRef.current = display;
 
           // Debounce confidence scoring: send transcript to backend every ~1.5 s
           if (liveTextDebounceRef.current) clearTimeout(liveTextDebounceRef.current);
           liveTextDebounceRef.current = setTimeout(() => {
             const qid = currentQuestionIdRef.current;
             if (!qid || !display) return;
+            console.log("[DEBOUNCE] Sending live_text:", display.substring(0, 60), "words:", display.split(" ").length);
             fetch(`${API_BASE}/api/interview/${interviewId}/live_text`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -202,7 +258,7 @@ export default function LiveInterviewPage() {
         // Auto-restart on pause (browser stops recognition after silence)
         recognition.onend = () => {
           // Only restart if this instance is still active (not cleared by submitAnswer)
-          if (recognitionRef.current === recognition && candidateSpeakingRef.current) {
+          if (recognitionRef.current === recognition && candidateSpeakingRef.current && !interruptedRef.current) {
             try { recognition.start(); } catch { /* already started */ }
           }
         };
@@ -276,6 +332,16 @@ export default function LiveInterviewPage() {
     const qid = currentQuestionIdRef.current;
     if (!qid || !wsRef.current) return;
 
+    // Clear interrupted state if active
+    setInterrupted(false);
+    setInterruptText("");
+    interruptedRef.current = false;
+
+    // Stop speech synthesis if still speaking
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
     // Stop Web Speech first — null ref BEFORE .stop() so onend won't restart
     candidateSpeakingRef.current = false;
     if (liveTextDebounceRef.current) {
@@ -313,7 +379,41 @@ export default function LiveInterviewPage() {
 
     setAnswerConfidence(null);
     setLiveTranscript("");
+    liveTranscriptRef.current = "";
     finalTranscriptRef.current = "";
+  }
+
+  // ── Resume recording after interruption ──────────────────────────
+  function continueRecording() {
+    setInterrupted(false);
+    setInterruptText("");
+    interruptedRef.current = false;
+
+    // Stop speech synthesis if still speaking
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Stop interrupt audio if still playing
+    if (agentAudioRef.current) {
+      agentAudioRef.current.pause();
+      agentAudioRef.current.currentTime = 0;
+    }
+
+    // Resume MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      mediaRecorderRef.current.resume();
+    }
+
+    // Restart Web Speech recognition
+    if (recognitionRef.current) {
+      try { recognitionRef.current.start(); } catch { /* already running */ }
+    }
+
+    // Resume PCM capture
+    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume();
+    }
   }
 
   // ── UI helpers ────────────────────────────────────────────────────
@@ -358,8 +458,11 @@ export default function LiveInterviewPage() {
 
               {/* Header: label + countdown timer */}
               <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500 font-medium">Live transcription</div>
-                <div className={`text-sm font-mono font-bold ${timerColor}`}>
+                <div className="text-xs text-gray-500 font-medium">
+                  {interrupted ? "Recording paused" : "Live transcription"}
+                </div>
+                <div className={`text-sm font-mono font-bold ${interrupted ? "text-amber-600" : timerColor}`}>
+                  {interrupted && <span className="text-xs mr-1">PAUSED</span>}
                   {minutes}:{seconds}
                 </div>
               </div>
@@ -390,13 +493,40 @@ export default function LiveInterviewPage() {
                 </div>
               )}
 
-              {/* Submit button */}
-              <button
-                onClick={submitAnswer}
-                className="mt-1 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-2 text-sm font-medium transition-colors"
-              >
-                Submit Answer
-              </button>
+              {/* Interrupt overlay */}
+              {interrupted && (
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-sm font-semibold text-amber-800">Interview Paused</span>
+                  </div>
+                  <div className="text-sm text-amber-900">{interruptText}</div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={continueRecording}
+                      className="flex-1 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium transition-colors"
+                    >
+                      Continue Recording
+                    </button>
+                    <button
+                      onClick={submitAnswer}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-2 text-sm font-medium transition-colors"
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit button (hidden during interruption) */}
+              {!interrupted && (
+                <button
+                  onClick={submitAnswer}
+                  className="mt-1 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-2 text-sm font-medium transition-colors"
+                >
+                  Submit Answer
+                </button>
+              )}
             </div>
           )}
 
