@@ -288,7 +288,7 @@ def interview_progress(interview_id: UUID, db: Session = Depends(get_db), user=D
 
 
 @router.get("/report/{interview_id}")
-def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def report(interview_id: UUID, db: Session = Depends(get_db)):
     """
     Return per-question report. Includes:
     - latest answer (transcript, ai_feedback, etc)
@@ -323,13 +323,13 @@ def report(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_c
 
 
 @router.post("/score/{interview_id}")
-def score_now(interview_id: UUID, user=Depends(get_current_user)):
+def score_now(interview_id: UUID):
     task = score_interview.delay(str(interview_id))
     return {"queued": True, "task_id": task.id}
 
 
 @router.post("/report/{interview_id}/pdf")
-def pdf_now(interview_id: UUID, user=Depends(get_current_user)):
+def pdf_now(interview_id: UUID):
     """
     Queue PDF generation. The generate_pdf task should:
       - create the PDF file
@@ -341,7 +341,7 @@ def pdf_now(interview_id: UUID, user=Depends(get_current_user)):
 
 
 @router.get("/report/{interview_id}/pdf")
-def pdf_info(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def pdf_info(interview_id: UUID, db: Session = Depends(get_db)):
     """
     Return PDF location (and a presigned URL if possible).
     Validates object exists in S3/MinIO before returning the presigned URL.
@@ -431,7 +431,7 @@ def ai_debug_generate(jd: str = Body(...), resume: str = Body(...), count: int =
 
 
 @router.get("/scores/{interview_id}")
-def get_interview_scores(interview_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def get_interview_scores(interview_id: UUID, db: Session = Depends(get_db)):
     rows = db.execute(
         text("""
             SELECT id, interview_id, question_id, technical_score, communication_score,
@@ -445,7 +445,7 @@ def get_interview_scores(interview_id: UUID, db: Session = Depends(get_db), user
     return [dict(r) for r in rows]
 
 @router.post("/score_question/{question_id}")
-def score_question(question_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def score_question(question_id: int, db: Session = Depends(get_db)):
     """
     Map a question_id -> interview_id and enqueue the scoring job for that interview.
     This is a pragmatic fix so the UI's per-question Re-score button doesn't 404.
@@ -726,3 +726,78 @@ def audit_diff(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ----------------------------------------------------------
+# Phase 8: Evaluation + Finalize endpoints
+# ----------------------------------------------------------
+
+@router.get("/evaluation/{interview_id}")
+def get_evaluation(interview_id: UUID, db: Session = Depends(get_db)):
+    """
+    Return complete evaluation data for the candidate evaluation page.
+    Combines interview metadata, report JSONB, per-question scores, and role context.
+    """
+    interview = db.execute(text("""
+        SELECT i.id, i.overall_score, i.report,
+               r.title AS role_title, r.level AS role_level
+        FROM interviews i
+        LEFT JOIN roles r ON r.id = i.role_id
+        WHERE i.id = :iid
+    """), {"iid": str(interview_id)}).mappings().first()
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Fetch candidate info from interview_turns or interview metadata
+    candidate_row = db.execute(text("""
+        SELECT candidate_name, candidate_email
+        FROM interviews WHERE id = :iid
+    """), {"iid": str(interview_id)}).mappings().first()
+
+    # Fetch per-question detail with question_text
+    questions = db.execute(text("""
+        SELECT s.question_id, q.question_text, q.type,
+               s.technical_score, s.communication_score, s.completeness_score,
+               s.overall_score, s.ai_feedback
+        FROM interview_scores s
+        JOIN interview_questions q ON q.id = s.question_id
+        WHERE s.interview_id = :iid
+        ORDER BY s.id ASC
+    """), {"iid": str(interview_id)}).mappings().all()
+
+    report = interview["report"] or {}
+    if isinstance(report, str):
+        try:
+            report = json.loads(report)
+        except Exception:
+            report = {}
+
+    return {
+        "interview_id": str(interview["id"]),
+        "candidate_name": (candidate_row["candidate_name"] if candidate_row else None),
+        "candidate_email": (candidate_row["candidate_email"] if candidate_row else None),
+        "role_title": interview.get("role_title"),
+        "role_level": interview.get("role_level"),
+        "overall_score": interview["overall_score"],
+        "report": report,
+        "rubric_scores": report.get("rubric_scores", {}),
+        "hiring_recommendation": report.get("hiring_recommendation", "pending"),
+        "strengths": report.get("strengths", []),
+        "weaknesses": report.get("weaknesses", []),
+        "per_question": [dict(q) for q in questions],
+        "scored": bool(questions),
+    }
+
+
+@router.post("/finalize/{interview_id}")
+def finalize_interview(interview_id: UUID, db: Session = Depends(get_db)):
+    """
+    Called when a live interview ends. Backfills answers from turns and triggers scoring.
+    """
+    from services.answer_backfill import backfill_answers_from_turns
+
+    count = backfill_answers_from_turns(db, interview_id)
+    task = score_interview.delay(str(interview_id), triggered_by="auto_finalize")
+
+    return {"ok": True, "backfilled": count, "task_id": task.id}

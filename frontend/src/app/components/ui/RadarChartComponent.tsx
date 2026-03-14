@@ -2,17 +2,29 @@
 import React from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 
-export default function RadarChartComponent({ technical = 0, communication = 0, completeness = 0 } : { technical?: number; communication?: number; completeness?: number }) {
-  const data = [
-    { subject: "Technical", A: Math.round(technical) },
-    { subject: "Communication", A: Math.round(communication) },
-    { subject: "Completeness", A: Math.round(completeness) },
-  ];
+export default function RadarChartComponent({
+  data,
+  technical = 0,
+  communication = 0,
+  completeness = 0,
+}: {
+  data?: { subject: string; value: number }[];
+  technical?: number;
+  communication?: number;
+  completeness?: number;
+}) {
+  const chartData = data
+    ? data.map((d) => ({ subject: d.subject, A: Math.round(d.value) }))
+    : [
+        { subject: "Technical", A: Math.round(technical) },
+        { subject: "Communication", A: Math.round(communication) },
+        { subject: "Completeness", A: Math.round(completeness) },
+      ];
 
   return (
     <div className="w-full h-40">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data}>
+        <RadarChart data={chartData}>
           <PolarGrid />
           <PolarAngleAxis dataKey="subject" />
           <PolarRadiusAxis angle={30} domain={[0, 100]} />

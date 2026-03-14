@@ -10,7 +10,7 @@ const PCM_SEND_THRESHOLD = 16000; // ~1 s at 16 kHz — for confidence scoring o
 const ANSWER_TIME_LIMIT  = 120;   // 2-minute countdown
 
 type WSMessage =
-  | { type: "agent_message"; text: string; question_id?: number; audio_url?: string; done?: boolean }
+  | { type: "agent_message"; text: string; question_id?: number; question_type?: string; audio_url?: string; done?: boolean }
   | { type: "live_signal"; question_id: number; confidence: "low" | "medium" | "high"; word_count: number; transcript?: string }
   | { type: "ai_interrupt"; text: string; reason?: string; audio_url?: string }
   | { type: "ai_interrupt_audio"; audio_url: string }
@@ -45,6 +45,8 @@ export default function LiveInterviewPage() {
   const [asrWarning, setAsrWarning]             = useState("");
   const [interrupted, setInterrupted]           = useState(false);
   const [interruptText, setInterruptText]       = useState("");
+  const [questionType, setQuestionType]         = useState<"voice" | "code">("voice");
+  const [codeAnswer, setCodeAnswer]             = useState("");
   const interruptedRef                          = useRef(false);
 
   // ── Countdown timer (pauses during interruption) ───────────────────
@@ -110,12 +112,21 @@ export default function LiveInterviewPage() {
         setAnswerConfidence(null);
         setLiveTranscript("");
         finalTranscriptRef.current = "";
+        setCodeAnswer("");
 
         if (msg.question_id) currentQuestionIdRef.current = msg.question_id;
+        if (msg.question_type) setQuestionType(msg.question_type === "code" ? "code" : "voice");
 
         if (msg.done) {
           setInterviewDone(true);
           setAgentStatus("idle");
+          // Finalize: backfill answers + trigger scoring, then redirect to evaluation
+          fetch(`${API_BASE}/interview/finalize/${interviewId}`, { method: "POST" })
+            .then((r) => r.json())
+            .catch(() => ({}));
+          setTimeout(() => {
+            window.location.href = `/interview/${interviewId}/evaluation`;
+          }, 3000);
           return;
         }
 
@@ -127,16 +138,26 @@ export default function LiveInterviewPage() {
             .then(() => {
               audio.onended = () => {
                 setAgentStatus("listening");
-                if (currentQuestionIdRef.current) startCandidateTurn();
+                if (currentQuestionIdRef.current) {
+                  const qType = msg.question_type === "code" ? "code" : "voice";
+                  if (qType === "voice") startCandidateTurn();
+                  else setCandidateSpeaking(true); // show code editor
+                }
               };
             })
             .catch(() => {
               setAgentStatus("listening");
-              if (currentQuestionIdRef.current) startCandidateTurn();
+              if (currentQuestionIdRef.current) {
+                const qType = msg.question_type === "code" ? "code" : "voice";
+                if (qType === "voice") startCandidateTurn();
+                else setCandidateSpeaking(true);
+              }
             });
         } else if (msg.question_id) {
           setAgentStatus("listening");
-          startCandidateTurn();
+          const qType = msg.question_type === "code" ? "code" : "voice";
+          if (qType === "voice") startCandidateTurn();
+          else setCandidateSpeaking(true); // show code editor
         }
       }
 
@@ -370,8 +391,8 @@ export default function LiveInterviewPage() {
     setCandidateSpeaking(false);
     setAgentStatus("idle");
 
-    // Prefer Web Speech accumulated text; fall back to last Whisper broadcast
-    const transcript = finalTranscriptRef.current.trim() || liveTranscript;
+    // Prefer Web Speech accumulated text; fall back to last Whisper broadcast; fall back to code answer
+    const transcript = finalTranscriptRef.current.trim() || liveTranscript || codeAnswer;
 
     wsRef.current.send(
       JSON.stringify({ type: "candidate_text", question_id: qid, text: transcript })
@@ -381,6 +402,7 @@ export default function LiveInterviewPage() {
     setLiveTranscript("");
     liveTranscriptRef.current = "";
     finalTranscriptRef.current = "";
+    setCodeAnswer("");
   }
 
   // ── Resume recording after interruption ──────────────────────────
@@ -453,7 +475,7 @@ export default function LiveInterviewPage() {
           <div className="text-lg font-medium">{questionText || "Connecting..."}</div>
 
           {/* ── Candidate answer panel ── */}
-          {candidateSpeaking && (
+          {candidateSpeaking && questionType === "voice" && (
             <div className="mt-6 bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
 
               {/* Header: label + countdown timer */}
@@ -530,10 +552,37 @@ export default function LiveInterviewPage() {
             </div>
           )}
 
+          {/* ── Code answer panel ── */}
+          {candidateSpeaking && questionType === "code" && (
+            <div className="mt-6 bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-500 font-medium">Code Editor</div>
+                <div className={`text-sm font-mono font-bold ${timerColor}`}>
+                  {minutes}:{seconds}
+                </div>
+              </div>
+
+              <textarea
+                value={codeAnswer}
+                onChange={(e) => setCodeAnswer(e.target.value)}
+                placeholder="Write your code here..."
+                className="w-full min-h-[200px] bg-gray-900 text-green-400 font-mono text-sm p-4 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none resize-y"
+                spellCheck={false}
+              />
+
+              <button
+                onClick={submitAnswer}
+                className="mt-1 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg py-2 text-sm font-medium transition-colors"
+              >
+                Submit Code
+              </button>
+            </div>
+          )}
+
           {/* ── Interview complete ── */}
           {interviewDone && (
             <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 font-medium text-sm">
-              Interview complete — thank you for your time!
+              Interview complete — scoring your answers. Redirecting to evaluation...
             </div>
           )}
         </div>

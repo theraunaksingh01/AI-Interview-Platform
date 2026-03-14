@@ -352,9 +352,11 @@ function guessLangFromQuestion(q: any): string {
 
     rs.forEach((q) => {
       const ai = (q.ai_feedback || {}) as any;
-      const t = getNum(ai, "technical");
-      const c = getNum(ai, "communication");
-      const p = getNum(ai, "completeness");
+      // Support both old keys (technical/communication/completeness)
+      // and Phase 8 rubric keys (technical_accuracy, communication_clarity, etc.)
+      const t = getNum(ai, "technical") || Math.round((getNum(ai, "technical_accuracy") + getNum(ai, "problem_solving")) / 2);
+      const c = getNum(ai, "communication") || getNum(ai, "communication_clarity");
+      const p = getNum(ai, "completeness") || Math.round((getNum(ai, "depth_of_knowledge") + getNum(ai, "relevance")) / 2);
 
       if (typeof t === "number") {
         techSum += t;
@@ -480,9 +482,9 @@ function guessLangFromQuestion(q: any): string {
           <div className="space-y-6">
             {report.map((q) => {
               const ai = q.ai_feedback || {};
-              const technical = getNum(ai, "technical");
-              const communication = getNum(ai, "communication");
-              const completeness = getNum(ai, "completeness");
+              const technical = getNum(ai, "technical") || Math.round((getNum(ai, "technical_accuracy") + getNum(ai, "problem_solving")) / 2);
+              const communication = getNum(ai, "communication") || getNum(ai, "communication_clarity");
+              const completeness = getNum(ai, "completeness") || Math.round((getNum(ai, "depth_of_knowledge") + getNum(ai, "relevance")) / 2);
               const overall = Math.round(0.6 * technical + 0.3 * communication + 0.1 * completeness);
 
               const qtype = (String(q.type || "").toLowerCase() || "voice");

@@ -18,6 +18,7 @@ from services.ws_broadcast import (
     unregister_connection,
 )
 
+from services.answer_backfill import backfill_answers_from_turns
 from services.timeline_logger import log_timeline_event
 
 
@@ -35,7 +36,7 @@ async def send_json_safe(ws: WebSocket, payload: dict):
 def get_next_question(db: Session, interview_id: UUID):
     rows = db.execute(
         text("""
-            SELECT id, question_text
+            SELECT id, question_text, type
             FROM interview_questions
             WHERE interview_id = :iid
             ORDER BY id ASC
@@ -61,7 +62,7 @@ def get_next_question(db: Session, interview_id: UUID):
 
     for r in rows:
         if r.id not in answered_ids:
-            return {"id": r.id, "question_text": r.question_text}
+            return {"id": r.id, "question_text": r.question_text, "type": r.type}
 
     return None
 
@@ -113,6 +114,11 @@ async def interview_ws(
                             "done": True,
                         },
                     )
+                    # Backfill interview_answers from turns for scoring
+                    try:
+                        backfill_answers_from_turns(db, interview_id)
+                    except Exception:
+                        logger.exception("[BACKFILL] failed on interview done")
 
             elif msg.get("type") == "ping":
                 await send_json_safe(websocket, {"type": "pong"})
@@ -122,40 +128,52 @@ async def interview_ws(
 
     finally:
         unregister_connection(interview_id)
+        # Safety-net: backfill answers on any disconnect
+        try:
+            backfill_answers_from_turns(db, interview_id)
+        except Exception:
+            logger.exception("[BACKFILL] safety-net failed on disconnect")
 
 
 async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
-    greeting = "Hi! We'll start your interview now. Please answer in detail."
+    # Check if there are already turns for this interview (reconnect scenario)
+    existing_turns = db.execute(
+        text("SELECT COUNT(*) FROM interview_turns WHERE interview_id = :iid"),
+        {"iid": interview_id},
+    ).scalar()
 
-    db.add(
-        InterviewTurn(
-            interview_id=interview_id,
-            speaker="agent",
-            transcript=greeting,
-            started_at=datetime.utcnow(),
-            ended_at=datetime.utcnow(),
-        )
-    )
-    db.commit()
+    if not existing_turns:
+        # First connection: send greeting
+        greeting = "Hi! We'll start your interview now. Please answer in detail."
 
-    # Generate TTS first so we send text + audio in ONE message (avoids
-    # the frontend triggering candidate recording before audio plays).
-    audio_url = None
-    try:
-        audio_bytes = await asyncio.to_thread(synthesize_speech, greeting)
-        if audio_bytes:
-            audio_path = await asyncio.to_thread(
-                save_agent_audio_file, audio_bytes, str(interview_id)
+        db.add(
+            InterviewTurn(
+                interview_id=interview_id,
+                speaker="agent",
+                transcript=greeting,
+                started_at=datetime.utcnow(),
+                ended_at=datetime.utcnow(),
             )
-            audio_url = audio_path
-    except Exception:
-        logger.exception("[TTS] greeting failed")
+        )
+        db.commit()
 
-    greeting_msg: dict = {"type": "agent_message", "text": greeting}
-    if audio_url:
-        greeting_msg["audio_url"] = audio_url
-    await send_json_safe(ws, greeting_msg)
+        audio_url = None
+        try:
+            audio_bytes = await asyncio.to_thread(synthesize_speech, greeting)
+            if audio_bytes:
+                audio_path = await asyncio.to_thread(
+                    save_agent_audio_file, audio_bytes, str(interview_id)
+                )
+                audio_url = audio_path
+        except Exception:
+            logger.exception("[TTS] greeting failed")
 
+        greeting_msg: dict = {"type": "agent_message", "text": greeting}
+        if audio_url:
+            greeting_msg["audio_url"] = audio_url
+        await send_json_safe(ws, greeting_msg)
+
+    # Send the next unanswered question (works for both fresh and reconnect)
     first_q = get_next_question(db, interview_id)
     if first_q:
         await send_agent_question(db, interview_id, first_q, ws)
@@ -174,25 +192,36 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
     qid = q["id"]
     text_q = q["question_text"]
 
-    db.add(
-        InterviewTurn(
+    # Only create agent turn if one doesn't already exist for this question
+    existing_agent_turn = db.execute(
+        text("""
+            SELECT id FROM interview_turns
+            WHERE interview_id = :iid AND question_id = :qid AND speaker = 'agent'
+            LIMIT 1
+        """),
+        {"iid": interview_id, "qid": qid},
+    ).scalar()
+
+    if not existing_agent_turn:
+        db.add(
+            InterviewTurn(
+                interview_id=interview_id,
+                question_id=qid,
+                speaker="agent",
+                transcript=text_q,
+                started_at=datetime.utcnow(),
+                ended_at=datetime.utcnow(),
+            )
+        )
+        db.commit()
+
+        log_timeline_event(
+            db,
             interview_id=interview_id,
             question_id=qid,
-            speaker="agent",
-            transcript=text_q,
-            started_at=datetime.utcnow(),
-            ended_at=datetime.utcnow(),
+            event_type="agent_question",
+            payload={"text": text_q},
         )
-    )
-    db.commit()
-
-    log_timeline_event(
-        db,
-        interview_id=interview_id,
-        question_id=qid,
-        event_type="agent_question",
-        payload={"text": text_q},
-    )
 
     # Generate TTS first so we send text + audio in ONE message (avoids
     # the frontend triggering candidate recording before audio plays).
@@ -208,6 +237,7 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
     question_msg: dict = {
         "type": "agent_message",
         "question_id": qid,
+        "question_type": q.get("type", "voice"),
         "text": text_q,
     }
     if audio_url:

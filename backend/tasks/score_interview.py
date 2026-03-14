@@ -6,6 +6,7 @@ import logging
 import re
 import asyncio
 from typing import Any, Dict, List, Optional, Tuple
+from collections import defaultdict
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -52,44 +53,114 @@ COMM_W = float(os.getenv("AI_COMM_WEIGHT", "0.30"))
 TECH_W = float(os.getenv("AI_TECH_WEIGHT", "0.60"))
 COMP_W = float(os.getenv("AI_COMP_WEIGHT", "0.10"))
 
-SYSTEM_PROMPT = """You are an expert technical interviewer. Score answers strictly and return compact JSON."""
+SYSTEM_PROMPT = (
+    "You are an expert technical interviewer evaluating a candidate's response. "
+    "Score strictly using the rubric provided. Consider the job role and question context. "
+    "Return ONLY valid JSON matching the exact schema requested. No markdown, no backticks."
+)
 
-VOICE_USER_PROMPT = """Score the candidate's spoken answer.
+VOICE_USER_PROMPT = """Evaluate this candidate's spoken answer to an interview question.
 
-Answer Transcript:
+Job Role: {role_title} ({role_level})
+Job Description Context: {jd_excerpt}
+
+Question Asked:
+---
+{question_text}
+---
+
+Candidate's Answer Transcript:
 ---
 {transcript}
 ---
 
-Return JSON with:
+Score each rubric dimension from 0 to 100:
+1. Technical Accuracy: correctness of technical concepts, facts, and terminology
+2. Problem Solving: structured thinking, approach to breaking down the problem
+3. Communication Clarity: articulation, organization, conciseness of explanation
+4. Depth of Knowledge: beyond-surface understanding, real-world experience shown
+5. Relevance: how directly the answer addresses the specific question asked
+
+Also provide:
+- strengths: list of 2-4 specific things the candidate did well
+- weaknesses: list of 1-3 specific areas for improvement
+- summary: 2-3 sentence overall assessment
+- hiring_signal: one of "strong_hire", "hire", "maybe", "no_hire"
+
+Return JSON:
 {{
-  "communication": 0-100,
-  "technical": 0-100,
-  "completeness": 0-100,
-  "red_flags": [strings],
-  "summary": "2-3 sentences"
+  "technical_accuracy": <0-100>,
+  "problem_solving": <0-100>,
+  "communication_clarity": <0-100>,
+  "depth_of_knowledge": <0-100>,
+  "relevance": <0-100>,
+  "strengths": ["string", ...],
+  "weaknesses": ["string", ...],
+  "summary": "string",
+  "hiring_signal": "strong_hire|hire|maybe|no_hire",
+  "red_flags": ["string", ...]
 }}"""
 
-CODE_USER_PROMPT = """Score the candidate's code & reasoning.
+CODE_USER_PROMPT = """Evaluate this candidate's code submission.
 
-Code:
+Job Role: {role_title} ({role_level})
+
+Question Asked:
+---
+{question_text}
+---
+
+Code Submitted:
 ---
 {code}
 ---
 
-Observed Program Output (first 50 lines):
+Program Output (first 50 lines):
 ---
 {stdout}
 ---
 
 Hidden-test Correctness: {correctness}%
 
+Score each rubric dimension from 0 to 100:
+1. Technical Accuracy: correct logic, proper data structures, algorithm choice
+2. Problem Solving: approach, edge case handling, optimization awareness
+3. Code Quality: readability, naming, structure, idioms
+4. Completeness: covers all requirements, handles edge cases
+5. Relevance: solves the actual problem stated
+
 Return JSON:
 {{
-  "technical": 0-100,
-  "completeness": 0-100,
-  "summary": "1-2 sentences of constructive feedback"
+  "technical_accuracy": <0-100>,
+  "problem_solving": <0-100>,
+  "code_quality": <0-100>,
+  "completeness": <0-100>,
+  "relevance": <0-100>,
+  "strengths": ["string", ...],
+  "weaknesses": ["string", ...],
+  "summary": "string",
+  "hiring_signal": "strong_hire|hire|maybe|no_hire",
+  "red_flags": ["string", ...]
 }}"""
+
+# Rubric dimensions and weights for overall score
+VOICE_RUBRIC_KEYS = [
+    "technical_accuracy", "problem_solving", "communication_clarity",
+    "depth_of_knowledge", "relevance",
+]
+CODE_RUBRIC_KEYS = [
+    "technical_accuracy", "problem_solving", "code_quality",
+    "completeness", "relevance",
+]
+RUBRIC_WEIGHTS = {
+    "technical_accuracy": 0.25,
+    "problem_solving": 0.25,
+    "communication_clarity": 0.15,
+    "depth_of_knowledge": 0.20,
+    "relevance": 0.15,
+    "code_quality": 0.15,
+    "completeness": 0.20,
+}
 
 # ------------------------------
 # LLM callers
@@ -152,7 +223,16 @@ async def _openai_call(prompt: str, model: str, timeout: int = 60) -> Tuple[Opti
 
 async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
     if AI_PROVIDER == "stub":
-        raw = json.dumps({"technical": 70, "communication": 70, "completeness": 70, "red_flags": [], "summary": "LLM stub"})
+        raw = json.dumps({
+            "technical_accuracy": 70, "problem_solving": 65,
+            "communication_clarity": 72, "depth_of_knowledge": 60,
+            "relevance": 75, "code_quality": 68, "completeness": 70,
+            "strengths": ["Clear structure", "Good examples"],
+            "weaknesses": ["Could go deeper on edge cases"],
+            "summary": "Solid answer with room for improvement in depth.",
+            "hiring_signal": "hire",
+            "red_flags": [],
+        })
         return json.loads(raw), raw
 
     if AI_PROVIDER == "ollama":
@@ -161,7 +241,7 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
             raw_text = res.get("raw") or ""
             body = res.get("body")
             if isinstance(body, dict):
-                if any(k in body for k in ("technical", "communication", "completeness")):
+                if any(k in body for k in ("technical_accuracy", "problem_solving", "technical", "communication", "completeness")):
                     return body, raw_text
                 resp = body.get("response") or body.get("text") or None
                 if isinstance(resp, str):
@@ -205,8 +285,68 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
         return parsed, raw
 
     log.warning("Unknown AI_PROVIDER=%s — using stub", AI_PROVIDER)
-    raw = json.dumps({"technical": 70, "communication": 70, "completeness": 70, "red_flags": [], "summary": "LLM stub"})
+    raw = json.dumps({
+        "technical_accuracy": 70, "problem_solving": 65,
+        "communication_clarity": 72, "depth_of_knowledge": 60,
+        "relevance": 75, "code_quality": 68, "completeness": 70,
+        "strengths": ["Clear structure"], "weaknesses": ["Needs more depth"],
+        "summary": "LLM stub", "hiring_signal": "hire", "red_flags": [],
+    })
     return json.loads(raw), raw
+
+
+def _normalize_to_rubric(fb: dict) -> dict:
+    """
+    Normalize LLM responses that use old 3-dimension keys (technical, communication,
+    completeness) into the Phase 8 rubric format (technical_accuracy, problem_solving, etc.).
+    Also filters out placeholder values and ensures legacy keys exist for backward compat.
+    """
+    rubric_keys = {"technical_accuracy", "problem_solving", "communication_clarity",
+                   "depth_of_knowledge", "relevance", "code_quality", "completeness"}
+    has_rubric = any(k in fb for k in rubric_keys)
+
+    if not has_rubric:
+        # Map old keys → rubric keys
+        tech = _safe_int(fb.get("technical"), 0)
+        comm = _safe_int(fb.get("communication"), 0)
+        comp = _safe_int(fb.get("completeness"), 0)
+
+        fb["technical_accuracy"] = tech
+        fb["problem_solving"] = max(tech - 5, 0)
+        fb["communication_clarity"] = comm
+        fb["depth_of_knowledge"] = max(tech - 10, 0)
+        fb["relevance"] = comp
+        fb["code_quality"] = comm
+
+    # Ensure legacy keys exist (review page reads these)
+    if "technical" not in fb:
+        ta = _safe_int(fb.get("technical_accuracy"), 0)
+        ps = _safe_int(fb.get("problem_solving"), 0)
+        fb["technical"] = round((ta + ps) / 2) if (ta or ps) else 0
+    if "communication" not in fb:
+        fb["communication"] = _safe_int(fb.get("communication_clarity"), 0)
+    if "completeness" not in fb and "relevance" in fb:
+        dk = _safe_int(fb.get("depth_of_knowledge"), 0)
+        rel = _safe_int(fb.get("relevance"), 0)
+        fb.setdefault("completeness", round((dk + rel) / 2) if (dk or rel) else 0)
+
+    fb.setdefault("strengths", [])
+    fb.setdefault("weaknesses", [])
+    fb.setdefault("red_flags", [])
+    # Filter out LLM placeholder values like "string", "string string", empty, etc.
+    for list_key in ("strengths", "weaknesses", "red_flags"):
+        if isinstance(fb.get(list_key), list):
+            fb[list_key] = [s for s in fb[list_key]
+                           if isinstance(s, str) and s.strip()
+                           and s.strip().lower() not in ("string", "string string", "placeholder")]
+    if not isinstance(fb.get("summary"), str):
+        fb["summary"] = str(fb.get("summary", ""))
+    # Clean hiring_signal placeholder patterns
+    hs = fb.get("hiring_signal", "maybe")
+    if isinstance(hs, str) and "|" in hs:
+        hs = "maybe"
+    fb["hiring_signal"] = hs if isinstance(hs, str) and hs in ("strong_hire", "hire", "maybe", "no_hire") else "maybe"
+    return fb
 
 
 # ------------------------------
@@ -225,6 +365,70 @@ def _penalty_from_flags(flags: List[str]) -> int:
 
 def _cap(x):
     return max(0, min(100, int(round(x))))
+
+
+def _rubric_overall(fb: dict, rubric_keys: List[str]) -> float:
+    """Compute weighted overall from rubric scores in ai_feedback."""
+    total = 0.0
+    weight_sum = 0.0
+    for k in rubric_keys:
+        val = _safe_int(fb.get(k), -1)
+        if val < 0:
+            continue
+        w = RUBRIC_WEIGHTS.get(k, 0.20)
+        total += val * w
+        weight_sum += w
+    return round(total / weight_sum, 2) if weight_sum else 0.0
+
+
+def _map_rubric_to_legacy(fb: dict, qtype: str) -> Tuple[int, int, int]:
+    """Map 5-dimension rubric → legacy 3 columns (technical, communication, completeness)."""
+    ta = _safe_int(fb.get("technical_accuracy"), 0)
+    ps = _safe_int(fb.get("problem_solving"), 0)
+    cc = _safe_int(fb.get("communication_clarity"), 0)
+    dk = _safe_int(fb.get("depth_of_knowledge"), 0)
+    rel = _safe_int(fb.get("relevance"), 0)
+    cq = _safe_int(fb.get("code_quality"), 0)
+    comp = _safe_int(fb.get("completeness"), 0)
+
+    tech = round((ta + ps) / 2) if (ta or ps) else 0
+    if qtype == "code":
+        communication = cq
+        completeness = round((comp + rel) / 2) if (comp or rel) else 0
+    else:
+        communication = cc
+        completeness = round((dk + rel) / 2) if (dk or rel) else 0
+    return tech, communication, completeness
+
+
+def _compute_hiring_recommendation(overall: float, rubric_avgs: dict) -> str:
+    """Compute hiring recommendation from overall score and rubric averages."""
+    min_rubric = min(rubric_avgs.values()) if rubric_avgs else 0
+    if overall >= 80 and min_rubric >= 60:
+        return "strong_hire"
+    elif overall >= 65 and min_rubric >= 40:
+        return "hire"
+    elif overall >= 45:
+        return "maybe"
+    else:
+        return "no_hire"
+
+
+def _fetch_role_context(db: Session, interview_id: str) -> Tuple[str, str, str]:
+    """Fetch role title, level, and JD excerpt for the interview."""
+    role_row = db.execute(text("""
+        SELECT r.title AS role_title, r.level AS role_level, r.jd_text
+        FROM interviews i
+        LEFT JOIN roles r ON r.id = i.role_id
+        WHERE i.id = :iid
+    """), {"iid": str(interview_id)}).mappings().first()
+    if not role_row:
+        return "Software Engineer", "Mid-level", ""
+    return (
+        (role_row["role_title"] or "Software Engineer"),
+        (role_row["role_level"] or "Mid-level"),
+        ((role_row["jd_text"] or "")[:500]),
+    )
 
 
 def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str, Any]:
@@ -255,12 +459,62 @@ def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str
 
     overall = round((tech_avg * TECH_W) + (comm_avg * COMM_W) + (comp_avg * COMP_W), 2)
 
+    # Compute rubric breakdown from per-question ai_feedback
+    rubric_totals: Dict[str, List[float]] = defaultdict(list)
+    all_strengths: List[str] = []
+    all_weaknesses: List[str] = []
+
+    for q in perq:
+        fb = q.get("ai_feedback") or {}
+        if isinstance(fb, str):
+            try:
+                fb = json.loads(fb)
+            except Exception:
+                fb = {}
+        for key in ["technical_accuracy", "problem_solving", "communication_clarity",
+                     "depth_of_knowledge", "relevance", "code_quality", "completeness"]:
+            val = fb.get(key)
+            if isinstance(val, (int, float)):
+                rubric_totals[key].append(val)
+        all_strengths.extend(s for s in (fb.get("strengths") or [])
+                             if isinstance(s, str) and s.strip()
+                             and s.strip().lower() not in ("string", "string string", "placeholder"))
+        all_weaknesses.extend(w for w in (fb.get("weaknesses") or [])
+                              if isinstance(w, str) and w.strip()
+                              and w.strip().lower() not in ("string", "string string", "placeholder"))
+
+    rubric_averages = {
+        k: round(sum(v) / len(v), 1) if v else 0
+        for k, v in rubric_totals.items()
+    }
+
+    hiring_recommendation = _compute_hiring_recommendation(overall, rubric_averages)
+
+    # Deduplicate strengths/weaknesses
+    seen_s: set = set()
+    unique_strengths = []
+    for s in all_strengths:
+        if s not in seen_s:
+            seen_s.add(s)
+            unique_strengths.append(s)
+    seen_w: set = set()
+    unique_weaknesses = []
+    for w in all_weaknesses:
+        if w not in seen_w:
+            seen_w.add(w)
+            unique_weaknesses.append(w)
+
     report = {
         "weights": {"technical": TECH_W, "completeness": COMP_W, "communication": COMM_W},
         "section_scores": {"technical": tech_avg, "completeness": comp_avg, "communication": comm_avg},
         "per_question": perq,
         "overall_score": overall,
-        "penalty": 0
+        "penalty": 0,
+        # Phase 8 additions
+        "rubric_scores": rubric_averages,
+        "hiring_recommendation": hiring_recommendation,
+        "strengths": unique_strengths[:10],
+        "weaknesses": unique_weaknesses[:10],
     }
     return report
 
@@ -380,21 +634,30 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
         per_q_summary = None
         redflags = []
 
+        role_title, role_level, jd_excerpt = _fetch_role_context(db, interview_id)
+        question_text = (row["question_text"] or "").strip()
+
         async def _call_and_process():
             nonlocal raw_resp, per_q_summary, redflags
             if row["type"] == "voice":
                 transcript = (row["transcript"] or "").strip()
                 if not transcript:
-                    fb = {"communication": 0, "technical": 0, "completeness": 0,
-                          "red_flags": ["No speech detected"], "summary": "No transcript"}
+                    fb = {"technical_accuracy": 0, "problem_solving": 0,
+                          "communication_clarity": 0, "depth_of_knowledge": 0, "relevance": 0,
+                          "strengths": [], "weaknesses": ["No speech detected"],
+                          "summary": "No transcript", "hiring_signal": "no_hire",
+                          "red_flags": ["No speech detected"]}
                     raw_resp = ""
                 else:
-                    fb, raw_resp = await _llm_json(VOICE_USER_PROMPT.format(transcript=transcript))
+                    fb, raw_resp = await _llm_json(VOICE_USER_PROMPT.format(
+                        role_title=role_title, role_level=role_level,
+                        jd_excerpt=jd_excerpt, question_text=question_text,
+                        transcript=transcript,
+                    ))
+                fb = _normalize_to_rubric(fb)
 
-                comm = _safe_int(fb.get("communication"), 0)
-                tech = _safe_int(fb.get("technical"), 0)
-                comp = _safe_int(fb.get("completeness"), 0)
-                perq_overall = round(COMM_W * comm + TECH_W * tech + COMP_W * comp, 2)
+                tech, comm, comp = _map_rubric_to_legacy(fb, "voice")
+                perq_overall = _rubric_overall(fb, VOICE_RUBRIC_KEYS)
 
                 per_q_summary = {
                     "question_id": row["qid"],
@@ -403,7 +666,7 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
                     "technical": tech,
                     "communication": comm,
                     "completeness": comp,
-                    "overall": perq_overall
+                    "overall": perq_overall,
                 }
                 redflags = fb.get("red_flags") or []
 
@@ -413,22 +676,26 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
                 code = row["code_answer"] or ""
                 stdout = (row["code_output"] or "")[:1000]
 
-                fb, raw_resp = await _llm_json(CODE_USER_PROMPT.format(code=code, stdout=stdout, correctness=corr))
+                fb, raw_resp = await _llm_json(CODE_USER_PROMPT.format(
+                    role_title=role_title, role_level=role_level,
+                    question_text=question_text,
+                    code=code, stdout=stdout, correctness=corr,
+                ))
+                fb = _normalize_to_rubric(fb)
 
-                tech = max(corr, _safe_int(fb.get("technical"), corr))
-                comp = _safe_int(fb.get("completeness"), 50 if corr > 0 else 0)
-                communication = 0
-                perq_overall = round(TECH_W * tech + COMP_W * comp + COMM_W * communication, 2)
+                tech, comm, comp = _map_rubric_to_legacy(fb, "code")
+                tech = max(corr, tech)
+                perq_overall = _rubric_overall(fb, CODE_RUBRIC_KEYS)
 
                 per_q_summary = {
                     "question_id": row["qid"],
                     "type": "code",
                     "ai_feedback": fb,
                     "technical": tech,
-                    "communication": communication,
+                    "communication": comm,
                     "completeness": comp,
                     "correctness": corr,
-                    "overall": perq_overall
+                    "overall": perq_overall,
                 }
                 redflags = fb.get("red_flags") or []
 
@@ -547,6 +814,13 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
 def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str, Any]:
     db: Session = SessionLocal()
     try:
+        # Backfill guard: ensure interview_answers has transcripts from live turns
+        try:
+            from services.answer_backfill import backfill_answers_from_turns
+            backfill_answers_from_turns(db, interview_id)
+        except Exception:
+            log.exception("[BACKFILL] guard failed in score_interview")
+
         rows = db.execute(text("""
             SELECT
               q.id AS qid, q.type, q.question_text,
@@ -572,6 +846,8 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
         # collect full raw outputs per question for S3 bundle
         llm_raw_full_questions: List[dict] = []
 
+        role_title, role_level, jd_excerpt = _fetch_role_context(db, interview_id)
+
         async def _score_all():
             for r in rows:
                 if not r["aid"]:
@@ -579,21 +855,27 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                     continue
 
                 raw_resp = ""  # initialize per-question raw text
+                question_text = (r["question_text"] or "").strip()
 
                 if r["type"] == "voice":
                     transcript = (r["transcript"] or "").strip()
                     if not transcript:
-                        fb = {"communication": 0, "technical": 0, "completeness": 0,
-                              "red_flags": ["No speech detected"], "summary": "No transcript"}
+                        fb = {"technical_accuracy": 0, "problem_solving": 0,
+                              "communication_clarity": 0, "depth_of_knowledge": 0, "relevance": 0,
+                              "strengths": [], "weaknesses": ["No speech detected"],
+                              "summary": "No transcript", "hiring_signal": "no_hire",
+                              "red_flags": ["No speech detected"]}
                         raw_resp = ""
                     else:
-                        fb, raw_resp = await _llm_json(VOICE_USER_PROMPT.format(transcript=transcript))
+                        fb, raw_resp = await _llm_json(VOICE_USER_PROMPT.format(
+                            role_title=role_title, role_level=role_level,
+                            jd_excerpt=jd_excerpt, question_text=question_text,
+                            transcript=transcript,
+                        ))
+                    fb = _normalize_to_rubric(fb)
 
-                    comm = _safe_int(fb.get("communication"), 0)
-                    tech = _safe_int(fb.get("technical"), 0)
-                    comp = _safe_int(fb.get("completeness"), 0)
+                    tech, comm, comp = _map_rubric_to_legacy(fb, "voice")
 
-                    # include a preview of raw in per-question summary
                     preview = None
                     try:
                         preview = (raw_resp[:500] + "...") if raw_resp else None
@@ -620,10 +902,7 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
 
                     # UPSERT into interview_scores
                     try:
-                        technical = _safe_int(tech, 0)
-                        communication = _safe_int(comm, 0)
-                        completeness = _safe_int(comp, 0)
-                        perq_overall = round(COMM_W * communication + TECH_W * technical + COMP_W * completeness, 2)
+                        perq_overall = _rubric_overall(fb, VOICE_RUBRIC_KEYS)
 
                         db.execute(text("""
                             INSERT INTO interview_scores
@@ -641,9 +920,9 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                         """), {
                             "iid": str(interview_id),
                             "qid": r["qid"],
-                            "tech": int(technical),
-                            "comm": int(communication),
-                            "comp": int(completeness),
+                            "tech": int(tech),
+                            "comm": int(comm),
+                            "comp": int(comp),
                             "overall": float(perq_overall),
                             "fb": json.dumps(fb),
                             "raw": raw_resp,
@@ -657,10 +936,15 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                     code = r["code_answer"] or ""
                     stdout = (r["code_output"] or "")[:1000]
 
-                    fb, raw_resp = await _llm_json(CODE_USER_PROMPT.format(code=code, stdout=stdout, correctness=corr))
+                    fb, raw_resp = await _llm_json(CODE_USER_PROMPT.format(
+                        role_title=role_title, role_level=role_level,
+                        question_text=question_text,
+                        code=code, stdout=stdout, correctness=corr,
+                    ))
+                    fb = _normalize_to_rubric(fb)
 
-                    tech = max(corr, _safe_int(fb.get("technical"), corr))
-                    comp = _safe_int(fb.get("completeness"), 50 if corr > 0 else 0)
+                    tech, comm, comp = _map_rubric_to_legacy(fb, "code")
+                    tech = max(corr, tech)
 
                     preview = None
                     try:
@@ -686,12 +970,9 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                     except Exception:
                         log.exception("Failed to update interview_answers (code) for aid=%s", r["aid"])
 
-                    # UPSERT into interview_scores for code (communication = 0)
+                    # UPSERT into interview_scores for code
                     try:
-                        technical = _safe_int(tech, 0)
-                        communication = 0
-                        completeness = _safe_int(comp, 0)
-                        perq_overall = round(TECH_W * technical + COMP_W * completeness + COMM_W * communication, 2)
+                        perq_overall = _rubric_overall(fb, CODE_RUBRIC_KEYS)
 
                         db.execute(text("""
                             INSERT INTO interview_scores
@@ -709,9 +990,9 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                         """), {
                             "iid": str(interview_id),
                             "qid": r["qid"],
-                            "tech": int(technical),
-                            "comm": int(communication),
-                            "comp": int(completeness),
+                            "tech": int(tech),
+                            "comm": int(comm),
+                            "comp": int(comp),
                             "overall": float(perq_overall),
                             "fb": json.dumps(fb),
                             "raw": raw_resp,
