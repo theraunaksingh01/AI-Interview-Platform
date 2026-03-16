@@ -55,6 +55,7 @@ export default function EvaluationPage() {
   const [data, setData] = useState<EvalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fetchEvaluation = useCallback(async () => {
     try {
@@ -96,6 +97,33 @@ export default function EvaluationPage() {
       if (timer) clearInterval(timer);
     };
   }, [fetchEvaluation]);
+
+  async function downloadPdf() {
+    setPdfLoading(true);
+    try {
+      const headers: Record<string, string> = { Accept: "application/pdf" };
+      const token = getToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/interview/report/${id}/pdf/download`, { headers });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `evaluation-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(`PDF download failed: ${e?.message || e}`);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   // Build rubric bars data
   const rubricBars = data?.rubric_scores
@@ -141,6 +169,13 @@ export default function EvaluationPage() {
           >
             Detailed Review
           </a>
+          <button
+            onClick={downloadPdf}
+            disabled={pdfLoading || !data?.scored}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {pdfLoading ? "Generating..." : "Export PDF"}
+          </button>
         </div>
       </div>
 

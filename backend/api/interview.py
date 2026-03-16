@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from api.deps import get_db, get_current_user
 from core.config import settings
 from core.s3_client import get_s3_client
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 
 # tasks
@@ -374,6 +374,275 @@ def pdf_info(interview_id: UUID, db: Session = Depends(get_db)):
         url = None
 
     return {"bucket": bucket, "key": key, "presigned_url": url}
+
+
+@router.get("/report/{interview_id}/pdf/download")
+def pdf_download(interview_id: UUID, db: Session = Depends(get_db)):
+    """
+    Generate and stream a PDF directly — no S3/MinIO required.
+    Reads from interviews.report + interview_scores + interview_questions.
+    """
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas as pdf_canvas
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    # ── Gather data ──────────────────────────────────────────────────
+    interview = db.execute(text("""
+        SELECT i.id, i.overall_score, i.report,
+               i.candidate_name, i.candidate_email,
+               r.title AS role_title, r.level AS role_level
+        FROM interviews i
+        LEFT JOIN roles r ON r.id = i.role_id
+        WHERE i.id = :iid
+    """), {"iid": str(interview_id)}).mappings().first()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    report = interview["report"] or {}
+    if isinstance(report, str):
+        try:
+            report = json.loads(report)
+        except Exception:
+            report = {}
+
+    questions = db.execute(text("""
+        SELECT s.question_id, q.question_text, q.type,
+               s.technical_score, s.communication_score, s.completeness_score,
+               s.overall_score, s.ai_feedback
+        FROM interview_scores s
+        JOIN interview_questions q ON q.id = s.question_id
+        WHERE s.interview_id = :iid
+        ORDER BY s.id ASC
+    """), {"iid": str(interview_id)}).mappings().all()
+
+    # ── Helper ───────────────────────────────────────────────────────
+    def wrap(c, x, y, t, font="Helvetica", size=10, max_w=500, leading=14):
+        if not t:
+            return y
+        t = str(t)
+        words = t.split()
+        line, lines = "", []
+        for w in words:
+            cand = (line + " " + w).strip() if line else w
+            if stringWidth(cand, font, size) < max_w:
+                line = cand
+            else:
+                if line:
+                    lines.append(line)
+                line = w
+        if line:
+            lines.append(line)
+        for ln in lines:
+            if y < 60:
+                c.showPage()
+                y = A4[1] - 50
+                c.setFont(font, size)
+            c.drawString(x, y, ln)
+            y -= leading
+        return y
+
+    def page_break_check(c, y, needed=60):
+        if y < needed:
+            c.showPage()
+            y = A4[1] - 50
+        return y
+
+    # ── Build PDF ────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    c = pdf_canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    y = h - 50
+
+    # Title
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(40, y, "Candidate Evaluation Report")
+    y -= 28
+
+    # Candidate + Role info
+    c.setFont("Helvetica", 11)
+    name = interview.get("candidate_name") or "—"
+    email = interview.get("candidate_email") or ""
+    role = interview.get("role_title") or "—"
+    level = interview.get("role_level") or ""
+    c.drawString(40, y, f"Candidate: {name}{'  (' + email + ')' if email else ''}")
+    y -= 16
+    c.drawString(40, y, f"Role: {role}{'  (' + level + ')' if level else ''}")
+    y -= 20
+
+    # Overall score + hiring recommendation
+    overall = interview.get("overall_score") or report.get("overall_score") or 0
+    hiring_rec = report.get("hiring_recommendation", "pending")
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(40, y, f"Overall Score: {overall}/100")
+    y -= 18
+    rec_label = hiring_rec.replace("_", " ").title()
+    c.setFont("Helvetica", 11)
+    c.drawString(40, y, f"Hiring Recommendation: {rec_label}")
+    y -= 24
+
+    # ── Rubric Scores ────────────────────────────────────────────────
+    rubric = report.get("rubric_scores", {})
+    if rubric and isinstance(rubric, dict):
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(40, y, "Rubric Breakdown")
+        y -= 18
+        c.setFont("Helvetica", 10)
+        labels = {
+            "technical_accuracy": "Technical Accuracy",
+            "problem_solving": "Problem Solving",
+            "communication_clarity": "Communication Clarity",
+            "depth_of_knowledge": "Depth of Knowledge",
+            "relevance": "Relevance",
+            "code_quality": "Code Quality",
+            "completeness": "Completeness",
+        }
+        for k, v in rubric.items():
+            if isinstance(v, (int, float)) and v > 0:
+                label = labels.get(k, k.replace("_", " ").title())
+                # Draw label + score + simple bar
+                c.drawString(60, y, f"{label}: {int(v)}/100")
+                # Mini bar
+                bar_x = 280
+                bar_w = 200
+                c.setStrokeColorRGB(0.8, 0.8, 0.8)
+                c.setFillColorRGB(0.9, 0.9, 0.9)
+                c.rect(bar_x, y - 2, bar_w, 10, fill=1)
+                fill_w = max(0, min(bar_w, bar_w * v / 100))
+                if v >= 70:
+                    c.setFillColorRGB(0.2, 0.7, 0.3)
+                elif v >= 45:
+                    c.setFillColorRGB(0.9, 0.7, 0.1)
+                else:
+                    c.setFillColorRGB(0.8, 0.2, 0.2)
+                c.rect(bar_x, y - 2, fill_w, 10, fill=1)
+                c.setFillColorRGB(0, 0, 0)
+                y -= 18
+        y -= 6
+
+    # ── Strengths & Weaknesses ───────────────────────────────────────
+    strengths = report.get("strengths", [])
+    weaknesses = report.get("weaknesses", [])
+
+    if strengths and isinstance(strengths, list):
+        y = page_break_check(c, y, 80)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(40, y, "Strengths")
+        y -= 16
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0.1, 0.5, 0.2)
+        for s in strengths:
+            if isinstance(s, str) and s.strip():
+                y = page_break_check(c, y)
+                y = wrap(c, 60, y, f"+ {s}")
+                y -= 2
+        c.setFillColorRGB(0, 0, 0)
+        y -= 8
+
+    if weaknesses and isinstance(weaknesses, list):
+        y = page_break_check(c, y, 80)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(40, y, "Areas for Improvement")
+        y -= 16
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0.7, 0.4, 0.0)
+        for w_item in weaknesses:
+            if isinstance(w_item, str) and w_item.strip():
+                y = page_break_check(c, y)
+                y = wrap(c, 60, y, f"- {w_item}")
+                y -= 2
+        c.setFillColorRGB(0, 0, 0)
+        y -= 8
+
+    # ── Per-Question Detail ──────────────────────────────────────────
+    if questions:
+        y = page_break_check(c, y, 80)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(40, y, "Per-Question Feedback")
+        y -= 22
+
+        for q in questions:
+            y = page_break_check(c, y, 120)
+
+            qid = q["question_id"]
+            qtype = str(q.get("type") or "").upper()
+            qtext = q.get("question_text") or ""
+            q_score = q.get("overall_score") or 0
+
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(40, y, f"Q{qid} ({qtype}) — Score: {q_score}/100")
+            y -= 16
+
+            c.setFont("Helvetica", 10)
+            y = wrap(c, 60, y, qtext, max_w=460)
+            y -= 6
+
+            fb = q.get("ai_feedback") or {}
+            if isinstance(fb, str):
+                try:
+                    fb = json.loads(fb)
+                except Exception:
+                    fb = {}
+
+            # Rubric scores for this question
+            rubric_keys = ["technical_accuracy", "problem_solving", "communication_clarity",
+                           "depth_of_knowledge", "relevance", "code_quality", "completeness"]
+            rubric_line = []
+            for rk in rubric_keys:
+                rv = fb.get(rk)
+                if isinstance(rv, (int, float)) and rv > 0:
+                    rl = labels.get(rk, rk.replace("_", " ").title())
+                    rubric_line.append(f"{rl}: {int(rv)}")
+            if rubric_line:
+                c.setFont("Helvetica", 9)
+                y = wrap(c, 60, y, " | ".join(rubric_line), max_w=480, size=9)
+                y -= 4
+
+            # Summary
+            summ = fb.get("summary")
+            if summ and isinstance(summ, str):
+                c.setFont("Helvetica-Oblique", 10)
+                y = wrap(c, 60, y, summ, font="Helvetica-Oblique", max_w=460)
+                y -= 4
+
+            # Per-question strengths/weaknesses
+            q_str = fb.get("strengths", [])
+            q_wk = fb.get("weaknesses", [])
+            c.setFont("Helvetica", 9)
+            if isinstance(q_str, list):
+                for qs in q_str:
+                    if isinstance(qs, str) and qs.strip():
+                        y = page_break_check(c, y)
+                        c.setFillColorRGB(0.1, 0.5, 0.2)
+                        y = wrap(c, 70, y, f"+ {qs}", size=9, max_w=440)
+            if isinstance(q_wk, list):
+                for qw in q_wk:
+                    if isinstance(qw, str) and qw.strip():
+                        y = page_break_check(c, y)
+                        c.setFillColorRGB(0.7, 0.4, 0.0)
+                        y = wrap(c, 70, y, f"- {qw}", size=9, max_w=440)
+            c.setFillColorRGB(0, 0, 0)
+
+            # Hiring signal
+            signal = fb.get("hiring_signal")
+            if signal and isinstance(signal, str):
+                c.setFont("Helvetica", 9)
+                c.drawString(60, y, f"Signal: {signal.replace('_', ' ').title()}")
+                y -= 14
+
+            y -= 12  # gap between questions
+
+    # ── Finalize ─────────────────────────────────────────────────────
+    c.showPage()
+    c.save()
+    buf.seek(0)
+
+    filename = f"evaluation-{interview_id}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # AI health-check endpoint

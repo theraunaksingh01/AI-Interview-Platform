@@ -206,40 +206,17 @@ export default function InterviewReviewPage() {
   async function downloadPdf() {
     setPdfStatus(null);
     try {
-      const url = `${API_BASE}/interview/report/${encodeURIComponent(id)}/pdf`;
+      const url = `${API_BASE}/interview/report/${encodeURIComponent(id)}/pdf/download`;
       const resp = await fetch(url, { headers: getAuthHeader() });
-      if (resp.status === 202) {
-        const data = await resp.json().catch(() => null);
-        setPdfStatus(data?.detail || "PDF generating. Try again in a moment.");
-        return;
-      }
-      if (resp.status === 404) {
-        const data = await resp.json().catch(() => null);
-        setPdfStatus(data?.detail || "PDF not found");
-        return;
-      }
       if (!resp.ok) {
         const txt = await resp.text();
         throw new Error(txt || resp.statusText);
       }
-      // If server returned binary stream
       const blob = await resp.blob();
-      if (blob.type === "application/json") {
-        // maybe server returned presigned_url JSON
-        const txt = await blob.text();
-        try {
-          const j = JSON.parse(txt);
-          if (j.presigned_url) {
-            window.open(j.presigned_url, "_blank");
-            setPdfStatus("Opened presigned URL in new tab");
-            return;
-          }
-        } catch {}
-      }
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = `interview-${id}.pdf`;
+      a.download = `evaluation-${id}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();

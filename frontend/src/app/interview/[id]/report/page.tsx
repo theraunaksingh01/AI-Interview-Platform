@@ -36,7 +36,7 @@ export default function ReportPage() {
   const [rows, setRows] = useState<ReportRow[] | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -51,20 +51,6 @@ export default function ReportPage() {
       if (!r1.ok) throw new Error(`HTTP ${r1.status}`);
       const data: ReportRow[] = await r1.json();
       setRows(data);
-
-      // try to fetch summary (stored on interviews.report if you ran /score)
-      // we’ll probe the PDF endpoint to get a presigned link too.
-      try {
-        const rPdf = await fetch(`${API}/interview/report/${id}/pdf`, { headers });
-        if (rPdf.ok) {
-          const j = await rPdf.json();
-          setPdfUrl(j?.presigned_url || null);
-        } else {
-          setPdfUrl(null);
-        }
-      } catch {
-        setPdfUrl(null);
-      }
 
       // Optional: if you also exposed GET /interview/score/summary, you could load it here.
       // For now we infer from the most recent rows’ ai_feedback where possible:
@@ -112,6 +98,31 @@ export default function ReportPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function downloadPdf() {
+    setPdfLoading(true);
+    try {
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${API}/interview/report/${id}/pdf/download`, { headers });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `evaluation-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setErr(`PDF download failed: ${e?.message || e}`);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -217,14 +228,13 @@ export default function ReportPage() {
 
           {/* PDF */}
           <div className="mt-6 flex gap-3">
-            <a
-              href={pdfUrl || "#"}
-              target="_blank"
-              rel="noreferrer"
-              className={`px-4 py-2 rounded-lg border ${pdfUrl ? "border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100" : "pointer-events-none opacity-50"}`}
+            <button
+              onClick={downloadPdf}
+              disabled={pdfLoading}
+              className="px-4 py-2 rounded-lg border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Download PDF
-            </a>
+              {pdfLoading ? "Generating..." : "Download PDF"}
+            </button>
             <a
               href={`/interview/${id}`}
               className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
