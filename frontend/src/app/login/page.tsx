@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
-const API_BASE =
-  (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { token, login } = useAuth();
   const [email, setEmail] = useState("test@example.com");
   const [password, setPassword] = useState("password");
   const [show, setShow] = useState(false);
@@ -15,34 +15,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // If already logged in, bounce to uploads
+  const next = searchParams.get("next") || "/dashboard";
+
+  // If already logged in, bounce to dashboard
   useEffect(() => {
-    const tok = localStorage.getItem("access_token");
-    if (tok) router.replace("/uploads");
-  }, [router]);
+    if (token) router.replace(next);
+  }, [token, router, next]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login_json`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json?.detail || "Invalid credentials");
-      }
-
-      localStorage.setItem("access_token", json.access_token);
-      if (remember) {
-        // optional: persist also in a secondary key some pages read
-        localStorage.setItem("API_TOKEN", json.access_token);
-      }
-
-      router.replace("/uploads");
+      await login(email, password);
+      router.replace(next);
     } catch (e: any) {
       setErr(e?.message || "Login failed");
     } finally {
@@ -166,5 +152,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

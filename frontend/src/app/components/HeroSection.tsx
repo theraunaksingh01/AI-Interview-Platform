@@ -308,19 +308,19 @@ const HeroHeader = () => {
                 {!isScrolled ? (
                   <>
                     <Button asChild variant="outline" size="sm">
-                      <Link href="#">
+                      <Link href="/login">
                         <span>Login</span>
                       </Link>
                     </Button>
                     <Button asChild size="sm">
-                      <Link href="#">
+                      <Link href="/signup">
                         <span>Sign Up</span>
                       </Link>
                     </Button>
                   </>
                 ) : (
                   <Button asChild size="sm">
-                    <Link href="#">
+                    <Link href="/login">
                       <span>Get Started</span>
                     </Link>
                   </Button>
@@ -362,19 +362,19 @@ const HeroHeader = () => {
                     size="sm"
                     onClick={() => setMenuState(false)}
                   >
-                    <Link href="#">
+                    <Link href="/login">
                       <span>Login</span>
                     </Link>
                   </Button>
 
                   <Button asChild size="sm" onClick={() => setMenuState(false)}>
-                    <Link href="#">
+                    <Link href="/signup">
                       <span>Sign Up</span>
                     </Link>
                   </Button>
 
                   <Button asChild size="sm" onClick={() => setMenuState(false)}>
-                    <Link href="#">
+                    <Link href="/login">
                       <span>Get Started</span>
                     </Link>
                   </Button>

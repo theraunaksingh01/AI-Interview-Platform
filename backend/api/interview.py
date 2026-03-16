@@ -32,6 +32,84 @@ router = APIRouter(prefix="/interview", tags=["interview"])
 
 
 # ---------------------------
+# List all interviews for current user
+# ---------------------------
+
+@router.get("/list")
+def list_interviews(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """Return paginated list of interviews for the current user."""
+    rows = db.execute(
+        text("""
+            SELECT i.id, i.status, i.candidate_name, i.candidate_email,
+                   i.overall_score, i.created_at,
+                   r.title AS role_title, r.level AS role_level
+            FROM interviews i
+            LEFT JOIN roles r ON r.id = i.role_id
+            WHERE i.user_id = :uid
+            ORDER BY i.created_at DESC
+            LIMIT :lim OFFSET :off
+        """),
+        {"uid": int(user.id), "lim": limit, "off": offset},
+    ).mappings().all()
+
+    total = db.execute(
+        text("SELECT count(*) FROM interviews WHERE user_id = :uid"),
+        {"uid": int(user.id)},
+    ).scalar() or 0
+
+    items = []
+    for r in rows:
+        items.append({
+            "id": str(r["id"]),
+            "status": r["status"],
+            "candidate_name": r["candidate_name"],
+            "candidate_email": r["candidate_email"],
+            "overall_score": r["overall_score"],
+            "role_title": r["role_title"],
+            "role_level": r["role_level"],
+            "created_at": str(r["created_at"]) if r["created_at"] else None,
+        })
+
+    return {"items": items, "total": total}
+
+
+# ---------------------------
+# Dashboard stats for current user
+# ---------------------------
+
+@router.get("/stats")
+def interview_stats(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Return summary stats for the dashboard."""
+    row = db.execute(
+        text("""
+            SELECT
+                count(*)                                          AS total,
+                count(*) FILTER (WHERE overall_score IS NOT NULL) AS scored,
+                avg(overall_score) FILTER (WHERE overall_score IS NOT NULL) AS avg_score,
+                count(*) FILTER (WHERE status = 'recording')      AS in_progress
+            FROM interviews
+            WHERE user_id = :uid
+        """),
+        {"uid": int(user.id)},
+    ).mappings().first()
+
+    return {
+        "total_interviews": row["total"] if row else 0,
+        "scored": row["scored"] if row else 0,
+        "avg_score": round(float(row["avg_score"]), 1) if row and row["avg_score"] else None,
+        "in_progress": row["in_progress"] if row else 0,
+    }
+
+
+# ---------------------------
 # Start + Seed + Questions
 # ---------------------------
 

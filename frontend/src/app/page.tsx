@@ -25,6 +25,7 @@ import CTAWithMarquee from "./components/ui/cta-with-marquee";
 import { i } from "framer-motion/client";
 
 import { FooterHero } from "./components/Footer";
+import { HeroSection } from "./components/HeroSection";
 
 
 export default function Page() {
@@ -162,6 +163,8 @@ export default function Page() {
 
   return (
     <div className="space-y-16">
+      {/* Hero only on landing page */}
+      <HeroSection />
 
       <VideoShowcase />
 
