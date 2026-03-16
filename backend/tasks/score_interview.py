@@ -759,7 +759,7 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
         # recompute aggregate report and update interviews table
         try:
             report = _aggregate_from_interview_scores(db, interview_id)
-            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb) WHERE id = :iid"),
+            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb), status = 'scored' WHERE id = :iid"),
                        {"o": report["overall_score"], "r": json.dumps(report), "iid": interview_id})
             db.commit()
         except Exception:
@@ -1064,7 +1064,7 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
         # Recompute report from interview_scores (preferred single source of truth)
         try:
             report = _aggregate_from_interview_scores(db, interview_id)
-            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb) WHERE id = :iid"),
+            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb), status = 'scored' WHERE id = :iid"),
                        {"o": report["overall_score"], "r": json.dumps(report), "iid": str(interview_id)})
             db.commit()
 
@@ -1101,7 +1101,7 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                 "red_flags": list(dict.fromkeys(redflags_all)),
                 "per_question": per_q,
             }
-            db.execute(text("UPDATE interviews SET overall_score=:o, report=:r WHERE id=:iid"),
+            db.execute(text("UPDATE interviews SET overall_score=:o, report=:r, status='scored' WHERE id=:iid"),
                        {"o": int(overall), "r": json.dumps(report), "iid": str(interview_id)})
             db.commit()
 

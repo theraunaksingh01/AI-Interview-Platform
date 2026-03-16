@@ -78,28 +78,51 @@ def extract_resume_text(resume_id: int) -> dict:
 
         upload_id = row.get("upload_id")
 
-        # Download object from S3
-        s3 = get_s3_client()
-        bucket = os.getenv("S3_BUCKET") or "ai-interview-uploads"
+        # Load file bytes — local path or S3
+        file_key = row["key"]
         bio = io.BytesIO()
-        try:
-            s3.download_fileobj(bucket, row["key"], bio)
-        except Exception as e:
-            # mark upload failed and write ai_feedback
-            fb = {"summary": "S3 download failed", "error": str(e)}
+
+        if os.path.isfile(file_key):
+            # Local filesystem (public/demo upload flow)
             try:
-                if upload_id:
-                    db.execute(text("""
-                        UPDATE uploads
-                           SET status = 'failed',
-                               ai_feedback = :fb,
-                               updated_at = now()
-                         WHERE id = :uid
-                    """), {"fb": json.dumps(fb), "uid": upload_id})
-                    db.commit()
-            except Exception:
-                db.rollback()
-            return {"ok": False, "error": f"S3 download failed: {e}"}
+                with open(file_key, "rb") as fh:
+                    bio.write(fh.read())
+            except Exception as e:
+                fb = {"summary": "Local file read failed", "error": str(e)}
+                try:
+                    if upload_id:
+                        db.execute(text("""
+                            UPDATE uploads
+                               SET status = 'failed',
+                                   ai_feedback = :fb,
+                                   updated_at = now()
+                             WHERE id = :uid
+                        """), {"fb": json.dumps(fb), "uid": upload_id})
+                        db.commit()
+                except Exception:
+                    db.rollback()
+                return {"ok": False, "error": f"Local file read failed: {e}"}
+        else:
+            # S3 download
+            s3 = get_s3_client()
+            bucket = os.getenv("S3_BUCKET") or "ai-interview-uploads"
+            try:
+                s3.download_fileobj(bucket, file_key, bio)
+            except Exception as e:
+                fb = {"summary": "S3 download failed", "error": str(e)}
+                try:
+                    if upload_id:
+                        db.execute(text("""
+                            UPDATE uploads
+                               SET status = 'failed',
+                                   ai_feedback = :fb,
+                                   updated_at = now()
+                             WHERE id = :uid
+                        """), {"fb": json.dumps(fb), "uid": upload_id})
+                        db.commit()
+                except Exception:
+                    db.rollback()
+                return {"ok": False, "error": f"S3 download failed: {e}"}
 
         # Extract text
         text_body = ""
@@ -126,7 +149,7 @@ def extract_resume_text(resume_id: int) -> dict:
         try:
             db.execute(text("""
                 UPDATE candidate_resumes
-                   SET resume_text = :txt
+                   SET plain_text = :txt
                  WHERE id = :rid
             """), {"txt": text_body[:200000], "rid": row["resume_id"]})
             db.commit()

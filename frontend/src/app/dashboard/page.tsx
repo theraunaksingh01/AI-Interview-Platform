@@ -136,13 +136,13 @@ export default function DashboardPage() {
           <div className="px-5 py-12 text-center">
             <FileText className="mx-auto h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm text-slate-500">
-              No interviews yet. Start one from the Uploads page.
+              No interviews yet. Share the candidate submission link to get started.
             </p>
             <Link
-              href="/uploads"
+              href="/candidate/submit"
               className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
-              Go to Uploads <ArrowRight className="h-4 w-4" />
+              View Candidate Form <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         ) : (
@@ -205,12 +205,7 @@ export default function DashboardPage() {
                         : "—"}
                     </td>
                     <td className="px-5 py-3">
-                      <Link
-                        href={`/interview/${iv.id}/evaluation`}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                      >
-                        View <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
+                      <InterviewAction id={iv.id} status={iv.status} />
                     </td>
                   </tr>
                 ))}
@@ -247,6 +242,7 @@ function StatCard({
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; text: string; label: string }> = {
+    created: { bg: "bg-slate-50", text: "text-slate-600", label: "Preparing" },
     recording: { bg: "bg-blue-50", text: "text-blue-700", label: "In Progress" },
     completed: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Completed" },
     scored: { bg: "bg-purple-50", text: "text-purple-700", label: "Scored" },
@@ -265,5 +261,26 @@ function StatusBadge({ status }: { status: string }) {
     >
       {s.label}
     </span>
+  );
+}
+
+function InterviewAction({ id, status }: { id: string; status: string }) {
+  const actionMap: Record<string, { label: string; href: string }> = {
+    created: { label: "Resume", href: `/interview/${id}/prepare` },
+    recording: { label: "Continue", href: `/interview/${id}/live` },
+    completed: { label: "Scoring...", href: `/interview/${id}/evaluation` },
+    scored: { label: "View Report", href: `/interview/${id}/evaluation` },
+    failed: { label: "View", href: `/interview/${id}/evaluation` },
+  };
+
+  const action = actionMap[status] || { label: "View", href: `/interview/${id}/evaluation` };
+
+  return (
+    <Link
+      href={action.href}
+      className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+    >
+      {action.label} <ArrowRight className="h-3.5 w-3.5" />
+    </Link>
   );
 }

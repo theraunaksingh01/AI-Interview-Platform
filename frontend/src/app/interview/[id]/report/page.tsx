@@ -30,7 +30,7 @@ type Summary = {
 export default function ReportPage() {
   const { id } = useParams() as { id: string };
 
-  const API = process.env.NEXT_PUBLIC_API_URL!;
+  const API = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
 
   const [rows, setRows] = useState<ReportRow[] | null>(null);

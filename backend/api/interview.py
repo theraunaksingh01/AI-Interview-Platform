@@ -94,7 +94,7 @@ def interview_stats(
                 count(*)                                          AS total,
                 count(*) FILTER (WHERE overall_score IS NOT NULL) AS scored,
                 avg(overall_score) FILTER (WHERE overall_score IS NOT NULL) AS avg_score,
-                count(*) FILTER (WHERE status = 'recording')      AS in_progress
+                count(*) FILTER (WHERE status IN ('recording', 'created'))  AS in_progress
             FROM interviews
             WHERE user_id = :uid
         """),
@@ -112,6 +112,7 @@ def interview_stats(
 # ---------------------------
 # Start + Seed + Questions
 # ---------------------------
+
 
 @router.post("/start")
 def start_interview(db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -1140,9 +1141,16 @@ def get_evaluation(interview_id: UUID, db: Session = Depends(get_db)):
 @router.post("/finalize/{interview_id}")
 def finalize_interview(interview_id: UUID, db: Session = Depends(get_db)):
     """
-    Called when a live interview ends. Backfills answers from turns and triggers scoring.
+    Called when a live interview ends. Sets status to completed, backfills answers from turns and triggers scoring.
     """
     from services.answer_backfill import backfill_answers_from_turns
+
+    # Mark interview as completed before scoring starts
+    db.execute(
+        text("UPDATE interviews SET status = 'completed' WHERE id = CAST(:iid AS uuid)"),
+        {"iid": str(interview_id)},
+    )
+    db.commit()
 
     count = backfill_answers_from_turns(db, interview_id)
     task = score_interview.delay(str(interview_id), triggered_by="auto_finalize")

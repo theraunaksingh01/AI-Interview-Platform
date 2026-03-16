@@ -8,7 +8,7 @@ import RadarChartComponent from "@/app/components/ui/RadarChartComponent";
 import PerQuestionBar from "@/app/components/ui/PerQuestionBar";
 import HiringBadge from "@/app/components/ui/HiringBadge";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 type EvalData = {
   interview_id: string;

@@ -14,6 +14,11 @@ except Exception:
     generate_questions_ai = None
 
 try:
+    from tasks.resume_tasks import extract_resume_text
+except Exception:
+    extract_resume_text = None
+
+try:
     from tasks.score_question import score_question
 except Exception:
     score_question = None
@@ -78,29 +83,33 @@ async def public_submit_interview(
         # Create interview row (defensive: try richer insert then fallback)
         iid = str(uuid4())
         try:
-            # Try richer insert first (if columns exist)
             db.execute(text("""
-                INSERT INTO interviews (id, candidate_name, candidate_email, role_id, resume_id, created_at)
-                VALUES (CAST(:iid AS uuid), :name, :email, :role_id, :resume_id, now())
+                INSERT INTO interviews (id, user_id, candidate_name, candidate_email, role_id, resume_id, status, created_at)
+                VALUES (CAST(:iid AS uuid), 1, :name, :email, :role_id, :resume_id, 'created', now())
             """), {"iid": iid, "name": name, "email": email, "role_id": role_id, "resume_id": candidate_resume_id})
             db.commit()
         except Exception as exc:
             db.rollback()
-            # Fallback to minimal insert (most schemas will allow id + created_at)
             try:
                 db.execute(text("""
-                    INSERT INTO interviews (id, role_id, resume_id, created_at)
-                    VALUES (CAST(:iid AS uuid), :role_id, :resume_id, now())
+                    INSERT INTO interviews (id, user_id, role_id, resume_id, status, created_at)
+                    VALUES (CAST(:iid AS uuid), 1, :role_id, :resume_id, 'created', now())
                 """), {"iid": iid, "role_id": role_id, "resume_id": candidate_resume_id})
                 db.commit()
             except Exception as exc2:
                 db.rollback()
-                raise HTTPException(status_code=500, detail=f"Failed to create interview (rich and fallback failed): {exc} | {exc2}")
+                raise HTTPException(status_code=500, detail=f"Failed to create interview: {exc} | {exc2}")
+
+        # enqueue resume text extraction so questions are resume-tailored
+        if extract_resume_text and candidate_resume_id:
+            try:
+                extract_resume_text.delay(candidate_resume_id)
+            except Exception:
+                pass
 
         # enqueue question generation if available (best-effort)
         if generate_questions_ai:
             try:
-                # signature may be (interview_id) or (interview_id, resume_id)
                 try:
                     if candidate_resume_id:
                         generate_questions_ai.delay(iid, candidate_resume_id)
@@ -109,10 +118,9 @@ async def public_submit_interview(
                 except TypeError:
                     generate_questions_ai.delay(iid)
             except Exception:
-                # swallow task enqueue errors for demo
                 pass
 
-        candidate_url = f"/candidate/interview?interview_id={iid}"
+        candidate_url = f"/interview/{iid}/join"
         return JSONResponse({"ok": True, "interview_id": iid, "candidate_url": candidate_url})
     finally:
         try:
@@ -209,15 +217,28 @@ def public_interview_status(interview_id: str):
     db = SessionLocal()
     try:
         row = db.execute(text("""
-            SELECT id, resume_id, role_id, report IS NOT NULL AS has_report
-            FROM interviews
-            WHERE id = CAST(:iid AS uuid)
+            SELECT i.id, i.resume_id, i.role_id, i.status, i.candidate_name,
+                   i.report IS NOT NULL AS has_report,
+                   r.title AS role_title
+            FROM interviews i
+            LEFT JOIN roles r ON r.id = i.role_id
+            WHERE i.id = CAST(:iid AS uuid)
         """), {"iid": interview_id}).mappings().first()
         if not row:
             raise HTTPException(status_code=404, detail="interview not found")
         qcount = db.execute(text("""
             SELECT count(*) FROM interview_questions WHERE interview_id = CAST(:iid AS uuid)
         """), {"iid": interview_id}).scalar() or 0
-        return {"interview_id": str(row["id"]), "resume_id": row.get("resume_id"), "role_id": row.get("role_id"), "has_report": bool(row.get("has_report")), "questions": int(qcount)}
+        return {
+            "interview_id": str(row["id"]),
+            "resume_id": row.get("resume_id"),
+            "role_id": row.get("role_id"),
+            "role_title": row.get("role_title"),
+            "candidate_name": row.get("candidate_name"),
+            "status": row.get("status"),
+            "has_report": bool(row.get("has_report")),
+            "questions": int(qcount),
+            "questions_ready": int(qcount) > 0,
+        }
     finally:
         db.close()

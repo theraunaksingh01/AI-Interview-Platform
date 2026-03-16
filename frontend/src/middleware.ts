@@ -16,8 +16,8 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   // Allow /candidate/* routes
   if (pathname.startsWith("/candidate/")) return true;
-  // Allow interview join pages (candidate-facing)
-  if (/^\/interview\/[^/]+\/join$/.test(pathname)) return true;
+  // Allow candidate-facing interview pages (join, prepare, live)
+  if (/^\/interview\/[^/]+\/(join|prepare|live)$/.test(pathname)) return true;
   // Static assets and API routes
   if (pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname.includes(".")) return true;
   return false;

@@ -35,9 +35,9 @@ function isPublicRoute(path: string): boolean {
   return PUBLIC_ROUTES.some((r) => path === r || path.startsWith(r + "/"));
 }
 
-/** Routes where the join page is publicly accessible (candidate joining an interview) */
+/** Candidate-facing interview routes that are publicly accessible */
 function isCandidateRoute(path: string): boolean {
-  return /^\/interview\/[^/]+\/join$/.test(path);
+  return /^\/interview\/[^/]+\/(join|prepare|live)$/.test(path);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -6,6 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+).replace(/\/$/, "");
+
 export default function JoinInterviewPage() {
   const { id } = useParams();
   const interviewId = id as string;
@@ -18,8 +22,34 @@ export default function JoinInterviewPage() {
   const [micOn, setMicOn] = useState(false);
   const [permissionsReady, setPermissionsReady] = useState(false);
 
-  /* ---------------- Interview Metadata (mock for now) ---------------- */
-  const interviewTitle = "Software Engineer – Technical Interview";
+  /* ------------ Interview Metadata (fetched from backend) ------------ */
+  const [interviewTitle, setInterviewTitle] = useState("Loading interview...");
+  const [questionsReady, setQuestionsReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/public/interview/${interviewId}/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.questions_ready) setQuestionsReady(true);
+
+        const title = data.role_title
+          ? `${data.role_title} – Technical Interview`
+          : "Technical Interview";
+        setInterviewTitle(title);
+      } catch {
+        if (!cancelled) setInterviewTitle("Technical Interview");
+      }
+    }
+
+    fetchStatus();
+    return () => { cancelled = true; };
+  }, [interviewId]);
 
   /* ---------------- Camera / Mic Lifecycle ---------------- */
 
@@ -87,18 +117,24 @@ export default function JoinInterviewPage() {
   }, [cameraOn, micOn]);
 
   function startInterview() {
-  if (!permissionsReady) return;
+    if (!permissionsReady) return;
 
-  //  HARD audio unlock via user gesture
-  const a = new Audio();
-  a.muted = true;
-  a.play().catch(() => {});
+    // If questions aren't ready yet, go to prepare page to wait
+    if (!questionsReady) {
+      router.push(`/interview/${interviewId}/prepare`);
+      return;
+    }
 
-  // persist unlock for live page
-  sessionStorage.setItem("audioUnlocked", "true");
+    //  HARD audio unlock via user gesture
+    const a = new Audio();
+    a.muted = true;
+    a.play().catch(() => {});
 
-  router.push(`/interview/${interviewId}/live`);
-}
+    // persist unlock for live page
+    sessionStorage.setItem("audioUnlocked", "true");
+
+    router.push(`/interview/${interviewId}/live`);
+  }
 
 
   /* ---------------- UI ---------------- */
@@ -197,7 +233,7 @@ export default function JoinInterviewPage() {
                   : "bg-gray-300 cursor-not-allowed"
               }`}
             >
-              Start Interview
+              {questionsReady ? "Start Interview" : "Start Interview (preparing questions...)"}
             </button>
 
             <p className="text-xs text-gray-500 mt-3 text-center">
