@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 import subprocess
 import tempfile
+import time
 from typing import Optional, List
 
 router = APIRouter(prefix="/code", tags=["code"])
@@ -18,6 +19,7 @@ class RunOut(BaseModel):
     exit_code: int
     stdout: str
     stderr: str
+    execution_time_ms: int = 0
 
 class TestCase(BaseModel):
     stdin: str
@@ -38,11 +40,13 @@ class GradeOut(BaseModel):
     correctness: int
     total: int
     passed: int
+    execution_time_ms: int = 0
 
 # ------------ Minimal local runner ------------
-def _run_local(lang: str, code: str, stdin: Optional[str] = None) -> tuple[int, str, str]:
+def _run_local(lang: str, code: str, stdin: Optional[str] = None) -> tuple[int, str, str, int]:
     """
     Simple local runner for demo/dev (no containers). Good enough for grading small tasks.
+    Returns (exit_code, stdout, stderr, execution_time_ms).
     """
     with tempfile.TemporaryDirectory() as td:
         if lang == "javascript":
@@ -61,7 +65,7 @@ def _run_local(lang: str, code: str, stdin: Optional[str] = None) -> tuple[int, 
                 f.write(code)
             javac = subprocess.run(["javac", path], capture_output=True, text=True)
             if javac.returncode != 0:
-                return (javac.returncode, "", (javac.stderr or "").strip())
+                return (javac.returncode, "", (javac.stderr or "").strip(), 0)
             cmd = ["java", "-cp", td, "Main"]
         elif lang == "cpp":
             path = f"{td}/main.cpp"
@@ -70,23 +74,28 @@ def _run_local(lang: str, code: str, stdin: Optional[str] = None) -> tuple[int, 
                 f.write(code)
             gpp = subprocess.run(["g++", "-O2", path, "-o", exe], capture_output=True, text=True)
             if gpp.returncode != 0:
-                return (gpp.returncode, "", (gpp.stderr or "").strip())
+                return (gpp.returncode, "", (gpp.stderr or "").strip(), 0)
             cmd = [exe]
         else:
             raise ValueError("unsupported language")
 
         try:
+            t0 = time.perf_counter()
             proc = subprocess.run(cmd, input=stdin or "", capture_output=True, text=True, timeout=10)
+            elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            return (proc.returncode, proc.stdout.strip(), proc.stderr.strip(), elapsed_ms)
+        except subprocess.TimeoutExpired:
+            return (124, "", "Time Limit Exceeded", 10000)
         except FileNotFoundError:
-            return (127, "", f"runtime not found: {cmd[0]}")
+            return (127, "", f"runtime not found: {cmd[0]}", 0)
 
 
 # ------------ Endpoints ------------
 @router.post("/run", response_model=RunOut)
 def run(inb: RunIn):
     try:
-        rc, out, err = _run_local(inb.lang, inb.code or "", inb.stdin)
-        return {"ok": rc == 0, "exit_code": rc, "stdout": out, "stderr": err}
+        rc, out, err, ms = _run_local(inb.lang, inb.code or "", inb.stdin)
+        return {"ok": rc == 0, "exit_code": rc, "stdout": out, "stderr": err, "execution_time_ms": ms}
     except Exception as e:
         raise HTTPException(500, f"run failed: {e}")
 
@@ -105,10 +114,12 @@ def grade(inb: GradeIn):
         total = len(inb.tests)
         passed = 0
         last_rc, last_out, last_err = 0, "", ""
+        total_ms = 0
 
         for t in inb.tests:
-            rc, out, err = _run_local(inb.lang, code, t.stdin)
+            rc, out, err, ms = _run_local(inb.lang, code, t.stdin)
             last_rc, last_out, last_err = rc, out, err
+            total_ms += ms
             # strict compare (trim trailing whitespace)
             if out.strip() == (t.expected_stdout or "").strip():
                 passed += 1
@@ -124,6 +135,7 @@ def grade(inb: GradeIn):
             "correctness": correctness,
             "total": total,
             "passed": passed,
+            "execution_time_ms": total_ms,
         }
 
     # 2) Built-in grader for Tower of Hanoi (slug variants)
@@ -133,7 +145,7 @@ def grade(inb: GradeIn):
             "A -> C","A -> B","C -> B","A -> C","B -> A",
             "B -> C","A -> C","A -> B","A -> C","B -> C"
         ]
-        rc, out, err = _run_local(inb.lang, code, "3")
+        rc, out, err, ms = _run_local(inb.lang, code, "3")
         actual_lines = [l.strip() for l in (out or "").splitlines() if l.strip()]
 
         # Compare line-by-line; allow extra lines but grade on first 10
@@ -149,10 +161,11 @@ def grade(inb: GradeIn):
             "correctness": correctness,
             "total": len(expected_lines),
             "passed": passed,
+            "execution_time_ms": ms,
         }
 
     # 3) Fallback: just run once; if it exits 0, give 100 for demo purposes
-    rc, out, err = _run_local(inb.lang, code, None)
+    rc, out, err, ms = _run_local(inb.lang, code, None)
     correctness = 100 if rc == 0 else 0
     return {
         "ok": rc == 0,
@@ -162,4 +175,5 @@ def grade(inb: GradeIn):
         "correctness": correctness,
         "total": 1,
         "passed": 1 if rc == 0 else 0,
+        "execution_time_ms": ms,
     }

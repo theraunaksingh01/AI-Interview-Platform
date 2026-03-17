@@ -45,6 +45,10 @@ Each question object MUST have these keys:
 - time_limit_seconds: integer (seconds)
 - tags: array of short tag strings (optional)
 
+For \"code\" type questions, ALSO include:
+- description: detailed problem statement including constraints, I/O format, and examples
+- sample_cases: array of 2-3 test case objects, each with \"input\" and \"expected\" strings
+
 Return exactly this JSON. No markdown, no backticks, no commentary.
 
 Example:
@@ -60,7 +64,12 @@ Example:
     {{
       "id": "q2",
       "type": "code",
-      "question_text": "Implement an LRU cache with get/put operations in your preferred language. Provide complexity notes.",
+      "question_text": "Implement a Two Sum function",
+      "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\\n\\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\\n\\nConstraints:\\n- 2 <= nums.length <= 10^4\\n- -10^9 <= nums[i] <= 10^9",
+      "sample_cases": [
+        {{"input": "[2,7,11,15]\\n9", "expected": "[0,1]"}},
+        {{"input": "[3,2,4]\\n6", "expected": "[1,2]"}}
+      ],
       "time_limit_seconds": 600,
       "tags": ["python","algorithms"]
     }}
@@ -116,12 +125,65 @@ def _stub_make_questions(jd: str, resume: str, n: int) -> Dict[str, Any]:
     ]
 
     CODE_POOL = [
-        ("Implement LRU Cache (get/put) with O(1) ops.", 600, "lru-cache"),
-        ("Validate balanced parentheses with a stack.", 300, "balanced-parentheses"),
-        ("Merge K sorted lists efficiently.", 600, "merge-k-lists"),
-        ("Top K frequent elements.", 300, "top-k-frequent"),
-        ("Two-sum with optimal time.", 300, "two-sum"),
-        ("Write code for Tower of Hanoi.", 300, "tower-of-hanoi"),
+        {
+            "text": "Implement a Two Sum function that returns indices of two numbers adding up to a target.",
+            "time": 300, "slug": "two-sum",
+            "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume each input has exactly one solution and you may not use the same element twice.\n\nInput: First line is a space-separated array of integers, second line is the target integer.\nOutput: Two space-separated indices.\n\nConstraints:\n- 2 <= nums.length <= 10^4\n- -10^9 <= nums[i] <= 10^9",
+            "sample_cases": [
+                {"input": "2 7 11 15\n9", "expected": "0 1"},
+                {"input": "3 2 4\n6", "expected": "1 2"},
+                {"input": "3 3\n6", "expected": "0 1"}
+            ]
+        },
+        {
+            "text": "Validate whether a string of parentheses is balanced.",
+            "time": 300, "slug": "balanced-parentheses",
+            "description": "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.\n\nA string is valid if:\n- Open brackets are closed by the same type of brackets.\n- Open brackets are closed in the correct order.\n\nInput: A single string of brackets.\nOutput: 'true' or 'false'.\n\nConstraints:\n- 1 <= s.length <= 10^4",
+            "sample_cases": [
+                {"input": "()", "expected": "true"},
+                {"input": "()[]{}", "expected": "true"},
+                {"input": "(]", "expected": "false"}
+            ]
+        },
+        {
+            "text": "Implement an LRU Cache with get and put operations in O(1) time.",
+            "time": 600, "slug": "lru-cache",
+            "description": "Design a data structure that follows the constraints of a Least Recently Used (LRU) cache.\n\nImplement the LRUCache class:\n- LRUCache(capacity) Initialize the cache with positive size capacity.\n- get(key) Return the value of key if it exists, otherwise return -1.\n- put(key, value) Update or insert the value. When the cache reaches capacity, evict the least recently used key.\n\nInput: First line is the capacity. Following lines are operations: 'get key' or 'put key value'.\nOutput: For each get operation, print the result on a new line.\n\nConstraints:\n- 1 <= capacity <= 3000\n- 0 <= key <= 10^4\n- 0 <= value <= 10^5",
+            "sample_cases": [
+                {"input": "2\nput 1 1\nput 2 2\nget 1\nput 3 3\nget 2", "expected": "1\n-1"},
+                {"input": "1\nput 1 10\nget 1\nput 2 20\nget 1\nget 2", "expected": "10\n-1\n20"}
+            ]
+        },
+        {
+            "text": "Return the nth Fibonacci number.",
+            "time": 300, "slug": "fibonacci",
+            "description": "Given an integer n, return the nth Fibonacci number.\n\nThe Fibonacci sequence: F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2) for n>1.\n\nInput: A single integer n.\nOutput: The nth Fibonacci number.\n\nConstraints:\n- 0 <= n <= 45",
+            "sample_cases": [
+                {"input": "0", "expected": "0"},
+                {"input": "1", "expected": "1"},
+                {"input": "10", "expected": "55"}
+            ]
+        },
+        {
+            "text": "Reverse a singly linked list. Print the reversed list.",
+            "time": 300, "slug": "reverse-linked-list",
+            "description": "Given the head of a singly linked list represented as space-separated integers, reverse the list and print the reversed values.\n\nInput: Space-separated integers representing the linked list.\nOutput: Space-separated integers of the reversed list.\n\nConstraints:\n- 0 <= list length <= 5000\n- -5000 <= Node.val <= 5000",
+            "sample_cases": [
+                {"input": "1 2 3 4 5", "expected": "5 4 3 2 1"},
+                {"input": "1 2", "expected": "2 1"},
+                {"input": "1", "expected": "1"}
+            ]
+        },
+        {
+            "text": "Merge two sorted arrays into one sorted array.",
+            "time": 300, "slug": "merge-sorted-arrays",
+            "description": "Given two sorted integer arrays, merge them into a single sorted array.\n\nInput: First line is a space-separated sorted array. Second line is a space-separated sorted array.\nOutput: Space-separated merged sorted array.\n\nConstraints:\n- 0 <= array length <= 10^4\n- -10^9 <= element <= 10^9",
+            "sample_cases": [
+                {"input": "1 3 5\n2 4 6", "expected": "1 2 3 4 5 6"},
+                {"input": "1\n0", "expected": "0 1"},
+                {"input": "1 2 3\n", "expected": "1 2 3"}
+            ]
+        },
     ]
 
     random.shuffle(VOICE_POOL)
@@ -133,14 +195,23 @@ def _stub_make_questions(jd: str, resume: str, n: int) -> Dict[str, Any]:
         c = CODE_POOL[0]
         chosen.extend([
             {"type": "voice", "question_text": v[0], "time_limit_seconds": v[1], "slug": v[2]},
-            {"type": "code", "question_text": c[0], "time_limit_seconds": c[1], "slug": c[2]},
+            {"type": "code", "question_text": c["text"], "time_limit_seconds": c["time"],
+             "slug": c["slug"], "description": c["description"], "sample_cases": c["sample_cases"]},
         ])
-        rest_pool: List[tuple] = VOICE_POOL[1:] + CODE_POOL[1:]
+        rest_voice = VOICE_POOL[1:]
+        rest_code = CODE_POOL[1:]
+        # merge rest pools, tagging source type
+        rest_pool: List[Dict[str, Any]] = []
+        for rv in rest_voice:
+            rest_pool.append({"type": "voice", "question_text": rv[0], "time_limit_seconds": rv[1], "slug": rv[2]})
+        for rc in rest_code:
+            rest_pool.append({"type": "code", "question_text": rc["text"], "time_limit_seconds": rc["time"],
+                              "slug": rc["slug"], "description": rc["description"], "sample_cases": rc["sample_cases"]})
         random.shuffle(rest_pool)
         for t in rest_pool:
             if len(chosen) >= n:
                 break
-            chosen.append({"type": "voice", "question_text": t[0], "time_limit_seconds": t[1], "slug": t[2]})
+            chosen.append(t)
     else:
         v = VOICE_POOL[0]
         chosen.append({"type": "voice", "question_text": v[0], "time_limit_seconds": v[1], "slug": v[2]})
@@ -422,6 +493,9 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
                 "type": q_type,
                 "question_text": q_text,
                 "time_limit_seconds": q_tl,
+                "description": (item.get("description") or "").strip(),
+                "sample_cases": item.get("sample_cases") if isinstance(item.get("sample_cases"), list) else [],
+                "source": (item.get("slug") or item.get("source") or ""),
                 "raw": item
             })
 
@@ -445,12 +519,16 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
 
                 # Insert row — use nested transaction (SAVEPOINT) so a failing row doesn't abort the whole batch
                 try:
+                    desc = (q.get("description") or "").strip()
+                    sc = json.dumps(q.get("sample_cases") or [])
+                    src = (q.get("source") or "").strip()
                     with db.begin_nested():
                         db.execute(text("""
                             INSERT INTO interview_questions
-                              (interview_id, question_text, type, time_limit_seconds)
-                            VALUES (:iid, :qt, :tp, :tl)
-                        """), {"iid": str(interview_id), "qt": qt, "tp": qtype, "tl": tl})
+                              (interview_id, question_text, type, time_limit_seconds, description, sample_cases, source)
+                            VALUES (:iid, :qt, :tp, :tl, :desc, CAST(:sc AS jsonb), :src)
+                        """), {"iid": str(interview_id), "qt": qt, "tp": qtype, "tl": tl,
+                               "desc": desc, "sc": sc, "src": src})
                     inserted += 1
                 except Exception:
                     # log the problematic question and continue inserting remaining ones

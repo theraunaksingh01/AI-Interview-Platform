@@ -139,7 +139,7 @@ def public_get_questions(interview_id: str):
     db = SessionLocal()
     try:
         rows = db.execute(text("""
-            SELECT id, question_text, type
+            SELECT id, question_text, type, description, sample_cases, time_limit_seconds, source
             FROM interview_questions
             WHERE interview_id = CAST(:iid AS uuid)
             ORDER BY id
@@ -148,11 +148,16 @@ def public_get_questions(interview_id: str):
             raise HTTPException(status_code=404, detail="questions not found")
         out = []
         for r in rows:
-            out.append({
+            q = {
                 "question_id": r["id"],
                 "question_text": r["question_text"],
                 "type": r["type"] or "voice",
-            })
+            }
+            if r["type"] == "code":
+                q["description"] = r.get("description") or ""
+                q["sample_cases"] = r.get("sample_cases") or []
+                q["time_limit_seconds"] = r.get("time_limit_seconds") or 600
+            out.append(q)
         return out
     finally:
         db.close()

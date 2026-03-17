@@ -36,7 +36,7 @@ async def send_json_safe(ws: WebSocket, payload: dict):
 def get_next_question(db: Session, interview_id: UUID):
     rows = db.execute(
         text("""
-            SELECT id, question_text, type
+            SELECT id, question_text, type, description, sample_cases, time_limit_seconds, source
             FROM interview_questions
             WHERE interview_id = :iid
             ORDER BY id ASC
@@ -62,7 +62,15 @@ def get_next_question(db: Session, interview_id: UUID):
 
     for r in rows:
         if r.id not in answered_ids:
-            return {"id": r.id, "question_text": r.question_text, "type": r.type}
+            return {
+                "id": r.id,
+                "question_text": r.question_text,
+                "type": r.type,
+                "description": r.description or "",
+                "sample_cases": r.sample_cases if r.sample_cases else [],
+                "time_limit_seconds": r.time_limit_seconds or (600 if r.type == "code" else 120),
+                "source": r.source or "",
+            }
 
     return None
 
@@ -115,6 +123,72 @@ async def interview_ws(
                         },
                     )
                     # Backfill interview_answers from turns for scoring
+                    try:
+                        backfill_answers_from_turns(db, interview_id)
+                    except Exception:
+                        logger.exception("[BACKFILL] failed on interview done")
+
+            elif msg.get("type") == "candidate_code":
+                # Handle code submission from LeetCode-style IDE
+                code_text = msg.get("code") or ""
+                lang = msg.get("lang") or "python"
+                test_results = msg.get("test_results") or []
+
+                turn = InterviewTurn(
+                    interview_id=interview_id,
+                    question_id=msg.get("question_id"),
+                    speaker="candidate",
+                    transcript=f"[CODE ({lang})]\n{code_text}",
+                    started_at=datetime.utcnow(),
+                    ended_at=datetime.utcnow(),
+                )
+                db.add(turn)
+                db.commit()
+                db.refresh(turn)
+
+                # Upsert interview_answers with code data
+                try:
+                    import json as _json
+                    db.execute(
+                        text("""
+                            INSERT INTO interview_answers
+                              (interview_id, question_id, code_answer, code_output, test_results)
+                            VALUES (:iid, :qid, :code, :output, CAST(:tr AS jsonb))
+                            ON CONFLICT (interview_id, question_id) DO UPDATE
+                              SET code_answer = EXCLUDED.code_answer,
+                                  code_output = EXCLUDED.code_output,
+                                  test_results = EXCLUDED.test_results
+                        """),
+                        {
+                            "iid": interview_id,
+                            "qid": msg.get("question_id"),
+                            "code": code_text,
+                            "output": msg.get("output", ""),
+                            "tr": _json.dumps(test_results),
+                        },
+                    )
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception("[WS] failed to upsert interview_answers for code")
+
+                try:
+                    score_turn.delay(turn.id)
+                except Exception:
+                    logger.exception("[Celery] score_turn failed to queue — continuing interview")
+
+                next_q = get_next_question(db, interview_id)
+                if next_q:
+                    await send_agent_question(db, interview_id, next_q, websocket)
+                else:
+                    await send_json_safe(
+                        websocket,
+                        {
+                            "type": "agent_message",
+                            "text": "Thanks, this completes your interview.",
+                            "done": True,
+                        },
+                    )
                     try:
                         backfill_answers_from_turns(db, interview_id)
                     except Exception:
@@ -240,6 +314,11 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         "question_type": q.get("type", "voice"),
         "text": text_q,
     }
+    # Include code question metadata
+    if q.get("type") == "code":
+        question_msg["description"] = q.get("description", "")
+        question_msg["sample_cases"] = q.get("sample_cases", [])
+        question_msg["time_limit_seconds"] = q.get("time_limit_seconds", 600)
     if audio_url:
         question_msg["audio_url"] = audio_url
     await send_json_safe(ws, question_msg)
