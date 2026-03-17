@@ -2,7 +2,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "<put_new_rev_id_here>"
+revision = "2c76cc1c5dea"
 down_revision = "6ea00884ae5a"
 branch_labels = None
 depends_on = None

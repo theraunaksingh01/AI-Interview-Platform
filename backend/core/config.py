@@ -45,6 +45,14 @@ class Settings(BaseSettings):
         alias="CORS_ORIGINS",
     )
 
+    # ---- Gemini (Google AI Studio)
+    gemini_api_key: str = Field("", alias="GEMINI_API_KEY")
+    gemini_model: str = Field("gemini-2.0-flash", alias="GEMINI_MODEL")
+
+    # ---- Follow-up settings
+    followup_enabled: bool = Field(True, alias="FOLLOWUP_ENABLED")
+    followup_timeout: int = Field(8, alias="FOLLOWUP_TIMEOUT")
+
     # ---- Redis / Celery (optional)
     redis_url: Optional[str] = Field("redis://127.0.0.1:6379/0", alias="REDIS_URL")
     celery_broker_url: Optional[str] = Field("redis://127.0.0.1:6379/0", alias="CELERY_BROKER_URL")

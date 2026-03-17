@@ -40,7 +40,7 @@ const LANG_DEFAULTS: Record<Lang, string> = {
 };
 
 type WSMessage =
-  | { type: "agent_message"; text: string; question_id?: number; question_type?: string; audio_url?: string; done?: boolean; description?: string; sample_cases?: SampleCase[]; time_limit_seconds?: number }
+  | { type: "agent_message"; text: string; question_id?: number; question_type?: string; audio_url?: string; done?: boolean; description?: string; sample_cases?: SampleCase[]; time_limit_seconds?: number; is_followup?: boolean; parent_question_id?: number }
   | { type: "live_signal"; question_id: number; confidence: "low" | "medium" | "high"; word_count: number; transcript?: string }
   | { type: "ai_interrupt"; text: string; reason?: string; audio_url?: string }
   | { type: "ai_interrupt_audio"; audio_url: string }
@@ -76,6 +76,7 @@ export default function LiveInterviewPage() {
   const [interrupted, setInterrupted]           = useState(false);
   const [interruptText, setInterruptText]       = useState("");
   const [questionType, setQuestionType]         = useState<"voice" | "code">("voice");
+  const [isFollowup, setIsFollowup]             = useState(false);
   const [codeAnswer, setCodeAnswer]             = useState("");
   const interruptedRef                          = useRef(false);
 
@@ -172,6 +173,7 @@ export default function LiveInterviewPage() {
 
         if (msg.question_id) currentQuestionIdRef.current = msg.question_id;
         if (msg.question_type) setQuestionType(msg.question_type === "code" ? "code" : "voice");
+        setIsFollowup(!!msg.is_followup);
 
         // Populate code question metadata
         if (msg.question_type === "code") {
@@ -667,6 +669,11 @@ export default function LiveInterviewPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-medium text-indigo-600">AI Interviewer</span>
+                    {isFollowup && (
+                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                        Follow-up
+                      </span>
+                    )}
                     <span className="text-[10px] text-gray-400">{statusConfig[agentStatus].label}</span>
                   </div>
                   <p className="text-base text-gray-800 leading-relaxed">
@@ -720,7 +727,11 @@ export default function LiveInterviewPage() {
                         className="w-1 bg-indigo-500 rounded-full"
                         style={{
                           height: `${Math.random() * 100}%`,
-                          animation: `pulse ${0.5 + Math.random() * 0.8}s ease-in-out infinite alternate`,
+                          animationName: 'pulse',
+                          animationDuration: `${0.5 + Math.random() * 0.8}s`,
+                          animationTimingFunction: 'ease-in-out',
+                          animationIterationCount: 'infinite',
+                          animationDirection: 'alternate',
                           animationDelay: `${i * 0.05}s`,
                         }}
                       />

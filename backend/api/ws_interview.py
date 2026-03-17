@@ -5,6 +5,7 @@ from uuid import UUID
 from datetime import datetime
 import logging
 import asyncio
+import os
 
 from services.timeline_logger import log_timeline_event
 from db.session import get_db
@@ -21,6 +22,16 @@ from services.ws_broadcast import (
 from services.answer_backfill import backfill_answers_from_turns
 from services.timeline_logger import log_timeline_event
 
+from services.followup_generator import (
+    build_context_memory,
+    get_difficulty_hint,
+    generate_followup,
+    has_followup_for_question,
+    insert_followup_question,
+)
+
+FOLLOWUP_ENABLED = os.getenv("FOLLOWUP_ENABLED", "true").lower() in ("true", "1", "yes")
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -36,7 +47,8 @@ async def send_json_safe(ws: WebSocket, payload: dict):
 def get_next_question(db: Session, interview_id: UUID):
     rows = db.execute(
         text("""
-            SELECT id, question_text, type, description, sample_cases, time_limit_seconds, source
+            SELECT id, question_text, type, description, sample_cases,
+                   time_limit_seconds, source, parent_question_id
             FROM interview_questions
             WHERE interview_id = :iid
             ORDER BY id ASC
@@ -70,6 +82,8 @@ def get_next_question(db: Session, interview_id: UUID):
                 "sample_cases": r.sample_cases if r.sample_cases else [],
                 "time_limit_seconds": r.time_limit_seconds or (600 if r.type == "code" else 120),
                 "source": r.source or "",
+                "parent_question_id": r.parent_question_id,
+                "is_followup": r.parent_question_id is not None,
             }
 
     return None
@@ -93,11 +107,14 @@ async def interview_ws(
             msg = await websocket.receive_json()
 
             if msg.get("type") == "candidate_text":
+                question_id = msg.get("question_id")
+                transcript_text = msg.get("text") or ""
+
                 turn = InterviewTurn(
                     interview_id=interview_id,
-                    question_id=msg.get("question_id"),
+                    question_id=question_id,
                     speaker="candidate",
-                    transcript=msg.get("text") or "",
+                    transcript=transcript_text,
                     started_at=datetime.utcnow(),
                     ended_at=datetime.utcnow(),
                 )
@@ -110,23 +127,30 @@ async def interview_ws(
                 except Exception:
                     logger.exception("[Celery] score_turn failed to queue — continuing interview")
 
-                next_q = get_next_question(db, interview_id)
-                if next_q:
-                    await send_agent_question(db, interview_id, next_q, websocket)
-                else:
-                    await send_json_safe(
-                        websocket,
-                        {
-                            "type": "agent_message",
-                            "text": "Thanks, this completes your interview.",
-                            "done": True,
-                        },
+                # --- Phase 12: Dynamic follow-up generation ---
+                followup_sent = False
+                if FOLLOWUP_ENABLED and question_id and transcript_text.strip():
+                    followup_sent = await _try_generate_followup(
+                        db, interview_id, question_id, transcript_text, websocket
                     )
-                    # Backfill interview_answers from turns for scoring
-                    try:
-                        backfill_answers_from_turns(db, interview_id)
-                    except Exception:
-                        logger.exception("[BACKFILL] failed on interview done")
+
+                if not followup_sent:
+                    next_q = get_next_question(db, interview_id)
+                    if next_q:
+                        await send_agent_question(db, interview_id, next_q, websocket)
+                    else:
+                        await send_json_safe(
+                            websocket,
+                            {
+                                "type": "agent_message",
+                                "text": "Thanks, this completes your interview.",
+                                "done": True,
+                            },
+                        )
+                        try:
+                            backfill_answers_from_turns(db, interview_id)
+                        except Exception:
+                            logger.exception("[BACKFILL] failed on interview done")
 
             elif msg.get("type") == "candidate_code":
                 # Handle code submission from LeetCode-style IDE
@@ -313,7 +337,10 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         "question_id": qid,
         "question_type": q.get("type", "voice"),
         "text": text_q,
+        "is_followup": q.get("is_followup", False),
     }
+    if q.get("parent_question_id"):
+        question_msg["parent_question_id"] = q["parent_question_id"]
     # Include code question metadata
     if q.get("type") == "code":
         question_msg["description"] = q.get("description", "")
@@ -322,3 +349,78 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
     if audio_url:
         question_msg["audio_url"] = audio_url
     await send_json_safe(ws, question_msg)
+
+
+async def _try_generate_followup(
+    db: Session,
+    interview_id: UUID,
+    question_id: int,
+    transcript: str,
+    ws: WebSocket,
+) -> bool:
+    """
+    Attempt to generate a dynamic follow-up for a voice question.
+    Returns True if a follow-up was sent, False otherwise.
+    """
+    try:
+        # Only follow up on voice questions
+        qtype = db.execute(
+            text("SELECT type, question_text, parent_question_id FROM interview_questions WHERE id = :qid"),
+            {"qid": question_id},
+        ).fetchone()
+
+        if not qtype:
+            return False
+
+        # Skip if: not voice, already is a follow-up, or follow-up already exists
+        if qtype.type != "voice":
+            return False
+        if qtype.parent_question_id is not None:
+            return False
+        if has_followup_for_question(db, question_id):
+            return False
+
+        # Build context and difficulty
+        context = build_context_memory(db, str(interview_id))
+        difficulty = get_difficulty_hint(db, str(interview_id))
+
+        # Generate follow-up (async with timeout)
+        result = await generate_followup(
+            question_text=qtype.question_text or "",
+            transcript=transcript,
+            context_memory=context,
+            difficulty=difficulty,
+        )
+
+        if not result or not result.get("followup_question"):
+            return False
+
+        followup_text = result["followup_question"].strip()
+        if not followup_text:
+            return False
+
+        # Insert into DB
+        new_qid = insert_followup_question(
+            db, str(interview_id), question_id, followup_text
+        )
+
+        if not new_qid:
+            return False
+
+        logger.info(
+            "[FOLLOWUP] Generated for Q%s -> new Q%s (difficulty=%s)",
+            question_id, new_qid, difficulty,
+        )
+
+        # The follow-up is now in interview_questions and will be served
+        # by get_next_question() since it has a higher ID
+        next_q = get_next_question(db, interview_id)
+        if next_q and next_q["id"] == new_qid:
+            await send_agent_question(db, interview_id, next_q, ws)
+            return True
+
+        return False
+
+    except Exception:
+        logger.exception("[FOLLOWUP] failed for Q%s — skipping", question_id)
+        return False

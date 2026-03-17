@@ -14,6 +14,8 @@ from db.session import SessionLocal
 from celery_app import app
 import httpx
 
+from services.llm_provider import gemini_chat
+
 log = logging.getLogger(__name__)
 if not log.handlers:
     # basic config if not already configured by app
@@ -22,9 +24,11 @@ if not log.handlers:
 # ------------------------------
 # Config
 # ------------------------------
-AI_PROVIDER = os.getenv("AI_PROVIDER", "stub").lower()   # "stub" (default) | "openai" | "ollama"
+AI_PROVIDER = os.getenv("AI_PROVIDER", "stub").lower()   # "stub" (default) | "openai" | "ollama" | "gemini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "tinyllama:latest")
@@ -330,7 +334,7 @@ async def _llm_json(jd: str, resume: str, n: int) -> Dict[str, Any]:
     Unified LLM caller returning a dict with shape {"questions": [...]}
     Falls back to stub when provider not configured.
     """
-    if AI_PROVIDER == "stub" or (AI_PROVIDER == "openai" and not OPENAI_API_KEY):
+    if AI_PROVIDER == "stub" or (AI_PROVIDER == "openai" and not OPENAI_API_KEY) or (AI_PROVIDER == "gemini" and not GEMINI_API_KEY):
         log.info("Using stub questions (AI_PROVIDER=%s)", AI_PROVIDER)
         return _stub_make_questions(jd, resume, n)
 
@@ -411,6 +415,33 @@ async def _llm_json(jd: str, resume: str, n: int) -> Dict[str, Any]:
             return {"questions": []}
         except Exception as e:
             log.exception("OpenAI call failed: %s", e)
+            return {"questions": []}
+
+    # Gemini path
+    if AI_PROVIDER == "gemini":
+        try:
+            prompt = SYS_PROMPT + "\n\n" + USER_TPL.format(jd=jd or "", resume=resume or "", n=n)
+            result = await gemini_chat(
+                system_prompt=SYS_PROMPT,
+                user_prompt=USER_TPL.format(jd=jd or "", resume=resume or "", n=n),
+                api_key=GEMINI_API_KEY,
+                model=GEMINI_MODEL,
+                max_output_tokens=2048,
+            )
+            parsed = result.get("parsed")
+            if isinstance(parsed, dict) and "questions" in parsed:
+                return {"questions": parsed["questions"]}
+            if isinstance(parsed, list):
+                return {"questions": parsed}
+            if isinstance(parsed, dict):
+                # Try to find questions key
+                for k, v in parsed.items():
+                    if isinstance(v, list):
+                        return {"questions": v}
+            log.warning("Gemini returned unexpected structure: %s", type(parsed))
+            return {"questions": []}
+        except Exception as e:
+            log.exception("Gemini call failed: %s", e)
             return {"questions": []}
 
     # Unknown provider fallback

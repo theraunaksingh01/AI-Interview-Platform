@@ -4,11 +4,14 @@ from celery import shared_task
 from datetime import datetime
 from decimal import Decimal
 import json
+import logging
 
 from sqlalchemy import text
 
 from db.session import SessionLocal
-from services.live_scoring import run_live_question_scoring  # you created this earlier
+from services.live_scoring import run_live_question_scoring
+
+log = logging.getLogger(__name__)
 
 
 @shared_task
@@ -57,13 +60,17 @@ def score_turn(turn_id: int):
             if q_row:
                 question_text = q_row["question_text"]
 
-        # 3) Call your existing scoring logic (you will implement the real call)
-        scoring_result = run_live_question_scoring(
-            interview_id=interview_id,
-            question_id=question_id,
-            transcript=transcript,
-            question_text=question_text,
-        )
+        # 3) Call real LLM scoring (with fallback on failure)
+        try:
+            scoring_result = run_live_question_scoring(
+                interview_id=interview_id,
+                question_id=question_id,
+                transcript=transcript,
+                question_text=question_text,
+            )
+        except Exception:
+            log.exception("[LIVE_SCORING] scoring call failed for turn %s", turn_id)
+            return {"error": "scoring_failed", "turn_id": turn_id}
 
         if not scoring_result:
             return {"error": "scoring_result_empty", "turn_id": turn_id}

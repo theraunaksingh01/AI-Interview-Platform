@@ -19,6 +19,9 @@ from celery import current_task
 import platform
 from datetime import datetime
 
+from services.llm_provider import gemini_chat
+from services.followup_generator import update_role_calibration
+
 # Optional external helpers (keep compatibility if you add them later)
 try:
     from score_utils import grade_transcript_with_llm, grade_code_answer  # type: ignore
@@ -42,9 +45,11 @@ if not log.handlers:
 # ------------------------------
 # Config (read from env / .env)
 # ------------------------------
-AI_PROVIDER = os.getenv("AI_PROVIDER", "stub").lower()   # "stub" | "openai" | "ollama"
+AI_PROVIDER = os.getenv("AI_PROVIDER", "stub").lower()   # "stub" | "openai" | "ollama" | "gemini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "tinyllama")
@@ -283,6 +288,24 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
         if parsed is None:
             return {"summary": "openai_missing_key", "technical": 0, "communication": 0, "completeness": 0, "red_flags": []}, raw
         return parsed, raw
+
+    if AI_PROVIDER == "gemini":
+        try:
+            result = await gemini_chat(
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=prompt,
+                api_key=GEMINI_API_KEY,
+                model=GEMINI_MODEL,
+                max_output_tokens=1024,
+            )
+            raw_text = result.get("raw") or ""
+            parsed = result.get("parsed")
+            if isinstance(parsed, dict):
+                return parsed, raw_text
+            return {"summary": raw_text}, raw_text
+        except Exception as e:
+            log.exception("Gemini call failed: %s", e)
+            return {"summary": f"gemini_error: {str(e)}", "technical": 0, "communication": 0, "completeness": 0, "red_flags": []}, str(e)
 
     log.warning("Unknown AI_PROVIDER=%s — using stub", AI_PROVIDER)
     raw = json.dumps({
@@ -1089,6 +1112,17 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                     log.info("Recorded interview_score_audit id=%s for interview=%s", audit_id, interview_id)
             except Exception:
                 log.exception("Failed to record audit after aggregate report")
+
+            # Phase 12: update role difficulty calibration
+            try:
+                role_row = db.execute(
+                    text("SELECT role_id FROM interviews WHERE id = :iid"),
+                    {"iid": str(interview_id)},
+                ).scalar()
+                if role_row:
+                    update_role_calibration(db, role_row, report["overall_score"])
+            except Exception:
+                log.exception("Failed to update role calibration for interview %s", interview_id)
 
             return {"ok": True, "overall": report["overall_score"]}
         except Exception:
