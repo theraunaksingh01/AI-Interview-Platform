@@ -15,7 +15,9 @@ import {
   AlertCircle,
   User,
   Shield,
+  ShieldAlert,
 } from "lucide-react";
+import { useAntiCheat } from "@/hooks/useAntiCheat";
 
 const Monaco = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -89,6 +91,12 @@ export default function LiveInterviewPage() {
   const [testResults, setTestResults]           = useState<{idx: number; pass: boolean; stdout: string; ms: number}[]>([]);
   const [codeTab, setCodeTab]                   = useState<"cases" | "output" | "results">("cases");
   const [codeTimerLeft, setCodeTimerLeft]       = useState(600);
+
+  // ── Anti-cheat ───────────────────────────────────────────────────────
+  const { flags: cheatFlags, addFlag, submitFlags, resetFlags } = useAntiCheat({
+    blockContextMenu: true,
+    detectDevTools: true,
+  });
 
   // ── Countdown timer (pauses during interruption) ───────────────────
   useEffect(() => {
@@ -168,7 +176,12 @@ export default function LiveInterviewPage() {
         // Populate code question metadata
         if (msg.question_type === "code") {
           setCodeDescription(msg.description || msg.text);
-          setSampleCases(msg.sample_cases || []);
+          // sample_cases may arrive as a JSON string or array
+          let sc = msg.sample_cases || [];
+          if (typeof sc === "string") {
+            try { sc = JSON.parse(sc); } catch { sc = []; }
+          }
+          setSampleCases(Array.isArray(sc) ? sc : []);
           setActiveCaseIdx(0);
           setRunOutput("");
           setRunVerdict(null);
@@ -444,6 +457,9 @@ export default function LiveInterviewPage() {
 
     const transcript = finalTranscriptRef.current.trim() || liveTranscript || codeAnswer;
 
+    // submit anti-cheat flags for this question
+    submitFlags(qid);
+
     wsRef.current.send(
       JSON.stringify({ type: "candidate_text", question_id: qid, text: transcript })
     );
@@ -487,23 +503,24 @@ export default function LiveInterviewPage() {
   async function runCode(caseIdx?: number) {
     const idx = caseIdx ?? activeCaseIdx;
     const sc = sampleCases[idx];
-    if (!sc) return;
+    const stdin = sc?.input ?? "";
     setRunningCode(true);
     setCodeTab("output");
     try {
       const res = await fetch(`${API_BASE}/code/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang, code: codeAnswer, stdin: sc.input }),
+        body: JSON.stringify({ lang, code: codeAnswer, stdin }),
       });
       const data = await res.json();
       setRunOutput(data.stdout || data.stderr || "(no output)");
       setExecutionTimeMs(data.execution_time_ms || 0);
       const actual = (data.stdout || "").trim();
-      const expected = (sc.expected || "").trim();
-      if (data.ok && actual === expected) setRunVerdict("pass");
-      else if (!data.ok) setRunVerdict("error");
-      else setRunVerdict("fail");
+      const expected = (sc?.expected || "").trim();
+      if (!data.ok) setRunVerdict("error");
+      else if (expected && actual === expected) setRunVerdict("pass");
+      else if (expected) setRunVerdict("fail");
+      else setRunVerdict(null); // no expected output to compare
     } catch {
       setRunOutput("Error: could not reach code runner");
       setRunVerdict("error");
@@ -513,6 +530,11 @@ export default function LiveInterviewPage() {
   }
 
   async function runAllCases() {
+    if (sampleCases.length === 0) {
+      // No test cases — just run once with empty stdin
+      await runCode(0);
+      return;
+    }
     setRunningCode(true);
     setCodeTab("results");
     const results: {idx: number; pass: boolean; stdout: string; ms: number}[] = [];
@@ -539,6 +561,9 @@ export default function LiveInterviewPage() {
   function submitCode() {
     const qid = currentQuestionIdRef.current;
     if (!qid || !wsRef.current) return;
+
+    // submit anti-cheat flags for this question
+    submitFlags(qid);
 
     wsRef.current.send(
       JSON.stringify({
@@ -610,8 +635,15 @@ export default function LiveInterviewPage() {
           )}
         </div>
 
-        {/* Right: placeholder for future controls */}
-        <div className="w-32" />
+        {/* Right: anti-cheat indicator */}
+        <div className="w-32 flex justify-end">
+          {cheatFlags.length > 0 && (
+            <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-medium">{cheatFlags.length} flag{cheatFlags.length !== 1 ? "s" : ""}</span>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ── Main Content Area ── */}
@@ -792,14 +824,14 @@ export default function LiveInterviewPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => runCode()}
-                    disabled={runningCode || sampleCases.length === 0}
+                    disabled={runningCode}
                     className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs px-3.5 py-1.5 rounded-lg font-medium transition-colors"
                   >
                     {runningCode ? "Running..." : "Run"}
                   </button>
                   <button
                     onClick={runAllCases}
-                    disabled={runningCode || sampleCases.length === 0}
+                    disabled={runningCode}
                     className="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs px-3.5 py-1.5 rounded-lg font-medium transition-colors"
                   >
                     Run All
@@ -864,6 +896,9 @@ export default function LiveInterviewPage() {
                       theme="vs-dark"
                       value={codeAnswer}
                       onChange={(v) => setCodeAnswer(v || "")}
+                      onMount={(editor) => {
+                        editor.onDidPaste(() => addFlag("editor-paste"));
+                      }}
                       options={{
                         fontSize: 14,
                         minimap: { enabled: false },

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useAntiCheat } from "@/hooks/useAntiCheat";
 
 const Monaco = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -118,23 +119,11 @@ export default function CodePage() {
   const [running, setRunning] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const flagsRef = useRef<string[]>([]);
-  const [flags, setFlags] = useState<string[]>([]);
-  function addFlag(f: string) {
-    flagsRef.current = [...flagsRef.current, f];
-    setFlags(flagsRef.current.slice(-6));
-  }
-
-  // anti-cheat
-  useEffect(() => {
-    const onVis = () => document.hidden && addFlag("tab-switch/blur");
-    window.addEventListener("visibilitychange", onVis);
-    window.addEventListener("blur", onVis);
-    return () => {
-      window.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("blur", onVis);
-    };
-  }, []);
+  // ── Anti-cheat (shared hook) ─────────────────────────────────────
+  const { flags, flagsRef, addFlag, submitFlags } = useAntiCheat({
+    blockContextMenu: true,
+    detectDevTools: true,
+  });
 
   // load question (with description + sample cases)
   useEffect(() => {
@@ -272,11 +261,7 @@ export default function CodePage() {
       if (!s.ok) throw new Error(await s.text());
 
       if (flagsRef.current.length) {
-        await fetch(`${API}/interview/flags`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ question_id: Number(questionId), flags: Array.from(new Set(flagsRef.current)) }),
-        }).catch(() => {});
+        await submitFlags(Number(questionId), token).catch(() => {});
       }
 
       if (!auto) alert("✅ Saved & graded. Returning to questions…");
@@ -355,6 +340,9 @@ export default function CodePage() {
               value={code}
               options={{ minimap: { enabled: false }, fontSize: 14, wordWrap: "on", automaticLayout: true }}
               onChange={(v) => { setCode(v ?? ""); }}
+              onMount={(editor) => {
+                editor.onDidPaste(() => addFlag("editor-paste"));
+              }}
             />
           </div>
 
