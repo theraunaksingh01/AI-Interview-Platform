@@ -42,6 +42,7 @@ class Role(Base):
     title = Column(String(200), nullable=False)
     level = Column(String(50))
     jd_text = Column(Text, nullable=False)
+    rubric_weights = Column(JSONB, nullable=True)  # { "dsa": { "label": "...", "weight": 30, "description": "..." }, ... }
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # relationship back to users

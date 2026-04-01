@@ -81,7 +81,7 @@ from fastapi.staticfiles import StaticFiles
 
 from dotenv import load_dotenv
 from api import interview_replay
-
+from api import rubric
 
 
 
@@ -122,7 +122,7 @@ app.include_router(interview_audio.router)
 
 app.include_router(interview_replay.router)
 
-
+app.include_router(rubric.router)
 
 _startup_import_error = None
 

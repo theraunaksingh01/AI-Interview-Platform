@@ -9,10 +9,11 @@ Signal categories are weighted differently:
 - Category D (consistency): 1.8x multiplier
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 import math
 from scipy import stats
+import statistics
 
 
 @dataclass
@@ -215,6 +216,34 @@ class CheatScoringEngine:
             "total_answers": len(session_answers),
             "flagged_answers": sum(1 for a in session_answers if a.get("cheat_score", 0) > 45),
         }
+
+    def compute_session_score_with_rubric(
+        self,
+        rubric_scores: Dict[str, float],
+        rubric_weights: Dict[str, Dict[str, Any]],
+    ) -> float:
+        """
+        Compute weighted session score using rubric dimensions.
+
+        Args:
+            rubric_scores: Per-dimension scores (e.g., {"dsa": 7.2, "system_design": 6.8})
+            rubric_weights: Rubric config (e.g., {"dsa": {"label": "...", "weight": 30}, ...})
+
+        Returns:
+            Weighted overall score (0-10)
+        """
+        if not rubric_weights or not rubric_scores:
+            return 0.0
+
+        weighted_sum = 0.0
+
+        for dimension_key, dimension_config in rubric_weights.items():
+            score = rubric_scores.get(dimension_key, 0.0)
+            weight_percent = dimension_config.get("weight", 0) / 100.0
+            weighted_sum += score * weight_percent
+
+        return round(weighted_sum, 2)
+
 
     def _analyze_content(self, transcript: str) -> List[Dict[str, Any]]:
         """
