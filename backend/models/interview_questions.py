@@ -11,11 +11,8 @@ class InterviewQuestion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    interview_id = Column(
-        Integer,
-        ForeignKey("interviews.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    # Reference the upload (interview session concept in current schema)
+    upload_id = Column(Integer, nullable=False, index=True)
 
     question_text = Column(Text, nullable=False)
 

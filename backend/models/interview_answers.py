@@ -24,6 +24,10 @@ class InterviewAnswer(Base):
     red_flags = Column(JSON)
     cheat_flags = Column(JSON, default=list)
 
+    # Anti-cheat scoring
+    cheat_score = Column(JSON)  # 0–100 score per answer
+    cheat_risk = Column(Text, default="low")  # low / medium / high / very_high
+
     llm_raw = Column(Text)
     code_output = Column(Text)
     test_results = Column(JSON)
@@ -33,8 +37,13 @@ class InterviewAnswer(Base):
         server_default=func.now(),
     )
 
-    # 🔗 relationship
+    # 🔗 relationships
     question = relationship(
         "InterviewQuestion",
         back_populates="answers",
+    )
+    cheat_signals = relationship(
+        "CheatSignal",
+        back_populates="answer",
+        cascade="all, delete-orphan",
     )

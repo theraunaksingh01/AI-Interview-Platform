@@ -57,8 +57,12 @@ from core.logging import setup_json_logging
 from api import responses
 from db.init_db import init_db
 from db.session import Base, engine
-from db import models as db_models        
+from db import models as db_models
 from models.responses import Responses
+# Import anti-cheat models for SQLAlchemy registration
+from models.interview_questions import InterviewQuestion
+from models.interview_answers import InterviewAnswer
+from models.cheat_signal import CheatSignal
 from api import transcribe
 from api import uploads_me, uploads
 from api import transcribe_upload
