@@ -84,6 +84,7 @@ from api import interview_replay
 from api import rubric
 from api import candidates
 from api import interview_token
+from api import mock
 
 
 
@@ -128,6 +129,7 @@ app.include_router(rubric.router)
 
 app.include_router(candidates.router)
 app.include_router(interview_token.router)
+app.include_router(mock.router)
 
 _startup_import_error = None
 

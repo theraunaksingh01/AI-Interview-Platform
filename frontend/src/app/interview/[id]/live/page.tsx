@@ -18,6 +18,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
+import { useCoaching } from "@/hooks/useCoaching";
 
 const Monaco = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -92,6 +93,7 @@ export default function LiveInterviewPage() {
   const [testResults, setTestResults]           = useState<{idx: number; pass: boolean; stdout: string; ms: number}[]>([]);
   const [codeTab, setCodeTab]                   = useState<"cases" | "output" | "results">("cases");
   const [codeTimerLeft, setCodeTimerLeft]       = useState(600);
+  const { ingestTranscriptChunk, startAnswer, resetAnswer } = useCoaching();
 
   // ── Anti-cheat ───────────────────────────────────────────────────────
   const { flags: cheatFlags, addFlag, submitFlags, resetFlags } = useAntiCheat({
@@ -244,6 +246,9 @@ export default function LiveInterviewPage() {
           setLiveTranscript(msg.transcript);
           liveTranscriptRef.current = msg.transcript;
         }
+        if (msg.transcript) {
+          ingestTranscriptChunk(msg.transcript);
+        }
       }
 
       if (msg.type === "ai_interrupt") {
@@ -284,6 +289,7 @@ export default function LiveInterviewPage() {
     if (!currentQuestionIdRef.current) return;
 
     setLiveTranscript("");
+    startAnswer();
     finalTranscriptRef.current = "";
     liveTranscriptRef.current = "";
     setCandidateSpeaking(true);
@@ -468,6 +474,7 @@ export default function LiveInterviewPage() {
 
     setAnswerConfidence(null);
     setLiveTranscript("");
+    resetAnswer();
     liveTranscriptRef.current = "";
     finalTranscriptRef.current = "";
     setCodeAnswer("");
