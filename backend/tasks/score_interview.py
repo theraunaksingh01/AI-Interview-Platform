@@ -21,6 +21,7 @@ from datetime import datetime
 
 from services.llm_provider import gemini_chat
 from services.followup_generator import update_role_calibration
+from services.cheat_scorer import cheat_scorer
 
 # Optional external helpers (keep compatibility if you add them later)
 try:
@@ -437,6 +438,39 @@ def _compute_hiring_recommendation(overall: float, rubric_avgs: dict) -> str:
         return "no_hire"
 
 
+def _get_role_rubric_weights(db: Session, interview_id: str) -> Dict[str, Dict[str, Any]]:
+    """Fetch rubric weights linked through job_applications; fallback to role_id if present."""
+    row = db.execute(text("""
+        SELECT r.rubric_weights
+        FROM interviews i
+        LEFT JOIN job_applications ja ON ja.id = i.application_id
+        LEFT JOIN roles r ON r.id = COALESCE(ja.job_id, i.role_id)
+        WHERE i.id = :iid
+    """), {"iid": str(interview_id)}).mappings().first()
+
+    rubric_weights = (row or {}).get("rubric_weights") if row else None
+    return rubric_weights if isinstance(rubric_weights, dict) else {}
+
+
+def _get_dimension_scores(db: Session, interview_id: str) -> Dict[str, float]:
+    """Average per-question overall score by interview question dimension."""
+    rows = db.execute(text("""
+        SELECT
+            COALESCE(q.dimension, 'general') AS dimension,
+            AVG(s.overall_score) AS avg_score
+        FROM interview_scores s
+        JOIN interview_questions q ON q.id = s.question_id
+        WHERE s.interview_id = :iid
+        GROUP BY COALESCE(q.dimension, 'general')
+    """), {"iid": str(interview_id)}).mappings().all()
+
+    return {
+        str(r["dimension"]): round(float(r["avg_score"] or 0), 2)
+        for r in rows
+        if r.get("dimension")
+    }
+
+
 def _fetch_role_context(db: Session, interview_id: str) -> Tuple[str, str, str]:
     """Fetch role title, level, and JD excerpt for the interview."""
     role_row = db.execute(text("""
@@ -480,7 +514,8 @@ def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str
     comp_avg = float(row["comp_avg"] or 0)
     perq = row["perq"] or []
 
-    overall = round((tech_avg * TECH_W) + (comm_avg * COMM_W) + (comp_avg * COMP_W), 2)
+    rubric_weights = _get_role_rubric_weights(db, interview_id)
+    dimension_scores = _get_dimension_scores(db, interview_id)
 
     # Compute rubric breakdown from per-question ai_feedback
     rubric_totals: Dict[str, List[float]] = defaultdict(list)
@@ -510,6 +545,30 @@ def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str
         k: round(sum(v) / len(v), 1) if v else 0
         for k, v in rubric_totals.items()
     }
+
+    # Use role rubric when linked through application; otherwise use fallback equal-ish defaults.
+    if rubric_weights:
+        overall = cheat_scorer.compute_session_score_with_rubric(
+            rubric_scores=dimension_scores,
+            rubric_weights=rubric_weights,
+        )
+    else:
+        fallback_weights = {
+            "dsa": {"weight": 30},
+            "system_design": {"weight": 25},
+            "behavioral": {"weight": 25},
+            "communication": {"weight": 20},
+        }
+        fallback_scores = {
+            "dsa": dimension_scores.get("dsa", rubric_averages.get("technical_accuracy", tech_avg)),
+            "system_design": dimension_scores.get("system_design", rubric_averages.get("problem_solving", tech_avg)),
+            "behavioral": dimension_scores.get("behavioral", rubric_averages.get("relevance", comp_avg)),
+            "communication": dimension_scores.get("communication", rubric_averages.get("communication_clarity", comm_avg)),
+        }
+        overall = cheat_scorer.compute_session_score_with_rubric(
+            rubric_scores=fallback_scores,
+            rubric_weights=fallback_weights,
+        )
 
     hiring_recommendation = _compute_hiring_recommendation(overall, rubric_averages)
 

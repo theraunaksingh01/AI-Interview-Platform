@@ -3,8 +3,10 @@ API endpoint for anti-cheat signal submission and processing
 """
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Dict, Any
 from datetime import datetime
+from pydantic import BaseModel
 
 from db.session import get_db
 from models.cheat_signal import CheatSignal
@@ -15,7 +17,73 @@ from services.cheat_scorer import cheat_scorer
 router = APIRouter(prefix="/api/interview", tags=["anti-cheat"])
 
 
-class SignalSubmission:
+def score_answer_from_flags(db: Session, answer_id: int, flags: List[str]) -> Dict[str, Any]:
+    """
+    Score one answer from collected client-side cheat flags and persist cheat_score/cheat_risk.
+    Used by the live flow immediately after /interview/flags updates interview_answers.cheat_flags.
+    """
+    row = db.execute(text("""
+        SELECT ia.id, ia.transcript, ia.code_answer, iq.type AS question_type
+        FROM interview_answers ia
+        LEFT JOIN interview_questions iq ON iq.id = ia.interview_question_id
+        WHERE ia.id = :aid
+    """), {"aid": int(answer_id)}).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Answer not found")
+
+    signal_map = {
+        "tab-switch": ("TAB_FOCUS_LOST", "C", "high"),
+        "window-blur": ("TAB_FOCUS_LOST", "C", "medium"),
+        "paste": ("PASTE_EVENT", "C", "high"),
+        "copy": ("KEYSTROKE_GAP", "C", "low"),
+        "right-click": ("KEYSTROKE_GAP", "C", "medium"),
+        "devtools-open": ("SCREEN_SHARE_ACTIVE", "C", "medium"),
+        "devtools-shortcut": ("SCREEN_SHARE_ACTIVE", "C", "medium"),
+        "fullscreen-exit": ("TAB_FOCUS_LOST", "C", "medium"),
+    }
+
+    signals: List[Dict[str, Any]] = []
+    for flag in flags or []:
+        mapped = signal_map.get(flag)
+        if not mapped:
+            continue
+        signal_type, signal_category, weight = mapped
+        signals.append(
+            {
+                "signal_type": signal_type,
+                "signal_category": signal_category,
+                "weight": weight,
+                "details": {"source_flag": flag},
+            }
+        )
+
+    cheat_score, risk_key, details = cheat_scorer.score_answer(
+        answer_id=int(answer_id),
+        signals=signals,
+        transcript=row.get("transcript") or "",
+        code=row.get("code_answer") or "",
+        answer_type=row.get("question_type") or "behavioral",
+    )
+
+    db.execute(
+        text("""
+            UPDATE interview_answers
+            SET cheat_score = :score, cheat_risk = :risk
+            WHERE id = :aid
+        """),
+        {"score": float(round(cheat_score, 2)), "risk": risk_key, "aid": int(answer_id)},
+    )
+
+    return {
+        "answer_id": int(answer_id),
+        "cheat_score": float(round(cheat_score, 2)),
+        "cheat_risk": risk_key,
+        "details": details,
+    }
+
+
+class SignalSubmission(BaseModel):
     """Schema for signal submission"""
     signals: List[Dict[str, Any]]
     metrics: List[Dict[str, Any]]

@@ -1,9 +1,10 @@
 # backend/api/rubric.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Dict, Any, Optional
 from db.session import SessionLocal
-from db.models import Role, Upload
+from db.models import Role
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/company", tags=["rubric"])
@@ -102,9 +103,20 @@ def get_db():
         db.close()
 
 def is_rubric_locked(role_id: int, db: Session) -> tuple[bool, Optional[str]]:
-    """Check if rubric is locked (has completed interviews)"""
-    from db.models import Upload
-    count = db.query(Upload).filter(Upload.status == "done").count()
+    """Check if rubric is locked when completed interviews exist for this specific role."""
+    count = db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM interviews i
+            JOIN job_applications ja ON ja.id = i.application_id
+            WHERE ja.job_id = :role_id
+              AND i.status = 'completed'
+            """
+        ),
+        {"role_id": role_id},
+    ).scalar() or 0
+
     if count > 0:
         return True, "Rubric is locked because interviews have been conducted. Duplicate this role to use a different rubric."
     return False, None

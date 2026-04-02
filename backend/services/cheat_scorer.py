@@ -11,8 +11,6 @@ Signal categories are weighted differently:
 
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
-import math
-from scipy import stats
 import statistics
 
 
@@ -312,6 +310,3 @@ class CheatScoringEngine:
 
 # Global scorer instance
 cheat_scorer = CheatScoringEngine()
-
-
-import statistics

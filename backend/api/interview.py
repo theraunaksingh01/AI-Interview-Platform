@@ -20,6 +20,7 @@ from tasks.report_pdf import generate_pdf
 from tasks.score_interview import score_interview
 from tasks.resume_tasks import extract_resume_text
 from tasks.question_tasks import generate_questions_ai
+from services.cheat_scorer import cheat_scorer
 
 # celery app (to inspect task status)
 from celery_app import app as celery_app
@@ -272,6 +273,55 @@ class FlagsIn(BaseModel):
     question_id: int
     flags: List[str]
 
+
+def _score_answer_from_flags(db: Session, answer_id: int, flags: List[str]) -> dict[str, Any]:
+    row = db.execute(text("""
+        SELECT ia.id, ia.transcript, ia.code_answer, iq.type AS question_type
+        FROM interview_answers ia
+        LEFT JOIN interview_questions iq ON iq.id = ia.interview_question_id
+        WHERE ia.id = :aid
+    """), {"aid": int(answer_id)}).mappings().first()
+    if not row:
+        return {"cheat_score": None, "cheat_risk": None}
+
+    signal_map = {
+        "tab-switch": ("TAB_FOCUS_LOST", "C", "high"),
+        "window-blur": ("TAB_FOCUS_LOST", "C", "medium"),
+        "paste": ("PASTE_EVENT", "C", "high"),
+        "copy": ("KEYSTROKE_GAP", "C", "low"),
+        "right-click": ("KEYSTROKE_GAP", "C", "medium"),
+        "devtools-open": ("SCREEN_SHARE_ACTIVE", "C", "medium"),
+        "devtools-shortcut": ("SCREEN_SHARE_ACTIVE", "C", "medium"),
+        "fullscreen-exit": ("TAB_FOCUS_LOST", "C", "medium"),
+    }
+    signals = []
+    for flag in flags or []:
+        mapped = signal_map.get(flag)
+        if not mapped:
+            continue
+        signal_type, signal_category, weight = mapped
+        signals.append(
+            {
+                "signal_type": signal_type,
+                "signal_category": signal_category,
+                "weight": weight,
+                "details": {"source_flag": flag},
+            }
+        )
+
+    score, risk_key, _ = cheat_scorer.score_answer(
+        answer_id=int(answer_id),
+        signals=signals,
+        transcript=row.get("transcript") or "",
+        code=row.get("code_answer") or "",
+        answer_type=row.get("question_type") or "behavioral",
+    )
+    db.execute(
+        text("UPDATE interview_answers SET cheat_score = :score, cheat_risk = :risk WHERE id = :aid"),
+        {"score": float(round(score, 2)), "risk": risk_key, "aid": int(answer_id)},
+    )
+    return {"cheat_score": float(round(score, 2)), "cheat_risk": risk_key}
+
 @router.post("/flags")
 def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
     qcol = db.execute(text("""
@@ -318,12 +368,22 @@ def save_flags(payload: FlagsIn, db: Session = Depends(get_db), user=Depends(get
     upd = text("UPDATE interview_answers SET cheat_flags = :merged WHERE id = :aid RETURNING id")
     upd = upd.bindparams(merged=merged)
     updated_id = db.execute(upd, {"merged": merged, "aid": answer_id}).scalar()
+    if updated_id:
+        score_result = _score_answer_from_flags(db, int(updated_id), merged)
+    else:
+        score_result = None
     db.commit()
 
     if not updated_id:
         raise HTTPException(status_code=500, detail="Failed to update cheat_flags")
 
-    return {"ok": True, "answer_id": int(updated_id), "cheat_flags": merged}
+    return {
+        "ok": True,
+        "answer_id": int(updated_id),
+        "cheat_flags": merged,
+        "cheat_score": score_result["cheat_score"] if score_result else None,
+        "cheat_risk": score_result["cheat_risk"] if score_result else None,
+    }
 
 
 # ---------------------------

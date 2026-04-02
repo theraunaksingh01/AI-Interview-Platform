@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Text, ForeignKey, JSON, TIMESTAMP
+from sqlalchemy import Column, Integer, Text, ForeignKey, JSON, TIMESTAMP, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -25,7 +25,7 @@ class InterviewAnswer(Base):
     cheat_flags = Column(JSON, default=list)
 
     # Anti-cheat scoring
-    cheat_score = Column(JSON)  # 0–100 score per answer
+    cheat_score = Column(Numeric(5, 2))  # 0–100 score per answer
     cheat_risk = Column(Text, default="low")  # low / medium / high / very_high
 
     llm_raw = Column(Text)

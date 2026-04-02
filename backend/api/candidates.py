@@ -6,13 +6,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
 from uuid import UUID
+import uuid
 from typing import Optional, List
 from datetime import datetime
+import os
+import logging
 
 from api.deps import get_db, get_current_user
 from models import JobApplicationOut, CandidateListItem, CandidateDetail
 
 router = APIRouter(prefix="/api/company", tags=["candidates"])
+logger = logging.getLogger(__name__)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 # ============================================================================
@@ -27,6 +32,88 @@ class RescoreRequest(BaseModel):
 class CandidateActionRequest(BaseModel):
     action: str  # "shortlist", "reject", "advanced"
     send_feedback: Optional[bool] = False
+
+
+class InviteRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+
+
+def send_status_email(to: str, name: str, status: str, company_name: str) -> None:
+    """Send candidate status email via Resend. shortlist is internal-only."""
+    if status not in {"advanced", "reject", "rejected"}:
+        return
+
+    try:
+        import resend
+    except Exception:
+        logger.warning("Resend package not available; skipping email for %s", to)
+        return
+
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key:
+        logger.warning("RESEND_API_KEY is not configured; skipping email for %s", to)
+        return
+
+    resend.api_key = api_key
+    normalized_status = "rejected" if status == "reject" else status
+
+    if normalized_status == "advanced":
+        subject = f"You advanced to the next round at {company_name}"
+        body = f"<p>Hi {name or 'Candidate'}, congratulations — you have been advanced to the next round.</p>"
+    else:
+        subject = f"Update on your application at {company_name}"
+        body = f"<p>Hi {name or 'Candidate'}, thank you for interviewing with us. We appreciate your time and interest.</p>"
+
+    resend.Emails.send(
+        {
+            "from": os.getenv("RESEND_FROM", "noreply@yourdomain.com"),
+            "to": to,
+            "subject": subject,
+            "html": body,
+        }
+    )
+
+
+# ============================================================================
+# POST /api/company/roles/{role_id}/invite — Invite single candidate
+# ============================================================================
+
+@router.post("/roles/{role_id}/invite")
+def invite_candidate(
+    role_id: int,
+    body: InviteRequest,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    role = db.execute(
+        text("SELECT id FROM roles WHERE id = :role_id"),
+        {"role_id": role_id},
+    ).mappings().first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    token = str(uuid.uuid4())
+    db.execute(
+        text(
+            """
+            INSERT INTO job_applications (job_id, candidate_email, candidate_name, invite_token, status)
+            VALUES (:job_id, :email, :name, :token, 'invited')
+            """
+        ),
+        {
+            "job_id": role_id,
+            "email": body.email,
+            "name": body.name,
+            "token": token,
+        },
+    )
+    db.commit()
+
+    interview_link = f"{FRONTEND_URL}/interview/{token}"
+    logger.info("Invite created for role_id=%s email=%s token=%s", role_id, body.email, token)
+
+    return {"invite_token": token, "interview_link": interview_link}
 
 
 # ============================================================================
@@ -375,15 +462,91 @@ def candidate_action(
         {"status": new_status, "id": str(app_id)},
     )
 
-    # TODO: Send email (integrate with email service)
-    # if req.action == "reject":
-    #     send_rejection_email(app["candidate_email"], feedback=req.send_feedback)
-    # elif req.action == "advanced":
-    #     send_advancement_email(app["candidate_email"])
+    # Shortlist is intentionally internal-only (no candidate notification).
+    # Per spec: only 'advanced' and 'rejected' trigger candidate emails.
+    # Send candidate-facing status updates for advanced/rejected.
+    company_name = os.getenv("COMPANY_NAME", "your company")
+    send_status_email(
+        to=app["candidate_email"],
+        name=app.get("candidate_name") or "Candidate",
+        status=req.action,
+        company_name=company_name,
+    )
 
     db.commit()
 
     return {"status": "ok", "new_status": new_status, "message": f"Candidate {req.action}d"}
+
+
+# ============================================================================
+# POST /api/company/candidates/{app_id}/reinvite — Re-invite with cooldown
+# ============================================================================
+
+@router.post("/candidates/{app_id}/reinvite")
+def reinvite_candidate(
+    app_id: UUID,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    application = db.execute(
+        text("SELECT * FROM job_applications WHERE id = :id"),
+        {"id": str(app_id)},
+    ).mappings().first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    has_cooldown_column = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'roles' AND column_name = 'cooldown_days'
+            LIMIT 1
+            """
+        )
+    ).scalar() is not None
+
+    cooldown_days = 7
+    if has_cooldown_column:
+        role = db.execute(
+            text("SELECT cooldown_days FROM roles WHERE id = :id"),
+            {"id": application["job_id"]},
+        ).mappings().first()
+        if role and role.get("cooldown_days"):
+            cooldown_days = int(role["cooldown_days"])
+
+    if application.get("completed_at"):
+        elapsed = (datetime.utcnow() - application["completed_at"]).days
+        if elapsed < cooldown_days:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cooldown active. Retry in {cooldown_days - elapsed} days.",
+            )
+
+    new_token = str(uuid.uuid4())
+    new_attempt = int(application.get("attempt_number") or 1) + 1
+    db.execute(
+        text(
+            """
+            INSERT INTO job_applications (
+                job_id, candidate_email, candidate_name, invite_token, attempt_number, status
+            )
+            VALUES (
+                :job_id, :candidate_email, :candidate_name, :invite_token, :attempt_number, 'invited'
+            )
+            """
+        ),
+        {
+            "job_id": application["job_id"],
+            "candidate_email": application["candidate_email"],
+            "candidate_name": application.get("candidate_name"),
+            "invite_token": new_token,
+            "attempt_number": new_attempt,
+        },
+    )
+    db.commit()
+
+    return {"invite_token": new_token, "attempt_number": new_attempt}
 
 
 # ============================================================================
