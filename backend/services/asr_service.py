@@ -77,3 +77,38 @@ def transcribe_pcm_bytes(pcm_bytes: bytes) -> str:
     )
 
     return " ".join(seg.text.strip() for seg in segments).strip()
+
+
+def transcribe_pcm_with_vad_result(pcm_bytes: bytes) -> dict:
+    """
+    Transcribe raw PCM Int16 LE audio (16kHz, mono) and expose VAD metadata.
+    Returns: {"transcript": str, "is_silence": bool, "duration_after_vad": float}
+    """
+    if not pcm_bytes:
+        return {
+            "transcript": "",
+            "is_silence": True,
+            "duration_after_vad": 0.0,
+        }
+
+    audio = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+
+    segments, info = model.transcribe(
+        audio,
+        language="en",
+        beam_size=5,
+        vad_filter=True,
+        condition_on_previous_text=False,
+        temperature=0.0,
+    )
+
+    segments_list = list(segments)
+    transcript = " ".join(seg.text.strip() for seg in segments_list).strip()
+    duration_after_vad = float(getattr(info, "duration_after_vad", 0.0) or 0.0)
+    is_silence = len(transcript) == 0 and duration_after_vad < 0.1
+
+    return {
+        "transcript": transcript,
+        "is_silence": is_silence,
+        "duration_after_vad": duration_after_vad,
+    }

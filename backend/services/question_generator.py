@@ -6,6 +6,10 @@ Ensures interview questions are distributed proportionally to rubric dimension w
 
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+import asyncio
+import os
+
+from services.llm_provider import gemini_chat
 
 
 @dataclass
@@ -132,3 +136,73 @@ Candidate's answer:
 Return ONLY valid JSON, no other text."""
 
     return prompt
+
+
+def generate_mock_questions(
+    role_target: str,
+    seniority: str,
+    focus_area: str,
+    count: int = 6,
+) -> List[Dict[str, str]]:
+    """Generate mock interview questions from role params without using JD/resume."""
+    focus_map = {
+        "dsa": "Focus heavily on data structures and algorithms problems.",
+        "system_design": "Focus on system design and architecture questions.",
+        "behavioral": "Focus on behavioral and situational questions using STAR method.",
+        "mixed": "Mix of DSA (2), system design (2), and behavioral (2) questions.",
+    }
+    focus_instruction = focus_map.get((focus_area or "mixed").lower(), focus_map["mixed"])
+
+    prompt = f"""Generate {count} interview questions for a {seniority} {role_target} position.
+{focus_instruction}
+For each question return JSON with: text, type (dsa/system_design/behavioral), difficulty (easy/medium/hard).
+Return only a JSON array, no markdown, no explanation.
+Example: [{{"text": "...", "type": "dsa", "difficulty": "medium"}}]"""
+
+    fallback = [
+        {"text": f"Tell me about yourself and your experience as a {role_target}.", "type": "behavioral", "difficulty": "easy"},
+        {"text": "Describe a challenging technical problem you solved recently.", "type": "behavioral", "difficulty": "medium"},
+        {"text": "Given an array of integers, find two numbers that add up to a target sum.", "type": "dsa", "difficulty": "easy"},
+        {"text": "Design a URL shortening service like bit.ly.", "type": "system_design", "difficulty": "medium"},
+        {"text": "Explain the difference between SQL and NoSQL databases.", "type": "behavioral", "difficulty": "easy"},
+        {"text": "How would you optimize a slow database query?", "type": "system_design", "difficulty": "medium"},
+    ][:count]
+
+    if not os.getenv("GEMINI_API_KEY"):
+        return fallback
+
+    try:
+        result = asyncio.run(
+            asyncio.wait_for(
+                gemini_chat(
+                    system_prompt="You are a senior technical interviewer. Return strict JSON only.",
+                    user_prompt=prompt,
+                    temperature=0.3,
+                    max_output_tokens=1000,
+                    timeout=8,
+                ),
+                timeout=10,
+            )
+        )
+        parsed = result.get("parsed")
+        if not isinstance(parsed, list):
+            return fallback
+
+        cleaned: List[Dict[str, str]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text") or "").strip()
+            q_type = str(item.get("type") or "behavioral").strip().lower()
+            difficulty = str(item.get("difficulty") or "medium").strip().lower()
+            if not text:
+                continue
+            if q_type not in {"dsa", "system_design", "behavioral"}:
+                q_type = "behavioral"
+            if difficulty not in {"easy", "medium", "hard"}:
+                difficulty = "medium"
+            cleaned.append({"text": text, "type": q_type, "difficulty": difficulty})
+
+        return cleaned[:count] if cleaned else fallback
+    except Exception:
+        return fallback

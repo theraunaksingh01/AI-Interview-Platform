@@ -89,6 +89,7 @@ from api import mock
 
 
 
+
 app = FastAPI(title="AI Interview Platform API")
 
 app.include_router(ops_router.router)
@@ -130,6 +131,7 @@ app.include_router(rubric.router)
 app.include_router(candidates.router)
 app.include_router(interview_token.router)
 app.include_router(mock.router)
+
 
 _startup_import_error = None
 

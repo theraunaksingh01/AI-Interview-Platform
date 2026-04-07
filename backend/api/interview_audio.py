@@ -30,13 +30,42 @@ from services.streaming_asr import append_audio, pop_full_audio
 from services.pcm_buffer import append_pcm, get_pcm_buffer, pop_full_pcm
 
 # 🔹 ASR
-from services.asr_service import transcribe_audio_bytes, transcribe_pcm_bytes
+from services.asr_service import transcribe_audio_bytes, transcribe_pcm_bytes, transcribe_pcm_with_vad_result
 from services.tts_service import synthesize_speech
 from utils.audio_storage import save_agent_audio_file
+from services.interview_runtime_state import get_interview_state
 
 
 router = APIRouter(prefix="/api/interview", tags=["interview-audio"])
 logger = logging.getLogger(__name__)
+
+
+CODING_LIKE_QUESTION_TYPES = {"code", "coding", "dsa", "system_design", "system-design"}
+
+
+def _normalize_question_type(question_type: str | None) -> str:
+    return (question_type or "").strip().lower().replace("-", "_")
+
+
+def _is_coding_like_question_type(question_type: str | None) -> bool:
+    return _normalize_question_type(question_type) in {qt.replace("-", "_") for qt in CODING_LIKE_QUESTION_TYPES}
+
+
+def _get_question_type(db: Session, question_id: int) -> str:
+    row = db.execute(
+        sql_text(
+            """
+            SELECT type
+            FROM interview_questions
+            WHERE id = :qid
+            LIMIT 1
+            """
+        ),
+        {"qid": question_id},
+    ).fetchone()
+    if not row:
+        return ""
+    return str(row[0] or "")
 
 
 def _get_question_text(db: Session, interview_id: UUID, question_id: int) -> str:
@@ -252,6 +281,21 @@ async def stream_pcm_audio(
     samples: List[int] = Body(...),
     db: Session = Depends(get_db),
 ):
+    state = get_interview_state(interview_id)
+    if state.get("answer_submitted", False):
+        clear_live_state(str(interview_id), question_id)
+        return {"ok": True, "interrupts_skipped": True}
+
+    active_question_id = state.get("active_question_id")
+    if active_question_id is not None and int(active_question_id) != int(question_id):
+        clear_live_state(str(interview_id), question_id)
+        return {"ok": True, "interrupts_skipped": True}
+
+    question_type = _get_question_type(db, question_id)
+    if _is_coding_like_question_type(question_type):
+        clear_live_state(str(interview_id), question_id)
+        return {"ok": True, "interrupts_skipped": True}
+
     pcm_bytes = bytearray()
 
     for s in samples:
@@ -270,7 +314,18 @@ async def stream_pcm_audio(
     # Pop window instead of using full history
     window = pop_full_pcm(str(interview_id), question_id)
 
-    partial_text = transcribe_pcm_bytes(window)
+    vad_result = transcribe_pcm_with_vad_result(window)
+    partial_text = vad_result["transcript"]
+
+    await broadcast_to_interview(
+        interview_id,
+        {
+            "type": "vad_result",
+            "question_id": question_id,
+            "is_silence": bool(vad_result["is_silence"]),
+            "transcript": partial_text,
+        },
+    )
 
     # Discard hallucinated output (e.g. "but but but but..." or "oh oh oh oh...")
     if not partial_text or _is_hallucination(partial_text):
@@ -354,6 +409,21 @@ async def live_text(
     text: str = Body(...),
     db: Session = Depends(get_db),
 ):
+    state = get_interview_state(interview_id)
+    if state.get("answer_submitted", False):
+        clear_live_state(str(interview_id), question_id)
+        return {"ok": True, "interrupts_skipped": True}
+
+    active_question_id = state.get("active_question_id")
+    if active_question_id is not None and int(active_question_id) != int(question_id):
+        clear_live_state(str(interview_id), question_id)
+        return {"ok": True, "interrupts_skipped": True}
+
+    question_type = _get_question_type(db, question_id)
+    if _is_coding_like_question_type(question_type):
+        clear_live_state(str(interview_id), question_id)
+        return {"ok": True, "interrupts_skipped": True}
+
     question_text = _get_question_text(db, interview_id, question_id)
 
     signal = update_live_answer(

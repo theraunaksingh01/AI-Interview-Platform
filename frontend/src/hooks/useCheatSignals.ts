@@ -19,7 +19,19 @@ export interface SignalMetrics {
   tabFocusLosses: Array<{ timestamp: number; duration: number }>;
 }
 
-export function useCheatSignals(interviewId: string, isCompanyMode: boolean = true) {
+interface UseCheatSignalsProps {
+  interviewId: string;
+  isCompanyMode: boolean;
+  isMockMode?: boolean;
+  questionId?: string;
+}
+
+export function useCheatSignals({
+  interviewId,
+  isCompanyMode,
+  isMockMode = false,
+  questionId,
+}: UseCheatSignalsProps) {
   const signalsRef = useRef<CheatSignalEvent[]>([]);
   const metricsRef = useRef<Map<number, SignalMetrics>>(new Map());
   const currentQuestionIdRef = useRef<number | null>(null);
@@ -388,7 +400,7 @@ export function useCheatSignals(interviewId: string, isCompanyMode: boolean = tr
 
   // Setup global event listeners
   useEffect(() => {
-    if (!isCompanyMode) return;
+    if (!isCompanyMode || isMockMode) return;
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('paste', handlePaste);
@@ -399,7 +411,7 @@ export function useCheatSignals(interviewId: string, isCompanyMode: boolean = tr
       document.removeEventListener('paste', handlePaste);
       document.removeEventListener('keydown', handleKeystroke);
     };
-  }, [isCompanyMode, handleVisibilityChange, handlePaste, handleKeystroke]);
+  }, [isCompanyMode, isMockMode, questionId, handleVisibilityChange, handlePaste, handleKeystroke]);
 
   return {
     // Category A - Timing

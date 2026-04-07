@@ -1,4 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from starlette.websockets import WebSocketState
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from uuid import UUID
@@ -21,6 +22,12 @@ from services.ws_broadcast import (
 
 from services.answer_backfill import backfill_answers_from_turns
 from services.timeline_logger import log_timeline_event
+from services.interview_runtime_state import (
+    clear_interview_state,
+    get_interview_state,
+    set_active_question,
+    set_answer_submitted,
+)
 
 from services.followup_generator import (
     build_context_memory,
@@ -37,11 +44,62 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+CODING_LIKE_QUESTION_TYPES = {"code", "coding", "dsa", "system_design", "system-design"}
+
+
+def _normalize_question_type(question_type: str | None) -> str:
+    return (question_type or "").strip().lower().replace("-", "_")
+
+
+def _is_coding_like_question_type(question_type: str | None) -> bool:
+    return _normalize_question_type(question_type) in {qt.replace("-", "_") for qt in CODING_LIKE_QUESTION_TYPES}
+
+
 async def send_json_safe(ws: WebSocket, payload: dict):
     try:
         await ws.send_json(payload)
     except Exception:
         logger.exception("[WS] send failed")
+
+
+async def _queue_scoring_task(turn_id: int) -> None:
+    try:
+        score_turn.delay(turn_id)
+    except Exception:
+        logger.exception("[Celery] score_turn failed to queue — continuing interview")
+
+
+async def _queue_followup_task(
+    interview_id: UUID,
+    question_id: int | None,
+    transcript_text: str,
+) -> None:
+    # Follow-up generation is cancelled for submitted answers to avoid races
+    # with next-question delivery.
+    if not FOLLOWUP_ENABLED or not question_id or not transcript_text.strip():
+        return
+    if get_interview_state(interview_id).get("answer_submitted", False):
+        return
+
+
+async def _send_next_or_complete(db: Session, interview_id: UUID, websocket: WebSocket) -> None:
+    next_q = get_next_question(db, interview_id)
+    if next_q:
+        await send_agent_question(db, interview_id, next_q, websocket)
+        return
+
+    await send_json_safe(
+        websocket,
+        {
+            "type": "agent_message",
+            "text": "Thanks, this completes your interview.",
+            "done": True,
+        },
+    )
+    try:
+        backfill_answers_from_turns(db, interview_id)
+    except Exception:
+        logger.exception("[BACKFILL] failed on interview done")
 
 
 def get_next_question(db: Session, interview_id: UUID):
@@ -95,20 +153,30 @@ async def interview_ws(
     interview_id: UUID,
     db: Session = Depends(get_db),
 ):
-    await websocket.accept()
+    if websocket.client_state == WebSocketState.CONNECTING:
+        await websocket.accept()
     logger.info("[WS] connected %s", interview_id)
 
     await register_connection(interview_id, websocket)
+    set_answer_submitted(interview_id, False)
 
     try:
         await handle_on_connect(db, interview_id, websocket)
 
+        if websocket.client_state != WebSocketState.CONNECTED:
+            return
+
         while True:
-            msg = await websocket.receive_json()
+            try:
+                msg = await websocket.receive_json()
+            except (WebSocketDisconnect, RuntimeError):
+                logger.info("[WS] receive loop ended for %s", interview_id)
+                break
 
             if msg.get("type") == "candidate_text":
                 question_id = msg.get("question_id")
                 transcript_text = msg.get("text") or ""
+                set_answer_submitted(interview_id, True)
 
                 turn = InterviewTurn(
                     interview_id=interview_id,
@@ -122,41 +190,17 @@ async def interview_ws(
                 db.commit()
                 db.refresh(turn)
 
-                try:
-                    score_turn.delay(turn.id)
-                except Exception:
-                    logger.exception("[Celery] score_turn failed to queue — continuing interview")
-
-                # --- Phase 12: Dynamic follow-up generation ---
-                followup_sent = False
-                if FOLLOWUP_ENABLED and question_id and transcript_text.strip():
-                    followup_sent = await _try_generate_followup(
-                        db, interview_id, question_id, transcript_text, websocket
-                    )
-
-                if not followup_sent:
-                    next_q = get_next_question(db, interview_id)
-                    if next_q:
-                        await send_agent_question(db, interview_id, next_q, websocket)
-                    else:
-                        await send_json_safe(
-                            websocket,
-                            {
-                                "type": "agent_message",
-                                "text": "Thanks, this completes your interview.",
-                                "done": True,
-                            },
-                        )
-                        try:
-                            backfill_answers_from_turns(db, interview_id)
-                        except Exception:
-                            logger.exception("[BACKFILL] failed on interview done")
+                # Deliver the next question immediately; scoring/follow-up work is non-blocking.
+                await _send_next_or_complete(db, interview_id, websocket)
+                asyncio.create_task(_queue_scoring_task(turn.id))
+                asyncio.create_task(_queue_followup_task(interview_id, question_id, transcript_text))
 
             elif msg.get("type") == "candidate_code":
                 # Handle code submission from LeetCode-style IDE
                 code_text = msg.get("code") or ""
                 lang = msg.get("lang") or "python"
                 test_results = msg.get("test_results") or []
+                set_answer_submitted(interview_id, True)
 
                 turn = InterviewTurn(
                     interview_id=interview_id,
@@ -196,27 +240,8 @@ async def interview_ws(
                     db.rollback()
                     logger.exception("[WS] failed to upsert interview_answers for code")
 
-                try:
-                    score_turn.delay(turn.id)
-                except Exception:
-                    logger.exception("[Celery] score_turn failed to queue — continuing interview")
-
-                next_q = get_next_question(db, interview_id)
-                if next_q:
-                    await send_agent_question(db, interview_id, next_q, websocket)
-                else:
-                    await send_json_safe(
-                        websocket,
-                        {
-                            "type": "agent_message",
-                            "text": "Thanks, this completes your interview.",
-                            "done": True,
-                        },
-                    )
-                    try:
-                        backfill_answers_from_turns(db, interview_id)
-                    except Exception:
-                        logger.exception("[BACKFILL] failed on interview done")
+                await _send_next_or_complete(db, interview_id, websocket)
+                asyncio.create_task(_queue_scoring_task(turn.id))
 
             elif msg.get("type") == "ping":
                 await send_json_safe(websocket, {"type": "pong"})
@@ -226,6 +251,7 @@ async def interview_ws(
 
     finally:
         unregister_connection(interview_id)
+        clear_interview_state(interview_id)
         # Safety-net: backfill answers on any disconnect
         try:
             backfill_answers_from_turns(db, interview_id)
@@ -234,6 +260,24 @@ async def interview_ws(
 
 
 async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
+    # Validate interview exists before creating any turns.
+    interview_row = db.execute(
+        text("SELECT id, status FROM interviews WHERE id = :iid LIMIT 1"),
+        {"iid": interview_id},
+    ).mappings().first()
+
+    if not interview_row:
+        if ws.client_state == WebSocketState.CONNECTED:
+            await send_json_safe(
+                ws,
+                {
+                    "type": "error",
+                    "message": f"Interview {interview_id} not found",
+                },
+            )
+            await ws.close(code=4004)
+        return
+
     # Check if there are already turns for this interview (reconnect scenario)
     existing_turns = db.execute(
         text("SELECT COUNT(*) FROM interview_turns WHERE interview_id = :iid"),
@@ -276,14 +320,23 @@ async def handle_on_connect(db: Session, interview_id: UUID, ws: WebSocket):
     if first_q:
         await send_agent_question(db, interview_id, first_q, ws)
     else:
-        await send_json_safe(
-            ws,
-            {
-                "type": "agent_message",
-                "text": "This interview has already been completed. Thank you!",
-                "done": True,
-            },
-        )
+        if str(interview_row.get("status") or "").lower() == "completed":
+            await send_json_safe(
+                ws,
+                {
+                    "type": "agent_message",
+                    "text": "This interview has already been completed. Thank you!",
+                    "done": True,
+                },
+            )
+        else:
+            await send_json_safe(
+                ws,
+                {
+                    "type": "agent_message",
+                    "text": "Welcome! We are preparing your questions. Please stay connected.",
+                },
+            )
 
 
 async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebSocket):
@@ -348,6 +401,8 @@ async def send_agent_question(db: Session, interview_id: UUID, q: dict, ws: WebS
         question_msg["time_limit_seconds"] = q.get("time_limit_seconds", 600)
     if audio_url:
         question_msg["audio_url"] = audio_url
+
+    set_active_question(interview_id, qid)
     await send_json_safe(ws, question_msg)
 
 
@@ -363,6 +418,9 @@ async def _try_generate_followup(
     Returns True if a follow-up was sent, False otherwise.
     """
     try:
+        if get_interview_state(interview_id).get("answer_submitted", False):
+            return False
+
         # Only follow up on voice questions
         qtype = db.execute(
             text("SELECT type, question_text, parent_question_id FROM interview_questions WHERE id = :qid"),
@@ -374,6 +432,8 @@ async def _try_generate_followup(
 
         # Skip if: not voice, already is a follow-up, or follow-up already exists
         if qtype.type != "voice":
+            return False
+        if _is_coding_like_question_type(qtype.type):
             return False
         if qtype.parent_question_id is not None:
             return False
@@ -414,6 +474,9 @@ async def _try_generate_followup(
 
         # The follow-up is now in interview_questions and will be served
         # by get_next_question() since it has a higher ID
+        if get_interview_state(interview_id).get("answer_submitted", False):
+            return False
+
         next_q = get_next_question(db, interview_id)
         if next_q and next_q["id"] == new_qid:
             await send_agent_question(db, interview_id, next_q, ws)

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -18,18 +19,25 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
-import { useCoaching } from "@/hooks/useCoaching";
+import { useCoaching, type CoachingState } from "@/hooks/useCoaching";
+import CoachingOverlay from "@/components/CoachingOverlay";
 
 const Monaco = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 type Lang = "javascript" | "python" | "java" | "cpp";
 type SampleCase = { input: string; expected: string };
 
+function isCodingLikeQuestionType(questionType?: string): boolean {
+  const normalized = String(questionType || "").trim().toLowerCase().replace(/-/g, "_");
+  return normalized === "code" || normalized === "coding" || normalized === "dsa" || normalized === "system_design";
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 const WS_BASE  = process.env.NEXT_PUBLIC_WS_BASE  ?? "ws://localhost:8000";
 
 const PCM_SEND_THRESHOLD = 16000; // ~1 s at 16 kHz — for confidence scoring only
 const ANSWER_TIME_LIMIT  = 120;   // 2-minute countdown
+const AUDIO_ACTIVITY_RMS_THRESHOLD = 0.05;
 
 const LANG_LABELS: Record<Lang, string> = { python: "Python", javascript: "JavaScript", java: "Java", cpp: "C++" };
 const LANG_MONACO: Record<Lang, string> = { python: "python", javascript: "javascript", java: "java", cpp: "cpp" };
@@ -43,13 +51,30 @@ const LANG_DEFAULTS: Record<Lang, string> = {
 type WSMessage =
   | { type: "agent_message"; text: string; question_id?: number; question_type?: string; audio_url?: string; done?: boolean; description?: string; sample_cases?: SampleCase[]; time_limit_seconds?: number; is_followup?: boolean; parent_question_id?: number }
   | { type: "live_signal"; question_id: number; confidence: "low" | "medium" | "high"; word_count: number; transcript?: string }
+  | { type: "vad_result"; question_id: number; is_silence: boolean; transcript?: string }
   | { type: "ai_interrupt"; text: string; reason?: string; audio_url?: string }
   | { type: "ai_interrupt_audio"; audio_url: string }
   | { type: "turn_decision"; question_id: number; decision: string };
 
-export default function LiveInterviewPage() {
-  const { id } = useParams();
-  const interviewId = id as string;
+interface InterviewRoomProps {
+  interviewId: string;
+  isMockMode?: boolean;
+  isCompanyMode?: boolean;
+  onTranscriptChunk?: (chunk: string) => void;
+  onCoachingUpdate?: (state: CoachingState) => void;
+  rightPane?: ReactNode;
+  renderCoachingOverlay?: boolean;
+}
+
+export function InterviewRoom({
+  interviewId,
+  isMockMode = false,
+  isCompanyMode = true,
+  onTranscriptChunk,
+  onCoachingUpdate,
+  rightPane,
+  renderCoachingOverlay = true,
+}: InterviewRoomProps) {
 
   // ── Refs (never stale in effects/callbacks) ──────────────────────
   const wsRef               = useRef<WebSocket | null>(null);
@@ -64,6 +89,8 @@ export default function LiveInterviewPage() {
   const candidateVideoRef   = useRef<HTMLVideoElement | null>(null);
   const agentAudioRef       = useRef<HTMLAudioElement | null>(null);
   const currentQuestionIdRef = useRef<number | null>(null);
+  const lastMockStartedQuestionRef = useRef<number | null>(null);
+  const delayedStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── State ─────────────────────────────────────────────────────────
   const [questionText, setQuestionText]         = useState("");
@@ -79,6 +106,7 @@ export default function LiveInterviewPage() {
   const [questionType, setQuestionType]         = useState<"voice" | "code">("voice");
   const [isFollowup, setIsFollowup]             = useState(false);
   const [codeAnswer, setCodeAnswer]             = useState("");
+  const [currentQuestionId, setCurrentQuestionId] = useState<number | null>(null);
   const interruptedRef                          = useRef(false);
 
   // ── Code IDE state ────────────────────────────────────────────────
@@ -93,7 +121,30 @@ export default function LiveInterviewPage() {
   const [testResults, setTestResults]           = useState<{idx: number; pass: boolean; stdout: string; ms: number}[]>([]);
   const [codeTab, setCodeTab]                   = useState<"cases" | "output" | "results">("cases");
   const [codeTimerLeft, setCodeTimerLeft]       = useState(600);
-  const { ingestTranscriptChunk, startAnswer, resetAnswer } = useCoaching();
+  const { coaching, ingestTranscriptChunk, startAnswer, resetAnswer, onIdeActivity, onAudioActivity } = useCoaching({
+    isCodingQuestion: questionType === "code",
+    questionText,
+    sessionId: interviewId,
+    currentQuestionId,
+    questionType,
+  });
+  const coachingControls = { onAudioActivity, ingestTranscriptChunk };
+
+  useEffect(() => {
+    if (isMockMode && onCoachingUpdate) {
+      onCoachingUpdate(coaching);
+    }
+  }, [coaching, isMockMode, onCoachingUpdate]);
+
+  function scheduleStartAnswer(delayMs = 1000) {
+    if (delayedStartTimeoutRef.current) {
+      clearTimeout(delayedStartTimeoutRef.current);
+    }
+    delayedStartTimeoutRef.current = setTimeout(() => {
+      startAnswer();
+      delayedStartTimeoutRef.current = null;
+    }, delayMs);
+  }
 
   // ── Anti-cheat ───────────────────────────────────────────────────────
   const { flags: cheatFlags, addFlag, submitFlags, resetFlags } = useAntiCheat({
@@ -173,12 +224,48 @@ export default function LiveInterviewPage() {
         finalTranscriptRef.current = "";
         setCodeAnswer("");
 
-        if (msg.question_id) currentQuestionIdRef.current = msg.question_id;
-        if (msg.question_type) setQuestionType(msg.question_type === "code" ? "code" : "voice");
+        if (msg.type === 'agent_message' && msg.question_id && isMockMode) {
+          const qType = isCodingLikeQuestionType(msg.question_type) ? 'code' : 'voice';
+          if (qType === 'voice') {
+            // In mock mode, always start candidate turn immediately on question arrival
+            // Don't wait for audio playback — audio may fail or be delayed
+            setTimeout(() => {
+              startAnswer();
+              startCandidateTurn();
+            }, 1500);
+          } else {
+            setTimeout(() => {
+              if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
+                lastMockStartedQuestionRef.current = msg.question_id;
+                scheduleStartAnswer(1000);
+              }
+            }, 1500);
+          }
+        }
+
+        const prevQuestionId = currentQuestionIdRef.current;
+        const isNewQuestion = !!msg.question_id && prevQuestionId !== msg.question_id;
+
+        if (msg.question_id) {
+          currentQuestionIdRef.current = msg.question_id;
+          setCurrentQuestionId(msg.question_id);
+        }
+        if (msg.question_type) {
+          setQuestionType(isCodingLikeQuestionType(msg.question_type) ? "code" : "voice");
+        }
         setIsFollowup(!!msg.is_followup);
 
+        if (isNewQuestion) {
+          if (delayedStartTimeoutRef.current) {
+            clearTimeout(delayedStartTimeoutRef.current);
+            delayedStartTimeoutRef.current = null;
+          }
+          lastMockStartedQuestionRef.current = null;
+          resetAnswer();
+        }
+
         // Populate code question metadata
-        if (msg.question_type === "code") {
+        if (isCodingLikeQuestionType(msg.question_type)) {
           setCodeDescription(msg.description || msg.text);
           // sample_cases may arrive as a JSON string or array
           let sc = msg.sample_cases || [];
@@ -217,25 +304,43 @@ export default function LiveInterviewPage() {
               audio.onended = () => {
                 setAgentStatus("listening");
                 if (currentQuestionIdRef.current) {
-                  const qType = msg.question_type === "code" ? "code" : "voice";
+                  const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
                   if (qType === "voice") startCandidateTurn();
-                  else setCandidateSpeaking(true); // show code editor
+                  else {
+                    setCandidateSpeaking(true); // show code editor
+                    if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
+                      lastMockStartedQuestionRef.current = msg.question_id;
+                      scheduleStartAnswer(1000);
+                    }
+                  }
                 }
               };
             })
             .catch(() => {
               setAgentStatus("listening");
               if (currentQuestionIdRef.current) {
-                const qType = msg.question_type === "code" ? "code" : "voice";
+                const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
                 if (qType === "voice") startCandidateTurn();
-                else setCandidateSpeaking(true);
+                else {
+                  setCandidateSpeaking(true);
+                  if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
+                    lastMockStartedQuestionRef.current = msg.question_id;
+                    scheduleStartAnswer(1000);
+                  }
+                }
               }
             });
         } else if (msg.question_id) {
           setAgentStatus("listening");
-          const qType = msg.question_type === "code" ? "code" : "voice";
+          const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
           if (qType === "voice") startCandidateTurn();
-          else setCandidateSpeaking(true); // show code editor
+          else {
+            setCandidateSpeaking(true); // show code editor
+            if (lastMockStartedQuestionRef.current !== msg.question_id) {
+              lastMockStartedQuestionRef.current = msg.question_id;
+              scheduleStartAnswer(1000);
+            }
+          }
         }
       }
 
@@ -248,6 +353,15 @@ export default function LiveInterviewPage() {
         }
         if (msg.transcript) {
           ingestTranscriptChunk(msg.transcript);
+          onTranscriptChunk?.(msg.transcript);
+        }
+      }
+
+      if (msg.type === "vad_result") {
+        if (msg.transcript && msg.transcript.trim().length > 2) {
+          onAudioActivity();
+          ingestTranscriptChunk(msg.transcript);
+          onTranscriptChunk?.(msg.transcript);
         }
       }
 
@@ -281,7 +395,13 @@ export default function LiveInterviewPage() {
       }
     };
 
-    return () => ws.close();
+    return () => {
+      if (delayedStartTimeoutRef.current) {
+        clearTimeout(delayedStartTimeoutRef.current);
+        delayedStartTimeoutRef.current = null;
+      }
+      ws.close();
+    };
   }, [interviewId]);
 
   // ── Start candidate recording turn ────────────────────────────────
@@ -289,7 +409,6 @@ export default function LiveInterviewPage() {
     if (!currentQuestionIdRef.current) return;
 
     setLiveTranscript("");
-    startAnswer();
     finalTranscriptRef.current = "";
     liveTranscriptRef.current = "";
     setCandidateSpeaking(true);
@@ -319,6 +438,7 @@ export default function LiveInterviewPage() {
         recognitionRef.current     = recognition;
 
         recognition.onresult = (event: any) => {
+          onAudioActivity();
           let interim = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const t = event.results[i][0].transcript;
@@ -330,6 +450,9 @@ export default function LiveInterviewPage() {
           }
           const display = (finalTranscriptRef.current + interim).trim();
           setLiveTranscript(display);
+          if (isMockMode && display) {
+            ingestTranscriptChunk(display);
+          }
           liveTranscriptRef.current = display;
 
           // Debounce confidence scoring
@@ -399,6 +522,12 @@ export default function LiveInterviewPage() {
 
       processor.onaudioprocess = (e) => {
         const floats = e.inputBuffer.getChannelData(0);
+        let sumSq = 0;
+        for (let i = 0; i < floats.length; i++) {
+          sumSq += floats[i] * floats[i];
+        }
+        const rms = Math.sqrt(sumSq / Math.max(1, floats.length));
+
         const buf = sampleBufferRef.current;
         for (let i = 0; i < floats.length; i++) {
           buf.push(Math.max(-32768, Math.min(32767, Math.round(floats[i] * 32768))));
@@ -422,6 +551,13 @@ export default function LiveInterviewPage() {
       processor.connect(audioCtx.destination);
     } catch {
       /* PCM unavailable — confidence badge won't show */
+    }
+
+    if (isMockMode) {
+      scheduleStartAnswer(1000);
+    }
+    if (isMockMode && coachingControls?.onAudioActivity) {
+      coachingControls.onAudioActivity();
     }
   }
 
@@ -465,8 +601,10 @@ export default function LiveInterviewPage() {
 
     const transcript = finalTranscriptRef.current.trim() || liveTranscript || codeAnswer;
 
-    // submit anti-cheat flags for this question
-    submitFlags(qid);
+    // submit anti-cheat flags only in company mode
+    if (isCompanyMode && !isMockMode) {
+      submitFlags(qid);
+    }
 
     wsRef.current.send(
       JSON.stringify({ type: "candidate_text", question_id: qid, text: transcript })
@@ -571,8 +709,10 @@ export default function LiveInterviewPage() {
     const qid = currentQuestionIdRef.current;
     if (!qid || !wsRef.current) return;
 
-    // submit anti-cheat flags for this question
-    submitFlags(qid);
+    // submit anti-cheat flags only in company mode
+    if (isCompanyMode && !isMockMode) {
+      submitFlags(qid);
+    }
 
     wsRef.current.send(
       JSON.stringify({
@@ -587,6 +727,7 @@ export default function LiveInterviewPage() {
 
     setCandidateSpeaking(false);
     setAgentStatus("idle");
+    resetAnswer();
     setCodeAnswer("");
     setRunOutput("");
     setRunVerdict(null);
@@ -913,9 +1054,17 @@ export default function LiveInterviewPage() {
                       language={LANG_MONACO[lang]}
                       theme="vs-dark"
                       value={codeAnswer}
-                      onChange={(v) => setCodeAnswer(v || "")}
+                      onChange={(v) => {
+                        setCodeAnswer(v || "");
+                        onIdeActivity();
+                      }}
                       onMount={(editor) => {
-                        editor.onDidPaste(() => addFlag("editor-paste"));
+                        editor.onDidPaste(() => {
+                          if (isCompanyMode && !isMockMode) {
+                            addFlag("editor-paste");
+                          }
+                          onIdeActivity();
+                        });
                       }}
                       options={{
                         fontSize: 14,
@@ -1032,6 +1181,23 @@ export default function LiveInterviewPage() {
           </AnimatePresence>
         </div>
 
+        {isMockMode && renderCoachingOverlay ? (
+          <CoachingOverlay
+            wpm={coaching.wpm}
+            wpmStatus={coaching.wpmStatus}
+            fillerCounts={coaching.fillerCounts}
+            currentSilenceSecs={coaching.currentSilenceSecs}
+            showSilenceNudge={coaching.showSilenceNudge}
+            currentHint={coaching.currentHint}
+            hintLevel={coaching.hintLevel}
+            isAnswerActive={coaching.isAnswerActive}
+            audioAgeMs={coaching.audioAgeMs}
+            debug={false}
+          />
+        ) : null}
+
+        {rightPane || null}
+
         {/* ── Camera Sidebar ── */}
         {!isCodeView ? (
           <aside className="w-[280px] shrink-0 flex flex-col gap-3">
@@ -1080,4 +1246,9 @@ export default function LiveInterviewPage() {
       </div>
     </div>
   );
+}
+
+export default function LiveInterviewPage() {
+  const { id } = useParams();
+  return <InterviewRoom interviewId={id as string} isMockMode={false} isCompanyMode={true} />;
 }

@@ -46,6 +46,12 @@ export default function MockLandingPage() {
       if (data.guest_token && typeof window !== "undefined") {
         localStorage.setItem("mock_guest_token", data.guest_token);
       }
+      if (data.session_id && typeof window !== "undefined") {
+        localStorage.setItem("mock_session_id", data.session_id);
+      }
+      if (data.interview_id && typeof window !== "undefined") {
+        localStorage.setItem("mock_interview_id", data.interview_id);
+      }
 
       router.push(`/mock/session/${data.session_id}`);
     } catch (e: any) {
