@@ -37,6 +37,7 @@ const WS_BASE  = process.env.NEXT_PUBLIC_WS_BASE  ?? "ws://localhost:8000";
 
 const PCM_SEND_THRESHOLD = 16000; // ~1 s at 16 kHz — for confidence scoring only
 const ANSWER_TIME_LIMIT  = 120;   // 2-minute countdown
+const CODE_TIME_LIMIT_MIN = 600;  // 10-minute minimum for coding questions
 const AUDIO_ACTIVITY_RMS_THRESHOLD = 0.05;
 
 const LANG_LABELS: Record<Lang, string> = { python: "Python", javascript: "JavaScript", java: "Java", cpp: "C++" };
@@ -121,14 +122,22 @@ export function InterviewRoom({
   const [testResults, setTestResults]           = useState<{idx: number; pass: boolean; stdout: string; ms: number}[]>([]);
   const [codeTab, setCodeTab]                   = useState<"cases" | "output" | "results">("cases");
   const [codeTimerLeft, setCodeTimerLeft]       = useState(600);
+  const [mockSessionId, setMockSessionId]       = useState<string>("");
+  const coachingSessionId = isMockMode ? mockSessionId : interviewId;
   const { coaching, ingestTranscriptChunk, startAnswer, resetAnswer, onIdeActivity, onAudioActivity } = useCoaching({
     isCodingQuestion: questionType === "code",
     questionText,
-    sessionId: interviewId,
+    sessionId: coachingSessionId,
     currentQuestionId,
     questionType,
   });
   const coachingControls = { onAudioActivity, ingestTranscriptChunk };
+
+  useEffect(() => {
+    if (!isMockMode) return;
+    const storedSessionId = typeof window !== "undefined" ? localStorage.getItem("mock_session_id") : null;
+    setMockSessionId(storedSessionId || "");
+  }, [isMockMode]);
 
   useEffect(() => {
     if (isMockMode && onCoachingUpdate) {
@@ -154,7 +163,7 @@ export function InterviewRoom({
 
   // ── Countdown timer (pauses during interruption) ───────────────────
   useEffect(() => {
-    if (!candidateSpeaking) {
+    if (!candidateSpeaking || questionType !== "voice") {
       setTimeLeft(ANSWER_TIME_LIMIT);
       return;
     }
@@ -163,15 +172,15 @@ export function InterviewRoom({
       setTimeLeft((t) => (t > 0 ? t - 1 : 0));
     }, 1000);
     return () => clearInterval(id);
-  }, [candidateSpeaking, interrupted]);
+  }, [candidateSpeaking, interrupted, questionType]);
 
   // Auto-submit when time runs out (skip when interrupted)
   useEffect(() => {
-    if (candidateSpeaking && !interrupted && timeLeft === 0) {
+    if (candidateSpeaking && questionType === "voice" && !interrupted && timeLeft === 0) {
       submitAnswer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, candidateSpeaking, interrupted]);
+  }, [timeLeft, candidateSpeaking, interrupted, questionType]);
 
   // ── Code question timer ──────────────────────────────────────────
   useEffect(() => {
@@ -181,6 +190,14 @@ export function InterviewRoom({
     }, 1000);
     return () => clearInterval(id);
   }, [candidateSpeaking, questionType]);
+
+  // Auto-submit code when code timer runs out
+  useEffect(() => {
+    if (candidateSpeaking && questionType === "code" && codeTimerLeft === 0) {
+      submitCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeTimerLeft, candidateSpeaking, questionType]);
 
   // ── Periodic re-send for interrupt detection ─────────────────────
   useEffect(() => {
@@ -278,7 +295,7 @@ export function InterviewRoom({
           setRunVerdict(null);
           setTestResults([]);
           setCodeTab("cases");
-          setCodeTimerLeft(msg.time_limit_seconds || 600);
+          setCodeTimerLeft(Math.max(CODE_TIME_LIMIT_MIN, Number(msg.time_limit_seconds) || CODE_TIME_LIMIT_MIN));
           setCodeAnswer(LANG_DEFAULTS[lang]);
         }
 

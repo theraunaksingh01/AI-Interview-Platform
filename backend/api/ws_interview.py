@@ -132,13 +132,19 @@ def get_next_question(db: Session, interview_id: UUID):
 
     for r in rows:
         if r.id not in answered_ids:
+            is_coding = _is_coding_like_question_type(r.type)
+            time_limit = int(r.time_limit_seconds or 0)
+            if is_coding:
+                time_limit = max(600, time_limit)
+            else:
+                time_limit = time_limit or 120
             return {
                 "id": r.id,
                 "question_text": r.question_text,
                 "type": r.type,
                 "description": r.description or "",
                 "sample_cases": r.sample_cases if r.sample_cases else [],
-                "time_limit_seconds": r.time_limit_seconds or (600 if r.type == "code" else 120),
+                "time_limit_seconds": time_limit,
                 "source": r.source or "",
                 "parent_question_id": r.parent_question_id,
                 "is_followup": r.parent_question_id is not None,

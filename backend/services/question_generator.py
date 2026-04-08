@@ -166,10 +166,18 @@ Example: [{{"text": "...", "type": "dsa", "difficulty": "medium"}}]"""
         {"text": "Design a URL shortening service like bit.ly.", "type": "system_design", "difficulty": "medium"},
         {"text": "Explain the difference between SQL and NoSQL databases.", "type": "behavioral", "difficulty": "easy"},
         {"text": "How would you optimize a slow database query?", "type": "system_design", "difficulty": "medium"},
-    ][:count]
+    ]
+
+    # Sort: voice/system-design first, actual coding last.
+    def sort_key(q: Dict[str, str]) -> int:
+        if str(q.get("type", "")).lower() in ("dsa", "coding", "code"):
+            return 1
+        return 0
+
+    fallback.sort(key=sort_key)
 
     if not os.getenv("GEMINI_API_KEY"):
-        return fallback
+        return fallback[:count]
 
     try:
         result = asyncio.run(
@@ -203,6 +211,9 @@ Example: [{{"text": "...", "type": "dsa", "difficulty": "medium"}}]"""
                 difficulty = "medium"
             cleaned.append({"text": text, "type": q_type, "difficulty": difficulty})
 
-        return cleaned[:count] if cleaned else fallback
+        if cleaned:
+            cleaned.sort(key=sort_key)
+            return cleaned[:count]
+        return fallback[:count]
     except Exception:
-        return fallback
+        return fallback[:count]
