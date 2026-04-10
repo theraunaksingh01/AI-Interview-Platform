@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 from typing import Optional, Any
 
@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from api.deps import get_current_user_optional
 from core.config import settings
 from db.models import CommunicationReport, MockSession
 from db.session import SessionLocal
@@ -148,6 +149,14 @@ def _safe_float(value: Any) -> Optional[float]:
         return None
 
 
+def _score_delta(current: Any, previous: Any) -> Optional[float]:
+    curr = _safe_float(current)
+    prev = _safe_float(previous)
+    if curr is None or prev is None:
+        return None
+    return round(curr - prev, 2)
+
+
 def _fallback_comm_feedback() -> tuple[float, list[str], list[str]]:
     return (
         6.0,
@@ -272,13 +281,19 @@ Transcript: {full_transcript[:3000]}"""
 
 
 @router.post("/session/start")
-def start_mock_session(payload: MockSessionStartRequest, db: Session = Depends(get_db)):
-    guest_token = payload.guest_token or str(uuid4())
+def start_mock_session(
+    payload: MockSessionStartRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user_optional),
+):
+    user_id = getattr(current_user, "id", None)
+    guest_token = None if user_id else (payload.guest_token or str(uuid4()))
 
     mock_row = db.execute(
         text(
             """
             INSERT INTO mock_sessions (
+                user_id,
                 guest_token,
                 role_target,
                 seniority,
@@ -290,6 +305,7 @@ def start_mock_session(payload: MockSessionStartRequest, db: Session = Depends(g
                 started_at
             )
             VALUES (
+                :user_id,
                 :guest_token,
                 :role_target,
                 :seniority,
@@ -304,6 +320,7 @@ def start_mock_session(payload: MockSessionStartRequest, db: Session = Depends(g
             """
         ),
         {
+            "user_id": user_id,
             "guest_token": guest_token,
             "role_target": payload.role_target,
             "seniority": payload.seniority,
@@ -537,4 +554,122 @@ def get_mock_report(session_id: str, db: Session = Depends(get_db)):
         if report
         else None,
         "report_pending": report is None,
+    }
+
+
+@router.get("/dashboard/{user_id}")
+def get_dashboard(user_id: str, db: Session = Depends(get_db)):
+    try:
+        user_id_int = int(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+
+    sessions = (
+        db.query(MockSession)
+        .filter(
+            MockSession.user_id == user_id_int,
+            MockSession.status == "completed",
+            MockSession.completed_at.isnot(None),
+        )
+        .order_by(MockSession.completed_at.asc())
+        .all()
+    )
+
+    if not sessions:
+        return {
+            "sessions": [],
+            "latest_scores": {},
+            "deltas": {},
+            "streak": 0,
+            "total_sessions": 0,
+            "milestones": [],
+        }
+
+    session_ids = [s.id for s in sessions if s.id is not None]
+    report_rows = (
+        db.query(CommunicationReport.session_id)
+        .filter(CommunicationReport.session_id.in_(session_ids))
+        .all()
+    )
+    report_ids = {str(r[0]) for r in report_rows}
+
+    latest = sessions[-1]
+    previous = sessions[-2] if len(sessions) >= 2 else None
+
+    latest_scores = {
+        "dsa": _safe_float(latest.dsa_score),
+        "system_design": _safe_float(latest.system_design_score),
+        "behavioral": _safe_float(latest.behavioral_score),
+        "communication": _safe_float(latest.communication_score),
+        "overall": _safe_float(latest.overall_score),
+    }
+
+    deltas = {
+        "dsa": _score_delta(latest.dsa_score, previous.dsa_score if previous else None),
+        "system_design": _score_delta(
+            latest.system_design_score,
+            previous.system_design_score if previous else None,
+        ),
+        "behavioral": _score_delta(latest.behavioral_score, previous.behavioral_score if previous else None),
+        "communication": _score_delta(latest.communication_score, previous.communication_score if previous else None),
+    }
+
+    streak = 0
+    today = datetime.utcnow().date()
+    check_date = today
+    session_dates = sorted(
+        {s.completed_at.date() for s in sessions if s.completed_at is not None},
+        reverse=True,
+    )
+    for d in session_dates:
+        if d == check_date or d == check_date - timedelta(days=1):
+            streak += 1
+            check_date = d
+        else:
+            break
+
+    milestones: list[dict[str, Any]] = []
+    for s in sessions:
+        dimensions = [
+            ("DSA", s.dsa_score),
+            ("System Design", s.system_design_score),
+            ("Behavioral", s.behavioral_score),
+            ("Communication", s.communication_score),
+        ]
+        for dim, raw_score in dimensions:
+            score = _safe_float(raw_score)
+            if score is not None and score >= 7.0 and s.completed_at is not None:
+                milestones.append(
+                    {
+                        "type": "score_milestone",
+                        "message": f"Your {dim} score reached {score:.1f}!",
+                        "session_id": str(s.id),
+                        "achieved_at": s.completed_at.isoformat(),
+                    }
+                )
+
+    sessions_payload = [
+        {
+            "id": str(s.id),
+            "role_target": s.role_target,
+            "seniority": s.seniority,
+            "focus_area": s.focus_area,
+            "overall_score": _safe_float(s.overall_score),
+            "dsa_score": _safe_float(s.dsa_score),
+            "system_design_score": _safe_float(s.system_design_score),
+            "behavioral_score": _safe_float(s.behavioral_score),
+            "communication_score": _safe_float(s.communication_score),
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            "report_available": str(s.id) in report_ids,
+        }
+        for s in sessions
+    ]
+
+    return {
+        "sessions": sessions_payload,
+        "latest_scores": latest_scores,
+        "deltas": deltas,
+        "streak": streak,
+        "total_sessions": len(sessions),
+        "milestones": milestones[-5:],
     }

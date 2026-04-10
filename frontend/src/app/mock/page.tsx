@@ -148,11 +148,18 @@ export default function MockLandingPage() {
 
     const existingGuestToken =
       typeof window !== "undefined" ? localStorage.getItem("mock_guest_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+        : null;
 
     try {
       const res = await fetch(`${API_BASE}/api/mock/session/start`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           role_target: roleTarget,
           seniority,
