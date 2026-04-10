@@ -5,6 +5,7 @@ from sqlalchemy import (
     String,
     Text,
     DateTime,
+    Numeric,
     func,
     Table,
     ForeignKey,
@@ -16,6 +17,7 @@ from .session import Base
 import enum
 from sqlalchemy.types import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, JSON
 
@@ -114,3 +116,43 @@ class InterviewTurn(Base):
     asr_latency_ms = Column(Integer, nullable=True)
     audio_s3_key = Column(Text, nullable=True)
     meta = Column(JSON, nullable=False, default=dict)
+
+
+class MockSession(Base):
+    __tablename__ = "mock_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    guest_token = Column(Text, nullable=True)
+    role_target = Column(Text, nullable=False)
+    seniority = Column(Text, nullable=False)
+    company_type = Column(Text, nullable=True)
+    focus_area = Column(Text, nullable=True)
+    resume_uploaded = Column(Boolean, nullable=False, default=False)
+    duration_mins = Column(Integer, nullable=True)
+    status = Column(Text, nullable=False, default="in_progress")
+    overall_score = Column(Numeric(4, 2), nullable=True)
+    dsa_score = Column(Numeric(4, 2), nullable=True)
+    system_design_score = Column(Numeric(4, 2), nullable=True)
+    behavioral_score = Column(Numeric(4, 2), nullable=True)
+    communication_score = Column(Numeric(4, 2), nullable=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CommunicationReport(Base):
+    __tablename__ = "communication_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("mock_sessions.id", ondelete="CASCADE"), nullable=False)
+    avg_wpm = Column(Numeric(6, 2), nullable=True)
+    total_filler_words = Column(Integer, nullable=True)
+    filler_breakdown = Column(JSONB, nullable=True)
+    total_silence_gaps = Column(Integer, nullable=True)
+    longest_silence_sec = Column(Numeric(6, 2), nullable=True)
+    star_avg_score = Column(Numeric(4, 2), nullable=True)
+    heatmap_data = Column(JSONB, nullable=True)
+    top_issues = Column(ARRAY(Text), nullable=True)
+    top_strengths = Column(ARRAY(Text), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

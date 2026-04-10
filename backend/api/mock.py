@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import os
 import asyncio
+import json
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional
+from typing import Optional, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.config import settings
+from db.models import CommunicationReport, MockSession
+from db.session import SessionLocal
 from db.session import get_db
 from services.llm_provider import gemini_chat
 from services.question_generator import generate_mock_questions
@@ -45,6 +49,14 @@ class MockSessionCompleteResponse(BaseModel):
     session_id: str
     status: str
     completed_at: str
+
+
+class MockCompleteRequest(BaseModel):
+    avg_wpm: Optional[float] = None
+    filler_breakdown: Optional[dict[str, int]] = None
+    total_filler_words: Optional[int] = None
+    total_silence_gaps: Optional[int] = None
+    full_transcript: Optional[str] = None
 
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -125,6 +137,138 @@ Return JSON:
         if hint:
             return hint
     return None
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _fallback_comm_feedback() -> tuple[float, list[str], list[str]]:
+    return (
+        6.0,
+        [
+            "Keep answers more structured.",
+            "Reduce filler words in long responses.",
+            "Add concrete examples with outcomes.",
+        ],
+        [
+            "Completed the interview flow.",
+            "Attempted questions with clear intent.",
+        ],
+    )
+
+
+def generate_communication_report(
+    session_id: str,
+    avg_wpm: float,
+    filler_breakdown: dict[str, int],
+    total_filler_words: int,
+    total_silence_gaps: int,
+    full_transcript: str,
+    db_url: Optional[str] = None,
+) -> None:
+    db = SessionLocal()
+    lock_key = f"comm_report:{session_id}"
+    try:
+        # Hard idempotency: serialize report writes per session to prevent duplicate rows.
+        db.execute(
+            text("SELECT pg_advisory_lock(hashtext(:k))"),
+            {"k": lock_key},
+        )
+
+        star_score = 0.0
+        top_issues: list[str] = []
+        top_strengths: list[str] = []
+
+        if full_transcript and len(full_transcript.strip()) > 50:
+            prompt = f"""Analyze this interview transcript and return JSON only:
+{{
+  \"star_avg_score\": <0-10 float, how well STAR method was used>,
+  \"top_issues\": [\"issue1\", \"issue2\", \"issue3\"],
+  \"top_strengths\": [\"strength1\", \"strength2\", \"strength3\"]
+}}
+Be specific and actionable.
+Transcript: {full_transcript[:3000]}"""
+
+            try:
+                import anthropic  # type: ignore
+
+                api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+                if not api_key:
+                    raise RuntimeError("ANTHROPIC_API_KEY not configured")
+
+                client = anthropic.Anthropic(api_key=api_key)
+                response = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=500,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                text_payload = ""
+                for block in getattr(response, "content", []):
+                    if getattr(block, "type", "") == "text":
+                        text_payload += getattr(block, "text", "")
+
+                parsed = json.loads(text_payload)
+                star_score = float(parsed.get("star_avg_score", 0) or 0)
+                top_issues = [str(x) for x in (parsed.get("top_issues") or [])][:3]
+                top_strengths = [str(x) for x in (parsed.get("top_strengths") or [])][:3]
+            except Exception:
+                star_score, top_issues, top_strengths = _fallback_comm_feedback()
+        else:
+            star_score, top_issues, top_strengths = _fallback_comm_feedback()
+
+        heatmap_data = [{"minute": i, "intensity": 0.6} for i in range(10)]
+
+        existing = (
+            db.query(CommunicationReport)
+            .filter(CommunicationReport.session_id == UUID(session_id))
+            .first()
+        )
+
+        if existing:
+            existing.avg_wpm = avg_wpm
+            existing.total_filler_words = total_filler_words
+            existing.filler_breakdown = filler_breakdown
+            existing.total_silence_gaps = total_silence_gaps
+            existing.longest_silence_sec = 0
+            existing.star_avg_score = max(0, min(10, star_score))
+            existing.heatmap_data = heatmap_data
+            existing.top_issues = top_issues
+            existing.top_strengths = top_strengths
+        else:
+            db.add(
+                CommunicationReport(
+                    session_id=UUID(session_id),
+                    avg_wpm=avg_wpm,
+                    total_filler_words=total_filler_words,
+                    filler_breakdown=filler_breakdown,
+                    total_silence_gaps=total_silence_gaps,
+                    longest_silence_sec=0,
+                    star_avg_score=max(0, min(10, star_score)),
+                    heatmap_data=heatmap_data,
+                    top_issues=top_issues,
+                    top_strengths=top_strengths,
+                )
+            )
+
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        try:
+            db.execute(
+                text("SELECT pg_advisory_unlock(hashtext(:k))"),
+                {"k": lock_key},
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+        db.close()
 
 
 @router.post("/session/start")
@@ -295,28 +439,102 @@ async def generate_mock_hint(payload: MockHintRequest, db: Session = Depends(get
     )
 
 
-@router.post("/session/{session_id}/complete", response_model=MockSessionCompleteResponse)
-def complete_mock_session(session_id: UUID, db: Session = Depends(get_db)):
-    row = db.execute(
-        text(
-            """
-            UPDATE mock_sessions
-            SET status = 'completed',
-                completed_at = :completed_at
-            WHERE id = :sid
-            RETURNING id, status, completed_at
-            """
-        ),
-        {"sid": str(session_id), "completed_at": datetime.utcnow()},
-    ).mappings().first()
-
-    if not row:
+@router.post("/session/{session_id}/complete")
+async def complete_mock_session(
+    session_id: str,
+    body: MockCompleteRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    try:
+        session_uuid = UUID(session_id)
+    except Exception:
         raise HTTPException(status_code=404, detail="Mock session not found")
+
+    session = db.query(MockSession).filter(MockSession.id == session_uuid).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Mock session not found")
+
+    existing_report = (
+        db.query(CommunicationReport)
+        .filter(CommunicationReport.session_id == session_uuid)
+        .first()
+    )
+
+    session.status = "completed"
+    session.completed_at = datetime.utcnow()
+
+    if body.avg_wpm is not None:
+        session.communication_score = max(0, min(10, body.avg_wpm / 20.0))
 
     db.commit()
 
-    return MockSessionCompleteResponse(
-        session_id=str(row["id"]),
-        status=str(row["status"]),
-        completed_at=row["completed_at"].isoformat() if row["completed_at"] else "",
+    filler_breakdown = body.filler_breakdown or {}
+    total_filler_words = (
+        body.total_filler_words
+        if body.total_filler_words is not None
+        else sum(int(v or 0) for v in filler_breakdown.values())
     )
+    total_silence_gaps = body.total_silence_gaps or 0
+
+    if not existing_report:
+        background_tasks.add_task(
+            generate_communication_report,
+            session_id=str(session_uuid),
+            avg_wpm=float(body.avg_wpm or 0),
+            filler_breakdown=filler_breakdown,
+            total_filler_words=int(total_filler_words),
+            total_silence_gaps=int(total_silence_gaps),
+            full_transcript=(body.full_transcript or ""),
+            db_url=settings.DATABASE_URL,
+        )
+
+    return {
+        "status": "completed",
+        "report_url": f"/mock/report/{session_uuid}",
+        "session_id": str(session_uuid),
+        "idempotent": existing_report is not None,
+    }
+
+
+@router.get("/report/{session_id}")
+def get_mock_report(session_id: str, db: Session = Depends(get_db)):
+    try:
+        session_uuid = UUID(session_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Mock session not found")
+
+    session = db.query(MockSession).filter(MockSession.id == session_uuid).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Mock session not found")
+
+    report = (
+        db.query(CommunicationReport)
+        .filter(CommunicationReport.session_id == session_uuid)
+        .first()
+    )
+
+    return {
+        "session": {
+            "id": str(session.id),
+            "role_target": session.role_target,
+            "seniority": session.seniority,
+            "status": session.status,
+            "completed_at": session.completed_at,
+            "overall_score": _safe_float(session.overall_score),
+            "communication_score": _safe_float(session.communication_score),
+        },
+        "report": {
+            "avg_wpm": _safe_float(report.avg_wpm) if report else None,
+            "total_filler_words": report.total_filler_words if report else None,
+            "filler_breakdown": report.filler_breakdown if report else {},
+            "total_silence_gaps": report.total_silence_gaps if report else None,
+            "star_avg_score": _safe_float(report.star_avg_score) if report else None,
+            "top_issues": report.top_issues if report else [],
+            "top_strengths": report.top_strengths if report else [],
+            "heatmap_data": report.heatmap_data if report else [],
+        }
+        if report
+        else None,
+        "report_pending": report is None,
+    }

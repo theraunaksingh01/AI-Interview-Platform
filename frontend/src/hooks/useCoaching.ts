@@ -8,6 +8,7 @@ export interface CoachingState {
   wpmStatus: WpmStatus;
   fillerCounts: Record<string, number>;
   currentSilenceSecs: number;
+  silenceGapCount: number;
   showSilenceNudge: boolean;
   currentHint: string | null;
   hintLevel: 0 | 1 | 2;
@@ -105,6 +106,7 @@ export function useCoaching(options: UseCoachingOptions = {}) {
   const answerStartMsRef = useRef<number | null>(null);
   const transcriptRef = useRef<string>("");
   const audioActivityRef = useRef<number>(Date.now());
+  const silenceGapOpenRef = useRef<boolean>(false);
   const lastAudioActivityCall = useRef<number>(0);
   const ideLastActivityRef = useRef<number>(Date.now());
   const [isAnswerActive, setIsAnswerActive] = useState(false);
@@ -114,6 +116,7 @@ export function useCoaching(options: UseCoachingOptions = {}) {
     wpmStatus: "good",
     fillerCounts: { ...EMPTY_COUNTS },
     currentSilenceSecs: 0,
+    silenceGapCount: 0,
     showSilenceNudge: false,
     currentHint: null,
     hintLevel: 0,
@@ -161,12 +164,14 @@ export function useCoaching(options: UseCoachingOptions = {}) {
     transcriptRef.current = "";
     audioActivityRef.current = Date.now();
     ideLastActivityRef.current = Date.now();
+    silenceGapOpenRef.current = false;
     setIsAnswerActive(false);
     setState({
       wpm: 0,
       wpmStatus: "good",
       fillerCounts: { ...EMPTY_COUNTS },
       currentSilenceSecs: 0,
+      silenceGapCount: 0,
       showSilenceNudge: false,
       currentHint: null,
       hintLevel: 0,
@@ -182,12 +187,14 @@ export function useCoaching(options: UseCoachingOptions = {}) {
     transcriptRef.current = "";
     audioActivityRef.current = Date.now();
     ideLastActivityRef.current = Date.now();
+    silenceGapOpenRef.current = false;
     setIsAnswerActive(true);
     setState({
       wpm: 0,
       wpmStatus: "good",
       fillerCounts: { ...EMPTY_COUNTS },
       currentSilenceSecs: 0,
+      silenceGapCount: 0,
       showSilenceNudge: false,
       currentHint: null,
       hintLevel: 0,
@@ -250,12 +257,24 @@ export function useCoaching(options: UseCoachingOptions = {}) {
       const audioAge = Date.now() - audioActivityRef.current;
       console.log('[silence] tick — silence=', silence, 'isAnswerActive=', isAnswerActive);
 
-      setState((prev) => ({
-        ...prev,
-        currentSilenceSecs: silence,
-        showSilenceNudge: silence >= 12,
-        audioAgeMs: audioAge,
-      }));
+      setState((prev) => {
+        let nextCount = prev.silenceGapCount;
+        if (silence >= 3 && !silenceGapOpenRef.current) {
+          silenceGapOpenRef.current = true;
+          nextCount += 1;
+        }
+        if (silence < 3 && silenceGapOpenRef.current) {
+          silenceGapOpenRef.current = false;
+        }
+
+        return {
+          ...prev,
+          silenceGapCount: nextCount,
+          currentSilenceSecs: silence,
+          showSilenceNudge: silence >= 12,
+          audioAgeMs: audioAge,
+        };
+      });
     }, 1000);
 
     return () => clearInterval(interval);

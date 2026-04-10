@@ -28,6 +28,7 @@ export default function MockSessionPage() {
     wpmStatus: "good",
     fillerCounts: {} as Record<string, number>,
     currentSilenceSecs: 0,
+    silenceGapCount: 0,
     showSilenceNudge: false,
     currentHint: null as string | null,
     hintLevel: 0,
@@ -104,6 +105,7 @@ export default function MockSessionPage() {
   return (
     <InterviewRoom
       interviewId={interviewId}
+      mockSessionId={sessionId}
       isMockMode={true}
       isCompanyMode={false}
       renderCoachingOverlay={false}

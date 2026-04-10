@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -59,6 +59,7 @@ type WSMessage =
 
 interface InterviewRoomProps {
   interviewId: string;
+  mockSessionId?: string;
   isMockMode?: boolean;
   isCompanyMode?: boolean;
   onTranscriptChunk?: (chunk: string) => void;
@@ -69,6 +70,7 @@ interface InterviewRoomProps {
 
 export function InterviewRoom({
   interviewId,
+  mockSessionId,
   isMockMode = false,
   isCompanyMode = true,
   onTranscriptChunk,
@@ -76,6 +78,15 @@ export function InterviewRoom({
   rightPane,
   renderCoachingOverlay = true,
 }: InterviewRoomProps) {
+  const router = useRouter();
+
+  type SessionCoachingAggregate = {
+    answerCount: number;
+    wpmSum: number;
+    fillerTotals: Record<string, number>;
+    silenceGapTotal: number;
+    transcripts: string[];
+  };
 
   // ── Refs (never stale in effects/callbacks) ──────────────────────
   const wsRef               = useRef<WebSocket | null>(null);
@@ -122,8 +133,15 @@ export function InterviewRoom({
   const [testResults, setTestResults]           = useState<{idx: number; pass: boolean; stdout: string; ms: number}[]>([]);
   const [codeTab, setCodeTab]                   = useState<"cases" | "output" | "results">("cases");
   const [codeTimerLeft, setCodeTimerLeft]       = useState(600);
-  const [mockSessionId, setMockSessionId]       = useState<string>("");
-  const coachingSessionId = isMockMode ? mockSessionId : interviewId;
+  const [resolvedMockSessionId, setResolvedMockSessionId] = useState<string>(mockSessionId || "");
+  const sessionCoachingAggregateRef = useRef<SessionCoachingAggregate>({
+    answerCount: 0,
+    wpmSum: 0,
+    fillerTotals: {},
+    silenceGapTotal: 0,
+    transcripts: [],
+  });
+  const coachingSessionId = isMockMode ? resolvedMockSessionId : interviewId;
   const { coaching, ingestTranscriptChunk, startAnswer, resetAnswer, onIdeActivity, onAudioActivity } = useCoaching({
     isCodingQuestion: questionType === "code",
     questionText,
@@ -133,11 +151,43 @@ export function InterviewRoom({
   });
   const coachingControls = { onAudioActivity, ingestTranscriptChunk };
 
+  function captureCoachingForCompletedAnswer() {
+    if (!isMockMode) return;
+
+    const snapshot = coaching;
+    const agg = sessionCoachingAggregateRef.current;
+
+    if ((snapshot.wpm || 0) > 0) {
+      agg.answerCount += 1;
+      agg.wpmSum += Number(snapshot.wpm || 0);
+    }
+
+    const fillers = snapshot.fillerCounts || {};
+    for (const [word, count] of Object.entries(fillers)) {
+      agg.fillerTotals[word] = (agg.fillerTotals[word] || 0) + (Number(count) || 0);
+    }
+
+    agg.silenceGapTotal += Number(snapshot.silenceGapCount || 0);
+
+    const transcript = String(snapshot.fullTranscript || "").trim();
+    if (transcript) {
+      agg.transcripts.push(transcript);
+    }
+  }
+
+  useEffect(() => {
+    if (mockSessionId) {
+      setResolvedMockSessionId(mockSessionId);
+    }
+  }, [mockSessionId]);
+
   useEffect(() => {
     if (!isMockMode) return;
     const storedSessionId = typeof window !== "undefined" ? localStorage.getItem("mock_session_id") : null;
-    setMockSessionId(storedSessionId || "");
-  }, [isMockMode]);
+    if (!mockSessionId) {
+      setResolvedMockSessionId(storedSessionId || "");
+    }
+  }, [isMockMode, mockSessionId]);
 
   useEffect(() => {
     if (isMockMode && onCoachingUpdate) {
@@ -153,6 +203,14 @@ export function InterviewRoom({
       startAnswer();
       delayedStartTimeoutRef.current = null;
     }, delayMs);
+  }
+
+  function beginVoiceTurn() {
+    if (candidateSpeakingRef.current) {
+      console.log("[voice] start skipped: candidate turn already active");
+      return;
+    }
+    void startCandidateTurn();
   }
 
   // ── Anti-cheat ───────────────────────────────────────────────────────
@@ -241,25 +299,6 @@ export function InterviewRoom({
         finalTranscriptRef.current = "";
         setCodeAnswer("");
 
-        if (msg.type === 'agent_message' && msg.question_id && isMockMode) {
-          const qType = isCodingLikeQuestionType(msg.question_type) ? 'code' : 'voice';
-          if (qType === 'voice') {
-            // In mock mode, always start candidate turn immediately on question arrival
-            // Don't wait for audio playback — audio may fail or be delayed
-            setTimeout(() => {
-              startAnswer();
-              startCandidateTurn();
-            }, 1500);
-          } else {
-            setTimeout(() => {
-              if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
-                lastMockStartedQuestionRef.current = msg.question_id;
-                scheduleStartAnswer(1000);
-              }
-            }, 1500);
-          }
-        }
-
         const prevQuestionId = currentQuestionIdRef.current;
         const isNewQuestion = !!msg.question_id && prevQuestionId !== msg.question_id;
 
@@ -271,6 +310,34 @@ export function InterviewRoom({
           setQuestionType(isCodingLikeQuestionType(msg.question_type) ? "code" : "voice");
         }
         setIsFollowup(!!msg.is_followup);
+
+        if (msg.type === "agent_message" && msg.question_id && isMockMode) {
+          const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
+          if (qType === "voice") {
+            // In mock mode, start candidate turn promptly even if audio is delayed.
+            setTimeout(() => {
+              if (!currentQuestionIdRef.current) {
+                console.warn('[mock] startCandidateTurn called but no currentQuestionId yet — delaying');
+                setTimeout(() => {
+                  if (currentQuestionIdRef.current) {
+                    startAnswer();
+                    beginVoiceTurn();
+                  }
+                }, 1000);
+                return;
+              }
+              startAnswer();
+              beginVoiceTurn();
+            }, 1500);
+          } else {
+            setTimeout(() => {
+              if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
+                lastMockStartedQuestionRef.current = msg.question_id;
+                scheduleStartAnswer(1000);
+              }
+            }, 1500);
+          }
+        }
 
         if (isNewQuestion) {
           if (delayedStartTimeoutRef.current) {
@@ -302,13 +369,59 @@ export function InterviewRoom({
         if (msg.done) {
           setInterviewDone(true);
           setAgentStatus("idle");
-          // Finalize: backfill answers + trigger scoring, then redirect to evaluation
-          fetch(`${API_BASE}/interview/finalize/${interviewId}`, { method: "POST" })
-            .then((r) => r.json())
-            .catch(() => ({}));
-          setTimeout(() => {
-            window.location.href = `/interview/${interviewId}/evaluation`;
-          }, 3000);
+          // Finalize first, then branch to mock report or company evaluation.
+          void (async () => {
+            try {
+              await fetch(`${API_BASE}/interview/finalize/${interviewId}`, { method: "POST" });
+            } catch {
+              // Continue redirect flow even if finalize call fails.
+            }
+
+            if (isMockMode && resolvedMockSessionId) {
+              const finalCoaching = coaching;
+              const agg = sessionCoachingAggregateRef.current;
+
+              const filler_breakdown = { ...agg.fillerTotals };
+              const total_filler_words = Object.values(filler_breakdown).reduce((a, b) => a + (Number(b) || 0), 0);
+              const avg_wpm = agg.answerCount > 0
+                ? Number((agg.wpmSum / agg.answerCount).toFixed(2))
+                : Number(finalCoaching.wpm || 0);
+              const total_silence_gaps = Number(agg.silenceGapTotal || 0);
+              const full_transcript = agg.transcripts.join("\n").trim();
+
+              console.log('[mock-complete] coaching data being sent:', JSON.stringify({
+                avg_wpm,
+                filler_breakdown,
+                total_filler_words,
+                full_transcript_length: full_transcript.length,
+              }));
+
+              try {
+                await fetch(`${API_BASE}/api/mock/session/${resolvedMockSessionId}/complete`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    avg_wpm,
+                    filler_breakdown,
+                    total_filler_words,
+                    total_silence_gaps,
+                    full_transcript,
+                  }),
+                });
+              } catch {
+                // Let user continue to report page; it can show pending/error state.
+              }
+
+              setTimeout(() => {
+                router.push(`/mock/report/${resolvedMockSessionId}`);
+              }, 1200);
+              return;
+            }
+
+            setTimeout(() => {
+              router.push(`/interview/${interviewId}/evaluation`);
+            }, 1200);
+          })();
           return;
         }
 
@@ -322,7 +435,7 @@ export function InterviewRoom({
                 setAgentStatus("listening");
                 if (currentQuestionIdRef.current) {
                   const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
-                  if (qType === "voice") startCandidateTurn();
+                  if (qType === "voice") beginVoiceTurn();
                   else {
                     setCandidateSpeaking(true); // show code editor
                     if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
@@ -337,7 +450,7 @@ export function InterviewRoom({
               setAgentStatus("listening");
               if (currentQuestionIdRef.current) {
                 const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
-                if (qType === "voice") startCandidateTurn();
+                if (qType === "voice") beginVoiceTurn();
                 else {
                   setCandidateSpeaking(true);
                   if (msg.question_id && lastMockStartedQuestionRef.current !== msg.question_id) {
@@ -350,7 +463,7 @@ export function InterviewRoom({
         } else if (msg.question_id) {
           setAgentStatus("listening");
           const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
-          if (qType === "voice") startCandidateTurn();
+          if (qType === "voice") beginVoiceTurn();
           else {
             setCandidateSpeaking(true); // show code editor
             if (lastMockStartedQuestionRef.current !== msg.question_id) {
@@ -419,11 +532,14 @@ export function InterviewRoom({
       }
       ws.close();
     };
-  }, [interviewId]);
+  }, [interviewId, isMockMode, resolvedMockSessionId, router]);
 
   // ── Start candidate recording turn ────────────────────────────────
   async function startCandidateTurn() {
-    if (!currentQuestionIdRef.current) return;
+    if (!currentQuestionIdRef.current) {
+      console.warn("[voice] startCandidateTurn skipped: missing currentQuestionId");
+      return;
+    }
 
     setLiveTranscript("");
     finalTranscriptRef.current = "";
@@ -438,7 +554,12 @@ export function InterviewRoom({
     let audioStream: MediaStream;
     try {
       audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch {
+      console.log("[voice] microphone stream acquired");
+    } catch (e: any) {
+      console.error("[voice] microphone access failed:", e?.name || e, e?.message || "");
+      setAsrWarning("Microphone access failed. Please allow mic permission and retry.");
+      setCandidateSpeaking(false);
+      candidateSpeakingRef.current = false;
       return;
     }
 
@@ -487,18 +608,27 @@ export function InterviewRoom({
         };
 
         recognition.onerror = (event: any) => {
-          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-            setAsrWarning("Mic permission denied — using Whisper fallback.");
-            recognitionRef.current = null;
-          } else if (event.error === "network") {
-            setAsrWarning("Speech recognition needs internet — using Whisper fallback.");
-            recognitionRef.current = null;
+          // 'aborted' is expected when recognition is intentionally stopped
+          // during submit/interrupt transitions; don't surface it as a UI error.
+          if (event?.error === "aborted") {
+            console.log('[speech] recognition aborted (expected during turn transitions)');
+            return;
           }
+
+          console.error('[speech] recognition error:', event?.error, event?.message);
+          setAsrWarning(`Speech error: ${event?.error || 'unknown'} — using Whisper fallback.`);
+          recognitionRef.current = null;
         };
 
         recognition.onend = () => {
+          console.log('[speech] recognition ended, candidateSpeaking:', candidateSpeakingRef.current);
           if (recognitionRef.current === recognition && candidateSpeakingRef.current && !interruptedRef.current) {
-            try { recognition.start(); } catch { /* already started */ }
+            try {
+              recognition.start();
+              console.log('[speech] recognition restarted');
+            } catch (e) {
+              console.error('[speech] restart failed:', e);
+            }
           }
         };
 
@@ -627,6 +757,8 @@ export function InterviewRoom({
       JSON.stringify({ type: "candidate_text", question_id: qid, text: transcript })
     );
 
+    captureCoachingForCompletedAnswer();
+
     setAnswerConfidence(null);
     setLiveTranscript("");
     resetAnswer();
@@ -741,6 +873,8 @@ export function InterviewRoom({
         output: runOutput,
       })
     );
+
+    captureCoachingForCompletedAnswer();
 
     setCandidateSpeaking(false);
     setAgentStatus("idle");

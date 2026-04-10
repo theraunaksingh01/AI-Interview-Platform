@@ -76,9 +76,16 @@ async def _queue_followup_task(
 ) -> None:
     # Follow-up generation is cancelled for submitted answers to avoid races
     # with next-question delivery.
+    state = get_interview_state(interview_id)
+    logger.info(
+        "[followup] checking eligibility for %s, submitted=%s",
+        interview_id,
+        state.get("answer_submitted"),
+    )
+
     if not FOLLOWUP_ENABLED or not question_id or not transcript_text.strip():
         return
-    if get_interview_state(interview_id).get("answer_submitted", False):
+    if state.get("answer_submitted", False):
         return
 
 
@@ -86,6 +93,7 @@ async def _send_next_or_complete(db: Session, interview_id: UUID, websocket: Web
     next_q = get_next_question(db, interview_id)
     if next_q:
         await send_agent_question(db, interview_id, next_q, websocket)
+        set_answer_submitted(interview_id, False)
         return
 
     await send_json_safe(
