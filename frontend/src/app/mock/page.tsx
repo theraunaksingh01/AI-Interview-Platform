@@ -173,6 +173,14 @@ export default function MockLandingPage() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (body?.detail === "signup_required") {
+          router.push("/signup?reason=mock_limit");
+          return;
+        }
+        if (body?.detail === "limit_reached") {
+          setError("limit_reached");
+          return;
+        }
         throw new Error(body?.detail || "Unable to start mock session");
       }
 
@@ -356,7 +364,7 @@ export default function MockLandingPage() {
                 <p className="mt-3 text-center text-sm text-[#6B7280]">
                   ~45 minutes · 6 questions · Results in 2 minutes
                 </p>
-                {error ? <p className="mt-2 text-center text-sm text-red-600">{error}</p> : null}
+                {error && error !== "limit_reached" ? <p className="mt-2 text-center text-sm text-red-600">{error}</p> : null}
               </div>
             )}
           </div>
@@ -449,6 +457,32 @@ export default function MockLandingPage() {
           }
         }
       `}</style>
+
+      {error === "limit_reached" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[90%] max-w-[440px] rounded-2xl bg-white p-10 text-center">
+            <div className="mb-4 text-[40px]">🎯</div>
+            <h2 className="mb-2 text-[22px] font-bold text-[#111]">You've used your free interview</h2>
+            <p className="mb-6 text-sm text-[#6B7280]">
+              Free plan includes 1 mock interview per month. Upgrade to Pro for unlimited interviews, full reports, and live coaching.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => router.push("/pricing")}
+                className="rounded-lg bg-[#6366F1] px-6 py-3 text-[15px] font-semibold text-white"
+              >
+                View Plans
+              </button>
+              <button
+                onClick={() => setError(null)}
+                className="rounded-lg border border-[#E5E7EB] bg-white px-6 py-3 text-[15px] text-[#6B7280]"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_current_user_optional
 from core.config import settings
-from db.models import CommunicationReport, MockSession
+from db.models import CommunicationReport, MockSession, User
 from db.session import SessionLocal
 from db.session import get_db
 from services.llm_provider import gemini_chat
@@ -157,6 +157,35 @@ def _score_delta(current: Any, previous: Any) -> Optional[float]:
     return round(curr - prev, 2)
 
 
+def check_mock_limit(user_id: Optional[int], db: Session) -> dict[str, Any]:
+    if not user_id:
+        # Guest users are not allowed in Phase 2e.
+        raise HTTPException(status_code=403, detail="signup_required")
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if str(getattr(user, "plan", "free") or "free").lower() == "pro":
+        return {"allowed": True, "plan": "pro"}
+
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    used_count = (
+        db.query(MockSession)
+        .filter(
+            MockSession.user_id == int(user_id),
+            MockSession.started_at >= month_start,
+            MockSession.status != "abandoned",
+        )
+        .count()
+    )
+
+    if used_count >= 1:
+        raise HTTPException(status_code=403, detail="limit_reached")
+
+    return {"allowed": True, "plan": "free"}
+
+
 def _fallback_comm_feedback() -> tuple[float, list[str], list[str]]:
     return (
         6.0,
@@ -287,6 +316,7 @@ def start_mock_session(
     current_user = Depends(get_current_user_optional),
 ):
     user_id = getattr(current_user, "id", None)
+    check_mock_limit(user_id, db)
     guest_token = None if user_id else (payload.guest_token or str(uuid4()))
 
     mock_row = db.execute(
@@ -515,7 +545,11 @@ async def complete_mock_session(
 
 
 @router.get("/report/{session_id}")
-def get_mock_report(session_id: str, db: Session = Depends(get_db)):
+def get_mock_report(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user_optional),
+):
     try:
         session_uuid = UUID(session_id)
     except Exception:
@@ -524,6 +558,20 @@ def get_mock_report(session_id: str, db: Session = Depends(get_db)):
     session = db.query(MockSession).filter(MockSession.id == session_uuid).first()
     if not session:
         raise HTTPException(status_code=404, detail="Mock session not found")
+
+    if current_user and str(session.user_id) == str(current_user.id):
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if user and str(getattr(user, "plan", "free") or "free").lower() == "free":
+            return {
+                "session": {
+                    "id": str(session.id),
+                    "role_target": session.role_target,
+                },
+                "report": None,
+                "report_pending": False,
+                "locked": True,
+                "lock_reason": "upgrade_required",
+            }
 
     report = (
         db.query(CommunicationReport)
@@ -554,6 +602,7 @@ def get_mock_report(session_id: str, db: Session = Depends(get_db)):
         if report
         else None,
         "report_pending": report is None,
+        "locked": False,
     }
 
 

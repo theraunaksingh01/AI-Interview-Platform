@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ReportResponse = {
@@ -25,6 +25,8 @@ type ReportResponse = {
     heatmap_data: Array<{ minute: number; intensity: number }>;
   } | null;
   report_pending: boolean;
+  locked?: boolean;
+  lock_reason?: string;
 };
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
@@ -54,13 +56,24 @@ function formatDate(value: string | null | undefined): string {
 export default function MockReportPage() {
   const { id } = useParams() as { id: string };
   const sessionId = id;
+  const router = useRouter();
 
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchReport = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/api/mock/report/${sessionId}`, { cache: "no-store" });
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+        : null;
+
+    const res = await fetch(`${API_BASE}/api/mock/report/${sessionId}`, {
+      cache: "no-store",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || "Unable to load report");
@@ -112,6 +125,53 @@ export default function MockReportPage() {
 
   const session = data?.session;
   const report = data?.report;
+
+  if (data?.locked) {
+    return (
+      <main className="min-h-screen bg-white px-6 py-16">
+        <div className="mx-auto max-w-[600px] text-center">
+          <div className="mb-4 text-[48px]">📊</div>
+          <h1 className="mb-3 text-[26px] font-bold text-[#111]">Your report is ready</h1>
+          <p className="mb-2 text-[15px] text-[#6B7280]">
+            You completed a <strong>{data.session?.role_target}</strong> interview.
+          </p>
+          <p className="mb-8 text-[15px] text-[#6B7280]">
+            Upgrade to Pro to unlock your full report — WPM analysis, filler word breakdown, STAR scores, and personalized improvement tips.
+          </p>
+
+          <div className="mb-8 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-6 text-left">
+            <div className="mb-4 text-center text-[13px] text-[#9CA3AF]">What's included in your report:</div>
+            {[
+              "WPM and speaking pace analysis",
+              "Filler word frequency breakdown",
+              "Silence gap timeline",
+              "STAR method behavioral score",
+              "Personalized improvement tips",
+              "Strengths and areas to work on",
+            ].map((item) => (
+              <div key={item} className="mb-2 flex items-center gap-2 text-sm text-[#374151]">
+                <span className="text-base text-[#6366F1]">✓</span>
+                {item}
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => router.push("/pricing")}
+            className="mb-3 w-full rounded-[10px] bg-[#6366F1] px-8 py-3.5 text-base font-semibold text-white"
+          >
+            Upgrade to Pro →
+          </button>
+          <button
+            onClick={() => router.push("/mock")}
+            className="w-full rounded-[10px] border border-[#E5E7EB] bg-white px-8 py-3.5 text-[15px] text-[#6B7280]"
+          >
+            Start another interview
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (loading || data?.report_pending) {
     return (
