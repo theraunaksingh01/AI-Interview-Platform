@@ -2,6 +2,7 @@ import os
 import tempfile
 import logging
 import numpy as np
+from typing import Any, Dict, List
 
 from faster_whisper import WhisperModel
 
@@ -21,19 +22,27 @@ def transcribe_audio_bytes(audio_bytes: bytes) -> str:
     Fails safely if container is invalid.
     """
 
-    # 🛑 Guard: empty or too small
+    result = transcribe_audio_bytes_with_segments(audio_bytes)
+    return result.get("transcript", "")
+
+
+def transcribe_audio_bytes_with_segments(audio_bytes: bytes) -> Dict[str, Any]:
+    """
+    Final ASR transcription with segment timestamps.
+    Returns: {"transcript": str, "segments": [{"start": float, "end": float, "text": str}, ...]}
+    """
+    logger.info("transcribe_audio_bytes_with_segments called")
     if not audio_bytes or len(audio_bytes) < 4000:
         logger.warning("Final ASR skipped: empty / insufficient audio")
-        return ""
+        return {"transcript": "", "segments": []}
 
     fd, path = tempfile.mkstemp(suffix=".webm")
-
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(audio_bytes)
 
         try:
-            segments, _ = model.transcribe(
+            segments_iter, _ = model.transcribe(
                 path,
                 language="en",
                 beam_size=5,
@@ -42,16 +51,36 @@ def transcribe_audio_bytes(audio_bytes: bytes) -> str:
                 temperature=0.0,
             )
         except Exception:
-            # 🚨 INVALID WEBM (fragmented MediaRecorder output)
             logger.error(
                 "Final ASR failed: invalid WebM container (expected for fragmented chunks)",
                 exc_info=True,
             )
-            return ""
+            return {"transcript": "", "segments": []}
 
-        text = " ".join(seg.text.strip() for seg in segments).strip()
-        return text
+        segments_list: List[Dict[str, Any]] = []
+        transcript_parts: List[str] = []
+        for seg in list(segments_iter):
+            seg_text = str(getattr(seg, "text", "") or "").strip()
+            if seg_text:
+                transcript_parts.append(seg_text)
+            segments_list.append(
+                {
+                    "start": float(getattr(seg, "start", 0.0) or 0.0),
+                    "end": float(getattr(seg, "end", 0.0) or 0.0),
+                    "text": seg_text,
+                }
+            )
 
+        logger.info(
+            "ASR segments: %s segs, first_start=%s",
+            len(segments_list),
+            (segments_list[0].get("start") if segments_list else None),
+        )
+
+        return {
+            "transcript": " ".join(transcript_parts).strip(),
+            "segments": segments_list,
+        }
     finally:
         try:
             os.remove(path)

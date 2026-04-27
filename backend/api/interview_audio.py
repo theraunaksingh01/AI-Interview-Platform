@@ -7,6 +7,7 @@ from sqlalchemy import text as sql_text
 from typing import List
 import asyncio
 import logging
+import json
 
 from db.session import get_db
 from models.interview_answers import InterviewAnswer
@@ -30,7 +31,11 @@ from services.streaming_asr import append_audio, pop_full_audio
 from services.pcm_buffer import append_pcm, get_pcm_buffer, pop_full_pcm
 
 # 🔹 ASR
-from services.asr_service import transcribe_audio_bytes, transcribe_pcm_bytes, transcribe_pcm_with_vad_result
+from services.asr_service import (
+    transcribe_audio_bytes_with_segments,
+    transcribe_pcm_bytes,
+    transcribe_pcm_with_vad_result,
+)
 from services.tts_service import synthesize_speech
 from utils.audio_storage import save_agent_audio_file
 from services.interview_runtime_state import get_interview_state
@@ -130,6 +135,7 @@ async def transcribe_audio(
     partial: bool = Form(False),
     db: Session = Depends(get_db),
 ):
+    logger.info("transcribe_audio entry: interview=%s question=%s partial=%s", interview_id, question_id, partial)
     audio_bytes = await file.read()
 
     # 🔁 Always buffer
@@ -179,8 +185,11 @@ async def transcribe_audio(
     full_audio = pop_full_audio(str(interview_id), question_id)
 
     transcript = ""
+    whisper_segments = []
     if full_audio:
-        transcript = transcribe_audio_bytes(full_audio)
+        asr_result = transcribe_audio_bytes_with_segments(full_audio)
+        transcript = str(asr_result.get("transcript") or "")
+        whisper_segments = asr_result.get("segments") or []
 
     # 🔒 Persist transcript
     answer = (
@@ -189,15 +198,71 @@ async def transcribe_audio(
         .first()
     )
 
+    current_answer_id = None
     if answer:
         answer.transcript = transcript
+        current_answer_id = int(answer.id)
     else:
-        db.add(
-            InterviewAnswer(
-                interview_question_id=question_id,
-                transcript=transcript,
-            )
+        new_answer = InterviewAnswer(
+            interview_question_id=question_id,
+            transcript=transcript,
         )
+        db.add(new_answer)
+        db.flush()
+        current_answer_id = int(new_answer.id)
+
+    # Capture D4/D6 inputs from Whisper segments and transcript.
+    try:
+        time_to_first_word = None
+        if whisper_segments:
+            time_to_first_word = float(whisper_segments[0].get("start") or 0.0)
+
+        silence_gaps = []
+        for i in range(len(whisper_segments) - 1):
+            curr_end = float(whisper_segments[i].get("end") or 0.0)
+            next_start = float(whisper_segments[i + 1].get("start") or 0.0)
+            gap = next_start - curr_end
+            if gap > 1.0:
+                silence_gaps.append(
+                    {
+                        "start": curr_end,
+                        "end": next_start,
+                        "duration": gap,
+                    }
+                )
+
+        answer_word_count = len((transcript or "").split())
+
+        if current_answer_id is not None:
+            logger.info(
+                "D4/D5/D6 save: answer_id=%s ttfw=%s wc=%s",
+                current_answer_id,
+                time_to_first_word,
+                answer_word_count,
+            )
+            db.execute(
+                sql_text(
+                    """
+                    UPDATE interview_answers
+                    SET
+                        time_to_first_word = :ttfw,
+                        silence_gaps = CAST(:gaps AS jsonb),
+                        answer_word_count = :wc
+                    WHERE id = :aid
+                    """
+                ),
+                {
+                    "ttfw": time_to_first_word,
+                    "gaps": json.dumps(silence_gaps),
+                    "wc": int(answer_word_count),
+                    "aid": int(current_answer_id),
+                },
+            )
+            logger.info("Saved D4/D5/D6 for answer %s", current_answer_id)
+        else:
+            logger.warning("D4/D5/D6 skipped: answer_id unresolved for question=%s", question_id)
+    except Exception:
+        logger.exception("[ASR_CAPTURE] failed to persist timing/silence metadata for qid=%s", question_id)
 
     db.commit()
 
@@ -379,18 +444,77 @@ async def stream_pcm_audio(
 async def finalize_pcm(
     interview_id: UUID,
     question_id: int,
+    db: Session = Depends(get_db),
 ):
     pcm = pop_full_pcm(str(interview_id), question_id)
-
     transcript = ""
+    whisper_segments = []
     if pcm:
-        transcript = transcribe_pcm_bytes(pcm)
+        asr_result = transcribe_audio_bytes_with_segments(pcm)
+        transcript = str(asr_result.get("transcript") or "")
+        whisper_segments = asr_result.get("segments") or []
 
     print(f"[FINAL PCM][Q{question_id}] {transcript}")
-
     key = f"{interview_id}_{question_id}"
     LIVE_TRANSCRIPTS.pop(key, None)
     clear_live_state(str(interview_id), question_id)
+
+    # Save transcript + D4/D5/D6 to interview_answers
+    try:
+        answer = (
+            db.query(InterviewAnswer)
+            .filter(InterviewAnswer.interview_question_id == question_id)
+            .first()
+        )
+        if answer:
+            answer.transcript = transcript
+            current_answer_id = int(answer.id)
+        else:
+            new_answer = InterviewAnswer(
+                interview_question_id=question_id,
+                transcript=transcript,
+            )
+            db.add(new_answer)
+            db.flush()
+            current_answer_id = int(new_answer.id)
+
+        # D4/D5/D6 capture
+        time_to_first_word = None
+        if whisper_segments:
+            time_to_first_word = float(whisper_segments[0].get("start") or 0.0)
+        silence_gaps = []
+        for i in range(len(whisper_segments) - 1):
+            curr_end = float(whisper_segments[i].get("end") or 0.0)
+            next_start = float(whisper_segments[i + 1].get("start") or 0.0)
+            gap = next_start - curr_end
+            if gap > 1.0:
+                silence_gaps.append({"start": curr_end, "end": next_start, "duration": gap})
+        answer_word_count = len(transcript.split())
+
+        db.execute(
+            sql_text("""
+                UPDATE interview_answers
+                SET time_to_first_word = :ttfw,
+                    silence_gaps = CAST(:gaps AS jsonb),
+                    answer_word_count = :wc
+                WHERE id = :aid
+            """),
+            {
+                "ttfw": time_to_first_word,
+                "gaps": json.dumps(silence_gaps),
+                "wc": answer_word_count,
+                "aid": current_answer_id,
+            },
+        )
+        db.commit()
+        logger.info("finalize_pcm saved D4/D5/D6 for answer %s ttfw=%s wc=%s",
+                    current_answer_id, time_to_first_word, answer_word_count)
+    except Exception:
+        logger.exception("[finalize_pcm] failed to save transcript/D4/D5/D6 for q=%s", question_id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     return {
         "question_id": question_id,

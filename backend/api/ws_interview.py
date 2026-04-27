@@ -111,13 +111,26 @@ async def _send_next_or_complete(db: Session, interview_id: UUID, websocket: Web
 
 
 def get_next_question(db: Session, interview_id: UUID):
-    rows = db.execute(
+    question_order_exists = db.execute(
         text("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'interview_questions'
+                  AND column_name = 'question_order'
+            )
+        """)
+    ).scalar()
+
+    order_clause = "question_order ASC NULLS LAST, id ASC" if question_order_exists else "id ASC"
+
+    rows = db.execute(
+        text(f"""
             SELECT id, question_text, type, description, sample_cases,
                    time_limit_seconds, source, parent_question_id
             FROM interview_questions
             WHERE interview_id = :iid
-            ORDER BY id ASC
+            ORDER BY {order_clause}
         """),
         {"iid": interview_id},
     ).fetchall()
@@ -234,15 +247,27 @@ async def interview_ws(
                     db.execute(
                         text("""
                             INSERT INTO interview_answers
-                              (interview_id, question_id, code_answer, code_output, test_results)
-                            VALUES (:iid, :qid, :code, :output, CAST(:tr AS jsonb))
-                            ON CONFLICT (interview_id, question_id) DO UPDATE
-                              SET code_answer = EXCLUDED.code_answer,
-                                  code_output = EXCLUDED.code_output,
-                                  test_results = EXCLUDED.test_results
+                              (interview_question_id, code_answer, code_output, test_results)
+                            VALUES (:qid, :code, :output, CAST(:tr AS jsonb))
+                            ON CONFLICT DO NOTHING
                         """),
                         {
-                            "iid": interview_id,
+                            "qid": msg.get("question_id"),
+                            "code": code_text,
+                            "output": msg.get("output", ""),
+                            "tr": _json.dumps(test_results),
+                        },
+                    )
+
+                    db.execute(
+                        text("""
+                            UPDATE interview_answers
+                            SET code_answer = :code,
+                                code_output = :output,
+                                test_results = CAST(:tr AS jsonb)
+                            WHERE interview_question_id = :qid
+                        """),
+                        {
                             "qid": msg.get("question_id"),
                             "code": code_text,
                             "output": msg.get("output", ""),

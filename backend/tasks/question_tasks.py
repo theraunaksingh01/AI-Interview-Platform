@@ -13,6 +13,7 @@ from sqlalchemy import text
 from db.session import SessionLocal
 from celery_app import app
 import httpx
+from core.config import settings
 
 from services.llm_provider import gemini_chat
 
@@ -31,7 +32,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "tinyllama:latest")
+OLLAMA_MODEL = getattr(settings, "OLLAMA_MODEL", "") or os.getenv("OLLAMA_MODEL", "phi3:mini")
 NUM_QUESTIONS = int(os.getenv("AI_Q_COUNT", "3"))
 
 SYS_PROMPT = (
@@ -47,6 +48,8 @@ Each question object MUST have these keys:
 - type: one of \"voice\" or \"code\"
 - question_text: full question body
 - time_limit_seconds: integer (seconds)
+- topic: one of algorithms, system_design, behavioral, data_structures, databases, networking, os_concepts, ml_basics
+- difficulty: integer from 1 to 5
 - tags: array of short tag strings (optional)
 
 For \"code\" type questions, ALSO include:
@@ -63,6 +66,8 @@ Example:
       "type": "voice",
       "question_text": "Walk me through a recent project where you used FastAPI. What was your role and impact?",
       "time_limit_seconds": 120,
+            "topic": "behavioral",
+            "difficulty": 2,
       "tags": ["fastapi","system-design"]
     }},
     {{
@@ -75,6 +80,8 @@ Example:
         {{"input": "[3,2,4]\\n6", "expected": "[1,2]"}}
       ],
       "time_limit_seconds": 600,
+            "topic": "algorithms",
+            "difficulty": 3,
       "tags": ["python","algorithms"]
     }}
   ]
@@ -98,6 +105,71 @@ def _kw(text_in: str) -> List[str]:
     toks = re.findall(r"[a-zA-Z][a-zA-Z0-9+\-#\.]{1,}", text)
     # unique order-preserving
     return list(dict.fromkeys(toks))[:300]
+
+
+VALID_TOPICS = {
+    "algorithms",
+    "system_design",
+    "behavioral",
+    "data_structures",
+    "databases",
+    "networking",
+    "os_concepts",
+    "ml_basics",
+}
+
+
+def _normalize_topic(raw_topic: Any, q_type: str, q_text: str, tags: List[str]) -> str:
+    t = str(raw_topic or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if t in VALID_TOPICS:
+        return t
+
+    if q_type == "code":
+        if any("db" in x or "sql" in x or "database" in x for x in tags):
+            return "databases"
+        if any("array" in x or "stack" in x or "queue" in x or "tree" in x for x in tags):
+            return "data_structures"
+        return "algorithms"
+
+    low = (q_text or "").lower()
+    if any(k in low for k in ["system", "architecture", "scale", "distributed"]):
+        return "system_design"
+    if any(k in low for k in ["database", "sql", "index", "query"]):
+        return "databases"
+    if any(k in low for k in ["network", "latency", "tcp", "http"]):
+        return "networking"
+    if any(k in low for k in ["kernel", "os", "thread", "process"]):
+        return "os_concepts"
+    if any(k in low for k in ["model", "ml", "machine learning"]):
+        return "ml_basics"
+    return "behavioral"
+
+
+def _code_last(questions: List[dict]) -> List[dict]:
+    voice = [q for q in questions if str(q.get("type", "")).lower() != "code"]
+    code = [q for q in questions if str(q.get("type", "")).lower() == "code"]
+    return voice + code
+
+
+def _normalize_difficulty(raw_difficulty: Any) -> int:
+    if isinstance(raw_difficulty, str):
+        txt = raw_difficulty.strip().lower()
+        mapping = {
+            "easy": 2,
+            "medium": 3,
+            "hard": 4,
+        }
+        if txt in mapping:
+            return mapping[txt]
+        try:
+            raw_difficulty = int(txt)
+        except Exception:
+            return 3
+    try:
+        val = int(raw_difficulty)
+    except Exception:
+        return 3
+    return max(1, min(5, val))
 
 
 def _stub_make_questions(jd: str, resume: str, n: int) -> Dict[str, Any]:
@@ -198,19 +270,19 @@ def _stub_make_questions(jd: str, resume: str, n: int) -> Dict[str, Any]:
         v = VOICE_POOL[0]
         c = CODE_POOL[0]
         chosen.extend([
-            {"type": "voice", "question_text": v[0], "time_limit_seconds": v[1], "slug": v[2]},
+              {"type": "voice", "question_text": v[0], "time_limit_seconds": v[1], "slug": v[2], "topic": "behavioral", "difficulty": 2},
             {"type": "code", "question_text": c["text"], "time_limit_seconds": c["time"],
-             "slug": c["slug"], "description": c["description"], "sample_cases": c["sample_cases"]},
+               "slug": c["slug"], "description": c["description"], "sample_cases": c["sample_cases"], "topic": "algorithms", "difficulty": 3},
         ])
         rest_voice = VOICE_POOL[1:]
         rest_code = CODE_POOL[1:]
         # merge rest pools, tagging source type
         rest_pool: List[Dict[str, Any]] = []
         for rv in rest_voice:
-            rest_pool.append({"type": "voice", "question_text": rv[0], "time_limit_seconds": rv[1], "slug": rv[2]})
+            rest_pool.append({"type": "voice", "question_text": rv[0], "time_limit_seconds": rv[1], "slug": rv[2], "topic": "behavioral", "difficulty": 2})
         for rc in rest_code:
             rest_pool.append({"type": "code", "question_text": rc["text"], "time_limit_seconds": rc["time"],
-                              "slug": rc["slug"], "description": rc["description"], "sample_cases": rc["sample_cases"]})
+                              "slug": rc["slug"], "description": rc["description"], "sample_cases": rc["sample_cases"], "topic": "algorithms", "difficulty": 3})
         random.shuffle(rest_pool)
         for t in rest_pool:
             if len(chosen) >= n:
@@ -218,7 +290,7 @@ def _stub_make_questions(jd: str, resume: str, n: int) -> Dict[str, Any]:
             chosen.append(t)
     else:
         v = VOICE_POOL[0]
-        chosen.append({"type": "voice", "question_text": v[0], "time_limit_seconds": v[1], "slug": v[2]})
+        chosen.append({"type": "voice", "question_text": v[0], "time_limit_seconds": v[1], "slug": v[2], "topic": "behavioral", "difficulty": 2})
 
     return {"questions": chosen[:n]}
 
@@ -262,6 +334,8 @@ def _parse_plain_text_questions(text_blob: str, n: int) -> Dict[str, Any]:
             "title": title,
             "question_text": p,
             "time_limit_seconds": 600 if qtype == "code" else 120,
+            "topic": "algorithms" if qtype == "code" else "behavioral",
+            "difficulty": 3,
             "tags": []
         })
     return {"questions": questions}
@@ -526,11 +600,25 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
                 "time_limit_seconds": q_tl,
                 "description": (item.get("description") or "").strip(),
                 "sample_cases": item.get("sample_cases") if isinstance(item.get("sample_cases"), list) else [],
+                "topic": _normalize_topic(item.get("topic"), q_type, q_text, [str(t).lower() for t in (item.get("tags") or []) if isinstance(t, (str, int, float))]),
+                "difficulty": _normalize_difficulty(item.get("difficulty")),
                 "source": (item.get("slug") or item.get("source") or ""),
                 "raw": item
             })
 
-        qlist = cleaned_questions
+        # Keep code questions last so interviews begin with voice flow.
+        qlist = _code_last(cleaned_questions)
+        for idx, q in enumerate(qlist, start=1):
+            q["question_order"] = idx
+
+        question_order_exists = db.execute(text("""
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'interview_questions'
+                AND column_name = 'question_order'
+            )
+        """)).scalar()
 
         # Defensive sanitize & insert
         inserted = 0
@@ -553,13 +641,24 @@ def generate_questions_ai(interview_id: str, n: Optional[int] = None) -> Dict[st
                     desc = (q.get("description") or "").strip()
                     sc = json.dumps(q.get("sample_cases") or [])
                     src = (q.get("source") or "").strip()
+                    topic = str(q.get("topic") or "behavioral").strip().lower()
+                    difficulty = _normalize_difficulty(q.get("difficulty"))
                     with db.begin_nested():
-                        db.execute(text("""
-                            INSERT INTO interview_questions
-                              (interview_id, question_text, type, time_limit_seconds, description, sample_cases, source)
-                            VALUES (:iid, :qt, :tp, :tl, :desc, CAST(:sc AS jsonb), :src)
-                        """), {"iid": str(interview_id), "qt": qt, "tp": qtype, "tl": tl,
-                               "desc": desc, "sc": sc, "src": src})
+                        if question_order_exists:
+                            db.execute(text("""
+                                INSERT INTO interview_questions
+                                  (interview_id, question_text, type, time_limit_seconds, description, sample_cases, source, topic, difficulty, question_order)
+                                VALUES (:iid, :qt, :tp, :tl, :desc, CAST(:sc AS jsonb), :src, :topic, :difficulty, :qorder)
+                            """), {"iid": str(interview_id), "qt": qt, "tp": qtype, "tl": tl,
+                                   "desc": desc, "sc": sc, "src": src, "topic": topic, "difficulty": difficulty,
+                                   "qorder": int(q.get("question_order") or 0)})
+                        else:
+                            db.execute(text("""
+                                INSERT INTO interview_questions
+                                  (interview_id, question_text, type, time_limit_seconds, description, sample_cases, source, topic, difficulty)
+                                VALUES (:iid, :qt, :tp, :tl, :desc, CAST(:sc AS jsonb), :src, :topic, :difficulty)
+                            """), {"iid": str(interview_id), "qt": qt, "tp": qtype, "tl": tl,
+                                   "desc": desc, "sc": sc, "src": src, "topic": topic, "difficulty": difficulty})
                     inserted += 1
                 except Exception:
                     # log the problematic question and continue inserting remaining ones

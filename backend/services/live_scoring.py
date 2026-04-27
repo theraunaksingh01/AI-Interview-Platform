@@ -102,28 +102,42 @@ def run_live_question_scoring(
     qtype = _get_question_type(question_id)
 
     # Build the prompt
+    # Truncate to keep prompt short enough for phi3:mini
+    transcript_short = (transcript or "")[:800]
+    log.info("[LIVE_SCORING] question_id=%s qtype=%s transcript_len=%s", 
+             question_id, qtype, len(transcript or ""))
+    question_short = (question_text or "N/A")[:200]
+
     if qtype == "code":
         prompt = LIVE_CODE_PROMPT.format(
-            question_text=question_text or "N/A",
-            transcript=transcript or "",
+            question_text=question_short,
+            transcript=transcript_short,
         )
         rubric_keys = CODE_RUBRIC_KEYS
     else:
         prompt = LIVE_VOICE_PROMPT.format(
-            question_text=question_text or "N/A",
-            transcript=transcript or "",
+            question_text=question_short,
+            transcript=transcript_short,
         )
         rubric_keys = VOICE_RUBRIC_KEYS
 
     # Call LLM (reuse the scoring module's _llm_json which handles provider routing)
     try:
         fb, raw = asyncio.run(_score_llm_json(prompt))
-    except Exception:
-        log.exception("[LIVE_SCORING] LLM call failed — using heuristic fallback")
+    except Exception as e:
+        log.exception("[LIVE_SCORING] LLM call failed (%s) — using heuristic fallback", str(e))
         return _heuristic_fallback(transcript)
 
     # Normalize rubric
     fb = _normalize_to_rubric(fb)
+
+    overall_check = _rubric_overall(fb, rubric_keys)
+    if overall_check == 0 or overall_check is None:
+        log.warning(
+            "[LIVE_SCORING] LLM returned all-zero scores for q=%s - using heuristic",
+            question_id,
+        )
+        return _heuristic_fallback(transcript)
 
     # Compute scores
     overall = _rubric_overall(fb, rubric_keys)

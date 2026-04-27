@@ -8,7 +8,11 @@ import RadarChartComponent from "@/app/components/ui/RadarChartComponent";
 import PerQuestionBar from "@/app/components/ui/PerQuestionBar";
 import HiringBadge from "@/app/components/ui/HiringBadge";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://127.0.0.1:8000"
+).replace(/\/$/, "");
 
 type EvalData = {
   interview_id: string;
@@ -18,30 +22,39 @@ type EvalData = {
   role_level: string | null;
   overall_score: number | null;
   rubric_scores: Record<string, number>;
+  score_details?: {
+    technical?: number;
+    communication?: number;
+    completeness?: number;
+    per_question?: Array<{
+      question_id: number;
+      question_text: string;
+      score: number | null;
+      rubric?: Record<string, number>;
+    }>;
+  };
   hiring_recommendation: string;
-  strengths: string[];
-  weaknesses: string[];
+  strengths?: string[];
+  weaknesses?: string[];
   per_question: Array<{
     question_id: number;
     question_text: string;
     type: string;
-    technical_score: number;
-    communication_score: number;
-    completeness_score: number;
-    overall_score: number;
+    technical_score: number | null;
+    communication_score: number | null;
+    completeness_score: number | null;
+    overall_score: number | null;
     ai_feedback: Record<string, any> | null;
+    rubric?: Record<string, number>;
   }>;
   scored: boolean;
   report: Record<string, any>;
+  status?: string | null;
 };
 
 const RUBRIC_LABELS: Record<string, string> = {
-  technical_accuracy: "Technical Accuracy",
-  problem_solving: "Problem Solving",
-  communication_clarity: "Communication Clarity",
-  depth_of_knowledge: "Depth of Knowledge",
-  relevance: "Relevance",
-  code_quality: "Code Quality",
+  technical: "Technical",
+  communication: "Communication",
   completeness: "Completeness",
 };
 
@@ -57,6 +70,22 @@ export default function EvaluationPage() {
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  const derivedOverall = (payload: EvalData | null): number => {
+    if (!payload) return 0;
+    if (typeof payload.overall_score === "number" && payload.overall_score > 0) {
+      return Math.round(payload.overall_score);
+    }
+    const q = Array.isArray(payload.score_details?.per_question) && payload.score_details?.per_question?.length
+      ? payload.score_details.per_question
+      : (Array.isArray(payload.per_question) ? payload.per_question : []);
+    if (!q.length) return 0;
+    const vals = q
+      .map((it: any) => Number(it?.score ?? it?.overall_score ?? 0))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (!vals.length) return 0;
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  };
+
   const fetchEvaluation = useCallback(async () => {
     try {
       const headers: Record<string, string> = { Accept: "application/json" };
@@ -68,7 +97,15 @@ export default function EvaluationPage() {
       const json: EvalData = await res.json();
       setData(json);
       setError(null);
-      return json.scored;
+      const overall = Number(json?.overall_score ?? 0);
+      const completed = Boolean(
+        (json.status || "").toLowerCase() === "completed" ||
+        json.scored ||
+        overall > 0 ||
+        (Array.isArray(json.score_details?.per_question) && json.score_details!.per_question!.length > 0) ||
+        (Array.isArray(json.per_question) && json.per_question.length > 0)
+      );
+      return completed;
     } catch (e: any) {
       setError(e?.message || "Failed to load evaluation");
       return true; // stop polling on error
@@ -77,19 +114,23 @@ export default function EvaluationPage() {
     }
   }, [id]);
 
-  // Initial fetch + poll if scoring not done
+  // Initial fetch + bounded polling when still pending.
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
+    let tries = 0;
 
-    fetchEvaluation().then((scored) => {
-      if (!scored) {
+    fetchEvaluation().then((completed) => {
+      if (!completed) {
         timer = setInterval(async () => {
+          tries += 1;
           const done = await fetchEvaluation();
-          if (done && timer) {
-            clearInterval(timer);
-            timer = null;
+          if (done || tries >= 10) {
+            if (timer) {
+              clearInterval(timer);
+              timer = null;
+            }
           }
-        }, 4000);
+        }, 5000);
       }
     });
 
@@ -126,22 +167,41 @@ export default function EvaluationPage() {
   }
 
   // Build rubric bars data
-  const rubricBars = data?.rubric_scores
-    ? Object.entries(data.rubric_scores)
-        .filter(([, v]) => typeof v === "number" && v > 0)
-        .map(([k, v]) => ({ name: RUBRIC_LABELS[k] || k, value: v }))
-    : [];
+  const scoreDetails = data?.score_details || {};
+  const rubricSource: Record<string, number> = {
+    technical: Number(scoreDetails.technical ?? 0),
+    communication: Number(scoreDetails.communication ?? 0),
+    completeness: Number(scoreDetails.completeness ?? 0),
+  };
+  const rubricBars = Object.entries(rubricSource)
+    .filter(([, v]) => Number.isFinite(v) && v > 0)
+    .map(([k, v]) => ({ name: RUBRIC_LABELS[k] || k, value: Number(v) }));
 
   // Build radar data
   const radarData = rubricBars.map((r) => ({ subject: r.name, value: r.value }));
 
   // Per-question bar chart
-  const perQBar = (data?.per_question || []).map((q) => ({
+  const perQuestionFromDetails = Array.isArray(data?.score_details?.per_question)
+    ? data!.score_details!.per_question!
+    : [];
+  const perQBar = (perQuestionFromDetails.length ? perQuestionFromDetails : (data?.per_question || [])).map((q: any) => ({
     name: `Q${q.question_id}`,
-    technical: q.overall_score || 0,
+    technical: Number(q.score ?? q.overall_score ?? 0),
   }));
 
-  const overall = data?.overall_score ?? 0;
+  const overall = Number(data?.overall_score ?? 0);
+  const isCompleted = (data?.status || "") === "completed";
+  const statusLabel = data?.status === "completed" ? "Completed" : "Pending";
+  const statusClass = data?.status === "completed"
+    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+    : "bg-amber-50 text-amber-700 border-amber-200";
+
+  const strengths = Array.isArray(data?.report?.strengths)
+    ? data?.report?.strengths
+    : (Array.isArray(data?.strengths) ? data?.strengths : []);
+  const weaknesses = Array.isArray(data?.report?.weaknesses)
+    ? data?.report?.weaknesses
+    : (Array.isArray(data?.weaknesses) ? data?.weaknesses : []);
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -160,7 +220,10 @@ export default function EvaluationPage() {
           )}
         </div>
         <div className="flex items-center gap-4">
-          {data?.hiring_recommendation && data.scored && (
+          <span className={`px-2.5 py-1 rounded-full text-xs border font-medium ${statusClass}`}>
+            {statusLabel}
+          </span>
+          {data?.hiring_recommendation && isCompleted && data.hiring_recommendation !== "pending" && (
             <HiringBadge recommendation={data.hiring_recommendation} />
           )}
           <a
@@ -171,7 +234,7 @@ export default function EvaluationPage() {
           </a>
           <button
             onClick={downloadPdf}
-            disabled={pdfLoading || !data?.scored}
+            disabled={pdfLoading || !isCompleted}
             className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {pdfLoading ? "Generating..." : "Export PDF"}
@@ -189,7 +252,7 @@ export default function EvaluationPage() {
         </div>
       )}
 
-      {!loading && data && !data.scored && (
+      {!loading && data && !isCompleted && (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mb-4" />
           <p className="text-gray-600">Scoring your answers with AI...</p>
@@ -197,7 +260,7 @@ export default function EvaluationPage() {
         </div>
       )}
 
-      {!loading && data && data.scored && (
+      {!loading && data && isCompleted && (
         <>
           {/* Score Overview */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -222,11 +285,11 @@ export default function EvaluationPage() {
 
           {/* Strengths & Weaknesses */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {Array.isArray(data.strengths) && data.strengths.length > 0 && (
+            {Array.isArray(strengths) && strengths.length > 0 && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-5">
                 <h3 className="font-semibold text-green-800 mb-3">Strengths</h3>
                 <ul className="space-y-1.5">
-                  {data.strengths.map((s, i) => (
+                  {strengths.map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-green-900">
                       <span className="mt-0.5 text-green-600">+</span>
                       <span>{typeof s === "string" ? s : JSON.stringify(s)}</span>
@@ -235,11 +298,11 @@ export default function EvaluationPage() {
                 </ul>
               </div>
             )}
-            {Array.isArray(data.weaknesses) && data.weaknesses.length > 0 && (
+            {Array.isArray(weaknesses) && weaknesses.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
                 <h3 className="font-semibold text-amber-800 mb-3">Areas for Improvement</h3>
                 <ul className="space-y-1.5">
-                  {data.weaknesses.map((w, i) => (
+                  {weaknesses.map((w, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-amber-900">
                       <span className="mt-0.5 text-amber-600">-</span>
                       <span>{typeof w === "string" ? w : JSON.stringify(w)}</span>
@@ -273,6 +336,12 @@ export default function EvaluationPage() {
                   name: RUBRIC_LABELS[k] || k,
                   value: v as number,
                 }));
+
+              if (!qRubric.length && q.rubric && typeof q.rubric === "object") {
+                Object.entries(q.rubric)
+                  .filter(([k, v]) => RUBRIC_LABELS[k] !== undefined && typeof v === "number")
+                  .forEach(([k, v]) => qRubric.push({ name: RUBRIC_LABELS[k] || k, value: v as number }));
+              }
 
               return (
                 <div key={q.question_id} className="border rounded-xl p-5 bg-white">

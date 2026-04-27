@@ -76,6 +76,7 @@ CANDIDATE_MODULES = [
     "tasks.question_tasks",
     "tasks.score_interview",
     "tasks.score_question",
+    "tasks.live_scoring",
     "tasks.report_pdf",
     "tasks.code_grade",   # keep here if/when you add tasks/code_grade.py
 ]

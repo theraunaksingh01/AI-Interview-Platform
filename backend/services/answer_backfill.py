@@ -52,6 +52,8 @@ def backfill_answers_from_turns(db: Session, interview_id: UUID) -> int:
         if not full_transcript:
             continue
 
+        word_count = len(full_transcript.split())
+
         existing = db.execute(
             text("""
                 SELECT id FROM interview_answers
@@ -64,30 +66,30 @@ def backfill_answers_from_turns(db: Session, interview_id: UUID) -> int:
         if existing:
             if qtype == "code":
                 db.execute(
-                    text("UPDATE interview_answers SET transcript = :t, code_answer = :c WHERE id = :aid"),
-                    {"t": full_transcript, "c": full_transcript, "aid": existing},
+                    text("UPDATE interview_answers SET transcript = :t, code_answer = :c, answer_word_count = :wc WHERE id = :aid"),
+                    {"t": full_transcript, "c": full_transcript, "wc": word_count, "aid": existing},
                 )
             else:
                 db.execute(
-                    text("UPDATE interview_answers SET transcript = :t WHERE id = :aid"),
-                    {"t": full_transcript, "aid": existing},
+                    text("UPDATE interview_answers SET transcript = :t, answer_word_count = :wc WHERE id = :aid"),
+                    {"t": full_transcript, "wc": word_count, "aid": existing},
                 )
         else:
             if qtype == "code":
                 db.execute(
                     text("""
-                        INSERT INTO interview_answers (interview_question_id, transcript, code_answer)
-                        VALUES (:qid, :t, :c)
+                        INSERT INTO interview_answers (interview_question_id, transcript, code_answer, answer_word_count)
+                        VALUES (:qid, :t, :c, :wc)
                     """),
-                    {"qid": qid, "t": full_transcript, "c": full_transcript},
+                    {"qid": qid, "t": full_transcript, "c": full_transcript, "wc": word_count},
                 )
             else:
                 db.execute(
                     text("""
-                        INSERT INTO interview_answers (interview_question_id, transcript)
-                        VALUES (:qid, :t)
+                        INSERT INTO interview_answers (interview_question_id, transcript, answer_word_count)
+                        VALUES (:qid, :t, :wc)
                     """),
-                    {"qid": qid, "t": full_transcript},
+                    {"qid": qid, "t": full_transcript, "wc": word_count},
                 )
         count += 1
 

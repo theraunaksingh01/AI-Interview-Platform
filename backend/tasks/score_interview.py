@@ -21,7 +21,7 @@ from datetime import datetime
 
 from services.llm_provider import gemini_chat
 from services.followup_generator import update_role_calibration
-from services.cheat_scorer import cheat_scorer
+from services.cheat_scorer import cheat_scorer, compute_category_d_signals
 
 # Optional external helpers (keep compatibility if you add them later)
 try:
@@ -46,14 +46,18 @@ if not log.handlers:
 # ------------------------------
 # Config (read from env / .env)
 # ------------------------------
-AI_PROVIDER = os.getenv("AI_PROVIDER", "stub").lower()   # "stub" | "openai" | "ollama" | "gemini"
+AI_PROVIDER = os.getenv("SCORING_PROVIDER") or os.getenv("AI_PROVIDER", "stub")  # "stub" | "openai" | "ollama" | "gemini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "tinyllama")
+OLLAMA_MODEL = (
+    getattr(settings, "OLLAMA_MODEL", "")
+    if settings is not None
+    else ""
+) or os.getenv("OLLAMA_MODEL", "phi3:mini")
 
 COMM_W = float(os.getenv("AI_COMM_WEIGHT", "0.30"))
 TECH_W = float(os.getenv("AI_TECH_WEIGHT", "0.60"))
@@ -172,7 +176,7 @@ RUBRIC_WEIGHTS = {
 # LLM callers
 # (unchanged)
 # ------------------------------
-async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 90) -> Dict[str, Any]:
+async def _ollama_call_ndjson(prompt: str, model: str, timeout: int = 240) -> Dict[str, Any]:
     url = f"{OLLAMA_URL.rstrip('/')}/api/generate"
     payload = {"model": model, "prompt": prompt, "format": "json", "stream": False}
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -243,7 +247,7 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
 
     if AI_PROVIDER == "ollama":
         try:
-            res = await _ollama_call_ndjson(prompt=prompt, model=OLLAMA_MODEL)
+            res = await _ollama_call_ndjson(prompt=prompt[:2000], model=OLLAMA_MODEL)
             raw_text = res.get("raw") or ""
             body = res.get("body")
             if isinstance(body, dict):
@@ -453,21 +457,21 @@ def _get_role_rubric_weights(db: Session, interview_id: str) -> Dict[str, Dict[s
 
 
 def _get_dimension_scores(db: Session, interview_id: str) -> Dict[str, float]:
-    """Average per-question overall score by interview question dimension."""
+    """Average per-question overall score by interview question topic."""
     rows = db.execute(text("""
         SELECT
-            COALESCE(q.dimension, 'general') AS dimension,
+            COALESCE(q.topic, 'general') AS topic,
             AVG(s.overall_score) AS avg_score
         FROM interview_scores s
         JOIN interview_questions q ON q.id = s.question_id
         WHERE s.interview_id = :iid
-        GROUP BY COALESCE(q.dimension, 'general')
+        GROUP BY COALESCE(q.topic, 'general')
     """), {"iid": str(interview_id)}).mappings().all()
 
     return {
-        str(r["dimension"]): round(float(r["avg_score"] or 0), 2)
+        str(r["topic"]): round(float(r["avg_score"] or 0), 2)
         for r in rows
-        if r.get("dimension")
+        if r.get("topic")
     }
 
 
@@ -599,6 +603,330 @@ def _aggregate_from_interview_scores(db: Session, interview_id: str) -> Dict[str
         "weaknesses": unique_weaknesses[:10],
     }
     return report
+
+
+def _aggregate_interview_scores_to_interviews(db: Session, interview_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        row = db.execute(text("""
+            SELECT
+              ROUND(AVG(overall_score))::int       AS overall,
+              ROUND(AVG(technical_score))::int     AS technical,
+              ROUND(AVG(communication_score))::int AS comm,
+              ROUND(AVG(completeness_score))::int  AS completeness
+            FROM interview_scores
+            WHERE interview_id = :iid
+        """), {"iid": str(interview_id)}).mappings().first()
+
+        if not row or row.get("overall") is None:
+            log.warning("No scores to aggregate for %s", interview_id)
+            return None
+
+        fb_rows = db.execute(text("""
+            SELECT ai_feedback
+            FROM interview_scores
+            WHERE interview_id = :iid
+            ORDER BY id ASC
+        """), {"iid": str(interview_id)}).mappings().all()
+
+        strengths: List[str] = []
+        weaknesses: List[str] = []
+        for fr in fb_rows:
+            fb = fr.get("ai_feedback") or {}
+            if isinstance(fb, str):
+                try:
+                    fb = json.loads(fb)
+                except Exception:
+                    fb = {}
+            if not isinstance(fb, dict):
+                fb = {}
+            strengths.extend([s for s in (fb.get("strengths") or []) if isinstance(s, str) and s.strip()])
+            weaknesses.extend([w for w in (fb.get("weaknesses") or []) if isinstance(w, str) and w.strip()])
+
+        score_details = {
+            "technical": int(row.get("technical") or 0),
+            "communication": int(row.get("comm") or 0),
+            "completeness": int(row.get("completeness") or 0),
+        }
+        report = {
+            "overall_score": int(row.get("overall") or 0),
+            "technical": int(row.get("technical") or 0),
+            "communication": int(row.get("comm") or 0),
+            "completeness": int(row.get("completeness") or 0),
+            "strengths": list(dict.fromkeys(strengths))[:6],
+            "weaknesses": list(dict.fromkeys(weaknesses))[:6],
+        }
+
+        db.execute(text("""
+            UPDATE interviews
+            SET overall_score = :o,
+                score_details = CAST(:sd AS jsonb),
+                report = CAST(:rep AS jsonb),
+                status = 'completed'
+            WHERE id = :iid
+        """), {
+            "o": int(row.get("overall") or 0),
+            "sd": json.dumps(score_details),
+            "rep": json.dumps(report),
+            "iid": str(interview_id),
+        })
+        db.commit()
+        log.info("Aggregated %s from interview_scores: overall=%s", interview_id, int(row.get("overall") or 0))
+        return {
+            "overall_score": int(row.get("overall") or 0),
+            "score_details": score_details,
+            "report": report,
+        }
+    except Exception as e:
+        log.error("Aggregation error for %s: %s", interview_id, e)
+        db.rollback()
+        return None
+
+
+@app.task(name='tasks.aggregate_interview_scores')
+def aggregate_interview_scores(interview_id: str):
+    """
+    Aggregate per-question scores from interview_scores
+    into interviews table. Does NOT rescore anything.
+    """
+    from db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        try:
+            row = db.execute(text("""
+                SELECT
+                  ROUND(AVG(overall_score))::int       AS overall,
+                  ROUND(AVG(technical_score))::int     AS technical,
+                  ROUND(AVG(communication_score))::int AS communication,
+                  ROUND(AVG(completeness_score))::int  AS completeness
+                FROM interview_scores
+                WHERE interview_id = :iid
+            """), {"iid": str(interview_id)}).fetchone()
+        except Exception:
+            db.rollback()
+            raise
+
+        if not row or row.overall is None:
+            log.warning("aggregate_interview_scores: no scores for %s", interview_id)
+            return {"ok": False, "reason": "no_scores"}
+
+        try:
+            fb_rows = db.execute(text("""
+                SELECT ai_feedback FROM interview_scores
+                WHERE interview_id = :iid
+            """), {"iid": str(interview_id)}).fetchall()
+        except Exception:
+            db.rollback()
+            raise
+
+        strengths, weaknesses = [], []
+        for fr in fb_rows:
+            fb = fr.ai_feedback or {}
+            if isinstance(fb, str):
+                try:
+                    fb = json.loads(fb)
+                except Exception:
+                    fb = {}
+            if not isinstance(fb, dict):
+                fb = {}
+            strengths.extend(fb.get('strengths', []))
+            weaknesses.extend(fb.get('weaknesses', []))
+
+        try:
+            db.execute(text("""
+                UPDATE interviews SET
+                  overall_score = :o,
+                  score_details = cast(:sd as jsonb),
+                  report        = cast(:rep as jsonb),
+                  status        = 'completed'
+                WHERE id = :iid
+            """), {
+                "o":   row.overall,
+                "sd":  json.dumps({
+                           "technical":     row.technical,
+                           "communication": row.communication,
+                           "completeness":  row.completeness
+                       }),
+                "rep": json.dumps({
+                           "overall_score":  row.overall,
+                           "technical":      row.technical,
+                           "communication":  row.communication,
+                           "completeness":   row.completeness,
+                           "strengths":  list(dict.fromkeys(strengths))[:6],
+                           "weaknesses": list(dict.fromkeys(weaknesses))[:6]
+                       }),
+                "iid": str(interview_id)
+            })
+        except Exception:
+            db.rollback()
+            raise
+
+        db.commit()
+        log.info("aggregate_interview_scores: %s overall=%s", interview_id, row.overall)
+        return {"ok": True, "overall": row.overall}
+    except Exception as e:
+        log.exception("aggregate_interview_scores failed for %s: %s", interview_id, e)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+def _rubric_value(rubric: Any, key: str) -> Optional[float]:
+    if not isinstance(rubric, dict):
+        return None
+    direct = rubric.get(key)
+    if isinstance(direct, (int, float)):
+        return float(direct)
+    nested = rubric.get("scores")
+    if isinstance(nested, dict):
+        nv = nested.get(key)
+        if isinstance(nv, (int, float)):
+            return float(nv)
+    return None
+
+
+def _aggregate_from_interview_answers(db: Session, interview_id: str) -> Dict[str, Any]:
+    """
+    Aggregate persisted per-answer scores into interviews.overall_score/score_details/report.
+    Uses interview_answers joined via interview_questions.
+    """
+    rows = db.execute(text("""
+        SELECT
+          iq.id AS question_id,
+          iq.question_text,
+          ia.id AS answer_id,
+          ia.overall_score,
+          ia.rubric_scores,
+          ia.strengths,
+          ia.weaknesses
+        FROM interview_questions iq
+        LEFT JOIN LATERAL (
+          SELECT z.*
+          FROM interview_answers z
+          WHERE z.interview_question_id = iq.id
+          ORDER BY z.created_at DESC NULLS LAST, z.id DESC
+          LIMIT 1
+        ) ia ON TRUE
+        WHERE iq.interview_id = :iid
+        ORDER BY iq.id ASC
+    """), {"iid": str(interview_id)}).mappings().all()
+
+    per_question: List[Dict[str, Any]] = []
+    score_vals: List[float] = []
+    tech_vals: List[float] = []
+    comm_vals: List[float] = []
+    comp_vals: List[float] = []
+    strengths_all: List[str] = []
+    weaknesses_all: List[str] = []
+
+    for r in rows:
+        ov = r.get("overall_score")
+        rubric = r.get("rubric_scores")
+        if isinstance(rubric, str):
+            try:
+                rubric = json.loads(rubric)
+            except Exception:
+                rubric = {}
+        if not isinstance(rubric, dict):
+            rubric = {}
+
+        ov_num = float(ov) if isinstance(ov, (int, float)) else None
+        if ov_num is not None:
+            score_vals.append(ov_num)
+
+        tech = _rubric_value(rubric, "technical")
+        if tech is None:
+            tech = _rubric_value(rubric, "technical_accuracy")
+        if tech is not None:
+            tech_vals.append(float(tech))
+
+        comm = _rubric_value(rubric, "communication")
+        if comm is None:
+            comm = _rubric_value(rubric, "communication_clarity")
+        if comm is None:
+            comm = _rubric_value(rubric, "clarity")
+        if comm is not None:
+            comm_vals.append(float(comm))
+
+        comp = _rubric_value(rubric, "completeness")
+        if comp is None:
+            comp = _rubric_value(rubric, "relevance")
+        if comp is None:
+            comp = _rubric_value(rubric, "concept_understanding")
+        if comp is not None:
+            comp_vals.append(float(comp))
+
+        s_list = r.get("strengths") or []
+        if isinstance(s_list, str):
+            try:
+                s_list = json.loads(s_list)
+            except Exception:
+                s_list = []
+        if isinstance(s_list, list):
+            strengths_all.extend([str(x).strip() for x in s_list if str(x).strip()])
+
+        w_list = r.get("weaknesses") or []
+        if isinstance(w_list, str):
+            try:
+                w_list = json.loads(w_list)
+            except Exception:
+                w_list = []
+        if isinstance(w_list, list):
+            weaknesses_all.extend([str(x).strip() for x in w_list if str(x).strip()])
+
+        per_question.append({
+            "question_id": r.get("question_id"),
+            "question_text": r.get("question_text") or "",
+            "score": ov_num,
+            "rubric": rubric,
+        })
+
+    overall_score = round(sum(score_vals) / len(score_vals)) if score_vals else 0
+    technical = round(sum(tech_vals) / len(tech_vals)) if tech_vals else 0
+    communication = round(sum(comm_vals) / len(comm_vals)) if comm_vals else 0
+    completeness = round(sum(comp_vals) / len(comp_vals)) if comp_vals else 0
+
+    # Deduplicate while preserving order
+    strengths_unique = list(dict.fromkeys(strengths_all))
+    weaknesses_unique = list(dict.fromkeys(weaknesses_all))
+
+    score_details = {
+        "technical": technical,
+        "communication": communication,
+        "completeness": completeness,
+        "per_question": per_question,
+    }
+    report = {
+        "summary": "Interview completed",
+        "strengths": strengths_unique,
+        "weaknesses": weaknesses_unique,
+        "overall_score": overall_score,
+    }
+
+    db.execute(text("""
+        UPDATE interviews
+        SET overall_score = :overall_score,
+            score_details = CAST(:score_details AS jsonb),
+            report = CAST(:report AS jsonb),
+            status = 'completed'
+        WHERE id = :interview_id
+    """), {
+        "overall_score": int(overall_score),
+        "score_details": json.dumps(score_details),
+        "report": json.dumps(report),
+        "interview_id": str(interview_id),
+    })
+    db.commit()
+    log.info("Interview %s aggregated: score=%s", interview_id, overall_score)
+
+    return {
+        "overall_score": overall_score,
+        "score_details": score_details,
+        "report": report,
+    }
 
 
 # ------------------------------
@@ -841,9 +1169,10 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
         # recompute aggregate report and update interviews table
         try:
             report = _aggregate_from_interview_scores(db, interview_id)
-            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb), status = 'scored' WHERE id = :iid"),
+            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb), status = 'completed' WHERE id = :iid"),
                        {"o": report["overall_score"], "r": json.dumps(report), "iid": interview_id})
             db.commit()
+            _aggregate_interview_scores_to_interviews(db, interview_id)
         except Exception:
             log.exception("Failed to aggregate after single-question scoring")
             try:
@@ -896,6 +1225,19 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
 def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str, Any]:
     db: Session = SessionLocal()
     try:
+        existing_score_count = db.execute(text("""
+            SELECT COUNT(*) FROM interview_scores WHERE interview_id = :iid
+        """), {"iid": str(interview_id)}).scalar() or 0
+
+        if existing_score_count > 0:
+            log.info(
+                "interview %s already has %s scores from live_scoring - skipping rescore, aggregating only",
+                interview_id,
+                existing_score_count,
+            )
+            aggregate_interview_scores.delay(str(interview_id))
+            return {"ok": True, "skipped": True, "reason": "already_scored_by_live_scoring"}
+
         # Backfill guard: ensure interview_answers has transcripts from live turns
         try:
             from services.answer_backfill import backfill_answers_from_turns
@@ -970,13 +1312,28 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
 
                     # update answer with ai_feedback + llm_raw
                     try:
+                        perq_overall = _rubric_overall(fb, VOICE_RUBRIC_KEYS)
+                        rubric_compact = {
+                            "technical": int(tech),
+                            "communication": int(comm),
+                            "completeness": int(comp),
+                        }
                         db.execute(text("""
                             UPDATE interview_answers
-                            SET ai_feedback = :fb, llm_raw = :raw
+                            SET ai_feedback = :fb,
+                                llm_raw = :raw,
+                                overall_score = :overall,
+                                rubric_scores = CAST(:rubric AS jsonb),
+                                strengths = CAST(:strengths AS jsonb),
+                                weaknesses = CAST(:weaknesses AS jsonb)
                             WHERE id = :aid
                         """), {
                             "fb": json.dumps(fb),
                             "raw": raw_resp,
+                            "overall": float(perq_overall),
+                            "rubric": json.dumps(rubric_compact),
+                            "strengths": json.dumps(fb.get("strengths") or []),
+                            "weaknesses": json.dumps(fb.get("weaknesses") or []),
                             "aid": r["aid"]
                         })
                     except Exception:
@@ -1040,13 +1397,28 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
 
                     # update answer with ai_feedback + llm_raw
                     try:
+                        perq_overall = _rubric_overall(fb, CODE_RUBRIC_KEYS)
+                        rubric_compact = {
+                            "technical": int(tech),
+                            "communication": int(comm),
+                            "completeness": int(comp),
+                        }
                         db.execute(text("""
                             UPDATE interview_answers
-                            SET ai_feedback = :fb, llm_raw = :raw
+                            SET ai_feedback = :fb,
+                                llm_raw = :raw,
+                                overall_score = :overall,
+                                rubric_scores = CAST(:rubric AS jsonb),
+                                strengths = CAST(:strengths AS jsonb),
+                                weaknesses = CAST(:weaknesses AS jsonb)
                             WHERE id = :aid
                         """), {
                             "fb": json.dumps(fb),
                             "raw": raw_resp,
+                            "overall": float(perq_overall),
+                            "rubric": json.dumps(rubric_compact),
+                            "strengths": json.dumps(fb.get("strengths") or []),
+                            "weaknesses": json.dumps(fb.get("weaknesses") or []),
                             "aid": r["aid"]
                         })
                     except Exception:
@@ -1146,7 +1518,7 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
         # Recompute report from interview_scores (preferred single source of truth)
         try:
             report = _aggregate_from_interview_scores(db, interview_id)
-            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb), status = 'scored' WHERE id = :iid"),
+            db.execute(text("UPDATE interviews SET overall_score = :o, report = CAST(:r AS jsonb), status = 'completed' WHERE id = :iid"),
                        {"o": report["overall_score"], "r": json.dumps(report), "iid": str(interview_id)})
             db.commit()
 
@@ -1183,9 +1555,35 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
             except Exception:
                 log.exception("Failed to update role calibration for interview %s", interview_id)
 
+            # Persist interview aggregate from interview_scores (authoritative for evaluation page).
+            _aggregate_interview_scores_to_interviews(db, interview_id)
+
+            # Trigger Category D scoring asynchronously (B2B only, never mock-linked sessions).
+            try:
+                mock_link = db.execute(
+                    text("SELECT mock_session_id FROM interviews WHERE id = :iid"),
+                    {"iid": str(interview_id)},
+                ).scalar()
+                if mock_link is None:
+                    log.info("Triggering Category D for interview %s", interview_id)
+                    compute_category_d_signals_task.delay(str(interview_id))
+                    log.info("Category D task enqueued")
+            except Exception:
+                log.exception("Failed to enqueue Category D scoring for interview %s", interview_id)
+
+            try:
+                aggregate_interview_scores.delay(str(interview_id))
+                log.info("Triggered aggregation for %s", interview_id)
+            except Exception as e:
+                log.warning("Could not trigger aggregation: %s", e)
+
             return {"ok": True, "overall": report["overall_score"]}
         except Exception:
             log.exception("Failed to aggregate from interview_scores; falling back to computed values")
+            try:
+                db.rollback()
+            except Exception:
+                pass
             report = {
                 "weights": {"communication": COMM_W, "technical": TECH_W, "completeness": COMP_W},
                 "section_scores": {"communication": comm, "technical": tech, "completeness": comp},
@@ -1194,7 +1592,7 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
                 "red_flags": list(dict.fromkeys(redflags_all)),
                 "per_question": per_q,
             }
-            db.execute(text("UPDATE interviews SET overall_score=:o, report=:r, status='scored' WHERE id=:iid"),
+            db.execute(text("UPDATE interviews SET overall_score=:o, report=:r, status='completed' WHERE id=:iid"),
                        {"o": int(overall), "r": json.dumps(report), "iid": str(interview_id)})
             db.commit()
 
@@ -1221,11 +1619,57 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
             except Exception:
                 log.exception("Failed to record audit in fallback path")
 
+            # Persist interview aggregate from interview_scores (authoritative for evaluation page).
+            _aggregate_interview_scores_to_interviews(db, interview_id)
+
+            # Trigger Category D scoring asynchronously (B2B only, never mock-linked sessions).
+            try:
+                mock_link = db.execute(
+                    text("SELECT mock_session_id FROM interviews WHERE id = :iid"),
+                    {"iid": str(interview_id)},
+                ).scalar()
+                if mock_link is None:
+                    log.info("Triggering Category D for interview %s", interview_id)
+                    compute_category_d_signals_task.delay(str(interview_id))
+                    log.info("Category D task enqueued")
+            except Exception:
+                log.exception("Failed to enqueue Category D scoring for interview %s", interview_id)
+
+            try:
+                aggregate_interview_scores.delay(str(interview_id))
+                log.info("Triggered aggregation for %s", interview_id)
+            except Exception as e:
+                log.warning("Could not trigger aggregation: %s", e)
+
             return {"ok": True, "overall": overall}
 
     except Exception as e:
         db.rollback()
         log.exception("score_interview failed for %s: %s", interview_id, e)
         return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@app.task(name="tasks.compute_category_d_signals_task")
+def compute_category_d_signals_task(interview_id: str) -> Dict[str, Any]:
+    """Background task wrapper for Category D computation."""
+    db: Session = SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT id, mock_session_id FROM interviews WHERE id = CAST(:iid AS uuid)"),
+            {"iid": str(interview_id)},
+        ).mappings().first()
+
+        if not row:
+            return {"ok": False, "error": "interview_not_found"}
+        if row.get("mock_session_id") is not None:
+            return {"ok": True, "skipped": "mock_linked_session"}
+
+        payload = asyncio.run(compute_category_d_signals(str(interview_id), db))
+        return {"ok": True, "session_id": str(interview_id), "category_d": payload}
+    except Exception as exc:
+        log.exception("compute_category_d_signals_task failed for interview %s", interview_id)
+        return {"ok": False, "error": str(exc)}
     finally:
         db.close()

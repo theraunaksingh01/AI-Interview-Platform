@@ -49,9 +49,15 @@ class Settings(BaseSettings):
     gemini_api_key: str = Field("", alias="GEMINI_API_KEY")
     gemini_model: str = Field("gemini-2.0-flash", alias="GEMINI_MODEL")
 
+    # ---- Anthropic
+    anthropic_api_key: str = Field("", alias="ANTHROPIC_API_KEY")
+
     # ---- Follow-up settings
     followup_enabled: bool = Field(True, alias="FOLLOWUP_ENABLED")
     followup_timeout: int = Field(8, alias="FOLLOWUP_TIMEOUT")
+
+    # ---- Ollama
+    ollama_model: str = Field("phi3:mini", alias="OLLAMA_MODEL")
 
     # ---- Redis / Celery (optional)
     redis_url: Optional[str] = Field("redis://127.0.0.1:6379/0", alias="REDIS_URL")
@@ -114,6 +120,14 @@ class Settings(BaseSettings):
     @property
     def PRESIGNED_URL_EXPIRES(self) -> int:
         return int(self.presigned_url_expires)
+
+    @property
+    def ANTHROPIC_API_KEY(self) -> str:
+        return self.anthropic_api_key
+
+    @property
+    def OLLAMA_MODEL(self) -> str:
+        return self.ollama_model
 
 
 settings = Settings()

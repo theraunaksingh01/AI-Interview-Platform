@@ -12,6 +12,16 @@ Signal categories are weighted differently:
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 import statistics
+import json
+import logging
+import os
+import re
+
+import httpx
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from core.config import settings
+import asyncio
 
 
 @dataclass
@@ -310,3 +320,598 @@ class CheatScoringEngine:
 
 # Global scorer instance
 cheat_scorer = CheatScoringEngine()
+
+
+log = logging.getLogger(__name__)
+logger = log
+
+_CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+_CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+
+
+async def _maybe_await(value: Any) -> Any:
+    if hasattr(value, "__await__"):
+        return await value
+    return value
+
+
+async def _db_execute(db: Any, sql: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    result = db.execute(text(sql), params or {})
+    return await _maybe_await(result)
+
+
+async def _db_commit(db: Any) -> None:
+    try:
+        rv = db.commit()
+        await _maybe_await(rv)
+    except Exception:
+        # Best-effort: this job must never fail the caller.
+        log.exception("Category D commit failed")
+
+
+def _parse_json_robust(raw_text: str) -> Any:
+    text_value = (raw_text or "").strip()
+    if not text_value:
+        return None
+
+    if text_value.startswith("```"):
+        text_value = re.sub(r"^```(?:json)?\\s*\\n?", "", text_value)
+        text_value = re.sub(r"\\n?```\\s*$", "", text_value)
+        text_value = text_value.strip()
+
+    try:
+        return json.loads(text_value)
+    except Exception:
+        pass
+
+    match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text_value, flags=re.S)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(1))
+    except Exception:
+        return None
+
+
+async def _claude_json(prompt: str, max_tokens: int = 800) -> dict | None:
+    import re, json as _json, httpx
+    raw = None
+
+    # Try Claude first
+    if getattr(settings, 'ANTHROPIC_API_KEY', ''):
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            raw = msg.content[0].text
+        except Exception as e:
+            logger.warning(f"Claude failed in _claude_json: {e}")
+
+    # Fallback to Ollama
+    if not raw:
+        try:
+            model = getattr(settings, 'OLLAMA_MODEL', 'phi3:mini')
+            r = httpx.post(
+                "http://localhost:11434/api/generate",
+                json={"model": model, "prompt": prompt, "stream": False},
+                timeout=400.0
+            )
+            raw = r.json().get("response", "")
+            logger.info(f"_claude_json used Ollama: {len(raw)} chars")
+        except Exception as e:
+            logger.warning(f"Ollama failed in _claude_json: {e}")
+            return None
+
+    if not raw:
+        return None
+
+    # Parse — handles markdown fences and both {} and []
+    clean = raw.strip()
+    clean = re.sub(r"```json\s*", "", clean)
+    clean = re.sub(r"```\s*", "", clean)
+    clean = clean.strip()
+
+    # Try object first, then array
+    for start_char, end_char in [('{', '}'), ('[', ']')]:
+        start = clean.find(start_char)
+        end = clean.rfind(end_char)
+        if start != -1 and end != -1 and end > start:
+            try:
+                return _json.loads(clean[start:end+1])
+            except _json.JSONDecodeError:
+                continue
+
+    # Regex field extraction fallback
+    logger.error(f"_claude_json parse failed: {raw[:200]}")
+    return None
+
+
+def _clamp_01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _mean(values: List[float]) -> float:
+    return (sum(values) / len(values)) if values else 0.0
+
+
+def _phrase_hits(text_value: str, phrases: List[str]) -> int:
+    low = (text_value or "").lower()
+    return sum(low.count(p) for p in phrases)
+
+
+async def compute_category_d_signals(
+    session_id: str,
+    db: AsyncSession,
+) -> dict:
+    """
+    Fetches all answers for session_id from interview tables.
+    Returns category D composite signal dict and writes to cheat_signals.
+    Only intended for B2B interviews, never mock_sessions.
+    """
+    d1_score: Optional[float] = None
+    d2_score: Optional[float] = None
+    d3_score: Optional[float] = 0.0
+    d4_score: Optional[float] = None
+    d5_score: Optional[float] = None
+    d6_score: Optional[float] = None
+
+    contradictions: List[Dict[str, Any]] = []
+    skill_breakdown: List[Dict[str, Any]] = []
+    mismatches: List[Dict[str, Any]] = []
+    initial_avg_depth = 0.0
+    followup_avg_depth = 0.0
+
+    result = {
+        "d1_consistency": d1_score,
+        "d1_contradictions": contradictions,
+        "d2_degradation": d2_score,
+        "d2_initial_depth": initial_avg_depth,
+        "d2_followup_depth": followup_avg_depth,
+        "d3_resume_mismatch": d3_score,
+        "d3_skill_breakdown": skill_breakdown,
+        "d3_mismatches": mismatches,
+        "d4_velocity": d4_score,
+        "d5_knowledge_boundary": d5_score,
+        "d6_register_shift": d6_score,
+        "composite": 0.0,
+        "flag": False,
+        "confidence": "low",
+    }
+
+    try:
+        interview = (await _db_execute(
+            db,
+            """
+            SELECT id, mock_session_id, role_id, resume_id, application_id
+            FROM interviews
+            WHERE id = CAST(:sid AS uuid)
+            LIMIT 1
+            """,
+            {"sid": str(session_id)},
+        )).mappings().first()
+
+        if not interview:
+            log.info("Category D skipped: interview not found for session_id=%s", session_id)
+            return result
+
+        if interview.get("mock_session_id") is not None:
+            log.info("Category D skipped for mock-linked interview session_id=%s", session_id)
+            return result
+
+        answer_rows = (await _db_execute(
+            db,
+            """
+            SELECT
+              a.id AS answer_id,
+              q.id AS question_id,
+              q.question_text,
+              q.parent_question_id,
+              COALESCE(a.transcript, a.code_answer, '') AS answer_text,
+              COALESCE(a.is_followup, (q.parent_question_id IS NOT NULL), false) AS is_followup,
+              a.created_at
+            FROM interview_answers a
+            JOIN interview_questions q ON q.id = a.interview_question_id
+            WHERE q.interview_id = CAST(:sid AS uuid)
+            ORDER BY a.created_at ASC NULLS LAST, q.id ASC, a.id ASC
+            """,
+            {"sid": str(session_id)},
+        )).mappings().all()
+
+        if not answer_rows:
+            log.info("Category D skipped: no answers for session_id=%s", session_id)
+            return result
+
+        answers: List[Dict[str, Any]] = []
+        for idx, row in enumerate(answer_rows, start=1):
+            answer_text = (row.get("answer_text") or "").strip()
+            answers.append({
+                "answer_id": row.get("answer_id"),
+                "question_text": (row.get("question_text") or "").strip(),
+                "answer_text": answer_text,
+                "is_followup": bool(row.get("is_followup")),
+                "question_index": idx,
+                "word_count": len(answer_text.split()) if answer_text else 0,
+            })
+
+        # Context fetch: resume and JD text.
+        context_row = (await _db_execute(
+            db,
+            """
+            SELECT
+              COALESCE(cr.plain_text, '') AS resume_text,
+              COALESCE(r.jd_text, jr.jd_text, '') AS jd_text,
+              ja.candidate_email,
+              ja.candidate_name
+            FROM interviews i
+            LEFT JOIN candidate_resumes cr ON cr.id = i.resume_id
+            LEFT JOIN roles r ON r.id = i.role_id
+            LEFT JOIN job_roles jr ON jr.id = i.role_id
+            LEFT JOIN job_applications ja ON ja.id = i.application_id
+            WHERE i.id = CAST(:sid AS uuid)
+            LIMIT 1
+            """,
+            {"sid": str(session_id)},
+        )).mappings().first() or {}
+        resume_text = (context_row.get("resume_text") or "").strip()
+
+        # D1: Cross-answer consistency
+        if len(answers) >= 4:
+            answer_texts = [a.get("answer_text") or "" for a in answers if a.get("answer_text")]
+            if len(answer_texts) > 6:
+                truncated_answers = [
+                    f"Q{i+1}: {a[:200]}" for i, a in enumerate(answer_texts)
+                ]
+                numbered_answers = "\n".join(truncated_answers)
+            else:
+                numbered_answers = "\n".join(f"Q{i+1}: {a[:200]}" for i, a in enumerate(answer_texts))
+            if numbered_answers.strip():
+                prompt_d1 = (
+                    "You are analyzing interview answers for internal consistency.\n"
+                    "Here are the answers in order:\n"
+                    f"{numbered_answers}\n"
+                    "Identify any factual contradictions where the candidate claims two incompatible things.\n"
+                    "A contradiction is when a specific claim in one answer is logically incompatible with a claim in another.\n"
+                    "Do NOT flag things that are merely different topics.\n"
+                    "Return ONLY valid JSON: {\"contradictions\": [{\"answer_a\": int, \"answer_b\": int, \"explanation\": str}]}\n"
+                    "Return {\"contradictions\": []} if none found."
+                )
+                try:
+                    d1_obj = await _claude_json(prompt_d1, max_tokens=800)
+                    d1_contras = d1_obj.get("contradictions", []) if isinstance(d1_obj, dict) else []
+                    contradictions = d1_contras if isinstance(d1_contras, list) else []
+                    d1_score = _clamp_01(len(contradictions) * 0.25)
+                except Exception:
+                    log.exception("Category D D1 call failed for session_id=%s", session_id)
+                    contradictions = []
+                    d1_score = None
+
+        # D2: Follow-up degradation
+        hedge_words = [
+            "i think", "i believe", "maybe", "probably", "not sure",
+            "i guess", "could be", "it depends", "i'm not sure", "perhaps",
+        ]
+        initial = [a for a in answers if not a.get("is_followup")]
+        followups = [a for a in answers if a.get("is_followup")]
+
+        if len(followups) >= 2:
+            init_depths: List[float] = []
+            follow_depths: List[float] = []
+
+            for bucket, source in ((init_depths, initial), (follow_depths, followups)):
+                for a in source:
+                    wc = max(1, int(a.get("word_count") or 0))
+                    hd = _phrase_hits(a.get("answer_text") or "", hedge_words) / float(wc)
+                    bucket.append(float(wc) * (1.0 - hd))
+
+            initial_avg_depth = _mean(init_depths)
+            followup_avg_depth = _mean(follow_depths)
+            if initial_avg_depth > 0:
+                d2_score = _clamp_01((initial_avg_depth - followup_avg_depth) / initial_avg_depth)
+            else:
+                d2_score = 0.0
+
+        # D3: Resume-answer mismatch
+        if not resume_text:
+            d3_score = 0.0
+            skill_breakdown = []
+            mismatches = []
+        else:
+            extracted_skills: List[Dict[str, Any]] = []
+            try:
+                prompt_d3_extract = (
+                    "Extract the top 5 technical skill claims from this resume as a JSON list.\n"
+                    "Each item: {\"skill\": str, \"claimed_level\": str (e.g. '3 years', 'led team', 'expert')}\n"
+                    f"Resume: {resume_text}\n"
+                    "Return ONLY valid JSON: {\"skills\": [...]}"
+                )
+                d3_skills_obj = await asyncio.wait_for(
+                    _claude_json(prompt_d3_extract, max_tokens=400),
+                    timeout=90.0
+                )
+                if isinstance(d3_skills_obj, dict) and isinstance(d3_skills_obj.get("skills"), list):
+                    extracted_skills = d3_skills_obj.get("skills", [])[:5]
+            except asyncio.TimeoutError:
+                log.warning("Category D D3 extraction timed out — skipping D3 for session_id=%s", session_id)
+                extracted_skills = []
+            except Exception:
+                log.exception("Category D D3 extraction failed for session_id=%s", session_id)
+                extracted_skills = []
+
+            per_skill_matches: List[float] = []
+            for skill in extracted_skills:
+                if not isinstance(skill, dict):
+                    continue
+                skill_name = str(skill.get("skill") or "").strip()
+                claimed_level = str(skill.get("claimed_level") or "").strip()
+                if not skill_name:
+                    continue
+
+                low_skill = skill_name.lower()
+                related_answers = [a for a in answers if low_skill in (a.get("answer_text") or "").lower()]
+                if not related_answers:
+                    continue
+
+                answer_text = max(related_answers, key=lambda a: int(a.get("word_count") or 0)).get("answer_text") or ""
+                match_score = 0.0
+                reason = ""
+
+                try:
+                    prompt_d3_match = (
+                        f"Resume claims: {skill_name} at level {claimed_level}.\n"
+                        f"Interview answer about this skill: {answer_text[:300]}\n"
+                        "On a scale 0.0-1.0, how much does the answer quality match the claimed experience level?\n"
+                        "1.0 = perfectly matches, 0.0 = completely contradicts the claim.\n"
+                        "Return ONLY valid JSON: {\"match_score\": float, \"reason\": str}"
+                    )
+                    d3_match_obj = await asyncio.wait_for(
+                        _claude_json(prompt_d3_match, max_tokens=200),
+                        timeout=60.0
+                    )
+                    if isinstance(d3_match_obj, dict):
+                        match_score = float(d3_match_obj.get("match_score", 0.0) or 0.0)
+                        reason = str(d3_match_obj.get("reason") or "")
+                except asyncio.TimeoutError:
+                    log.warning("Category D D3 skill match timed out for skill=%s — skipping", skill_name)
+                    continue
+                except Exception:
+                    log.exception("Category D D3 skill scoring failed for skill=%s session_id=%s", skill_name, session_id)
+                    continue
+
+                match_score = _clamp_01(match_score)
+                per_skill_matches.append(match_score)
+                item = {
+                    "skill": skill_name,
+                    "claimed_level": claimed_level,
+                    "match_score": match_score,
+                    "reason": reason,
+                }
+                skill_breakdown.append(item)
+                if match_score < 0.5:
+                    mismatches.append(item)
+
+            d3_score = _clamp_01(1.0 - _mean(per_skill_matches)) if per_skill_matches else 0.0
+
+        # Schema checks for optional D4-D6 inputs.
+        answer_col_rows = (await _db_execute(
+            db,
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'interview_answers'
+            """,
+            {},
+        )).mappings().all()
+        answer_cols = {r["column_name"] for r in answer_col_rows}
+
+        question_col_rows = (await _db_execute(
+            db,
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'interview_questions'
+            """,
+            {},
+        )).mappings().all()
+        question_cols = {r["column_name"] for r in question_col_rows}
+
+        # D4: Answer velocity anomaly
+        if "time_to_first_word" in answer_cols:
+            d4_rows = (await _db_execute(
+                db,
+                """
+                SELECT q.question_text, a.time_to_first_word
+                FROM interview_answers a
+                JOIN interview_questions q ON q.id = a.interview_question_id
+                WHERE q.interview_id = CAST(:sid AS uuid)
+                  AND a.time_to_first_word IS NOT NULL
+                ORDER BY a.created_at ASC NULLS LAST, q.id ASC, a.id ASC
+                """,
+                {"sid": str(session_id)},
+            )).mappings().all()
+
+            complex_total = 0
+            complex_fast = 0
+            for row in d4_rows:
+                q_wc = len(((row.get("question_text") or "").strip()).split())
+                ttfw = float(row.get("time_to_first_word") or 0.0)
+                if q_wc > 20:
+                    complex_total += 1
+                    if ttfw < 1.5:
+                        complex_fast += 1
+            if complex_total >= 3:
+                d4_score = _clamp_01(complex_fast / float(complex_total))
+
+        # D5: Knowledge boundary inconsistency
+        answer_score_col = "answer_score" if "answer_score" in answer_cols else ("overall_score" if "overall_score" in answer_cols else None)
+        topic_col = "topic" if "topic" in question_cols else None
+        difficulty_col = "difficulty" if "difficulty" in question_cols else None
+        if answer_score_col and topic_col and difficulty_col:
+            d5_rows = (await _db_execute(
+                db,
+                f"""
+                SELECT
+                  q.{topic_col} AS topic,
+                  q.{difficulty_col} AS difficulty,
+                  a.{answer_score_col} AS answer_score
+                FROM interview_answers a
+                JOIN interview_questions q ON q.id = a.interview_question_id
+                WHERE q.interview_id = CAST(:sid AS uuid)
+                  AND q.{topic_col} IS NOT NULL
+                  AND q.{difficulty_col} IS NOT NULL
+                  AND a.{answer_score_col} IS NOT NULL
+                """,
+                {"sid": str(session_id)},
+            )).mappings().all()
+
+            by_topic: Dict[str, List[Dict[str, Any]]] = {}
+            for row in d5_rows:
+                topic = str(row.get("topic") or "").strip()
+                if not topic:
+                    continue
+                by_topic.setdefault(topic, []).append({
+                    "difficulty": str(row.get("difficulty") or "").strip().lower(),
+                    "score": float(row.get("answer_score") or 0.0),
+                })
+
+            anomaly_values: List[float] = []
+            difficulty_rank = {"easy": 1, "medium": 2, "hard": 3}
+            for _, items in by_topic.items():
+                if len(items) < 2:
+                    continue
+                for i in range(len(items)):
+                    for j in range(i + 1, len(items)):
+                        a_item = items[i]
+                        b_item = items[j]
+                        ra = difficulty_rank.get(a_item["difficulty"], 0)
+                        rb = difficulty_rank.get(b_item["difficulty"], 0)
+                        if ra == 0 or rb == 0 or ra == rb:
+                            continue
+                        hard = a_item if ra > rb else b_item
+                        easy = b_item if ra > rb else a_item
+                        if hard["score"] > easy["score"]:
+                            anomaly_values.append(hard["score"] - easy["score"])
+
+            if anomaly_values:
+                d5_score = _clamp_01(_mean(anomaly_values) / 10.0)
+
+        # D6: Vocabulary register shift
+        timeline_silence_count = (await _db_execute(
+            db,
+            """
+            SELECT COUNT(*) AS cnt
+            FROM interview_timeline
+            WHERE interview_id = CAST(:sid AS uuid)
+              AND payload::text ILIKE '%silence%'
+            """,
+            {"sid": str(session_id)},
+        )).scalar() or 0
+        if int(timeline_silence_count or 0) > 0:
+            fillers = ["um", "uh", "like", "so", "basically", "you know"]
+
+            def _formality(s: str) -> float:
+                s = (s or "").strip()
+                wc = max(1, len(s.split()))
+                segments = [z.strip() for z in re.split(r"[.!?]", s) if z.strip()]
+                sentence_count = max(1, len(segments))
+                avg_sentence_len = wc / float(sentence_count)
+                filler_density = _phrase_hits(s, fillers) / float(wc)
+                return avg_sentence_len * (1.0 - filler_density)
+
+            first_two = [a for a in answers[:2] if (a.get("answer_text") or "").strip()]
+            baseline = _mean([_formality(a["answer_text"]) for a in first_two]) if first_two else 0.0
+
+            all_segments = [a["answer_text"] for a in answers if (a.get("answer_text") or "").strip()]
+            if baseline > 0 and all_segments:
+                flagged = sum(1 for seg in all_segments if _formality(seg) > baseline * 2.0)
+                d6_score = _clamp_01(flagged / float(len(all_segments)))
+
+        # Composite with dynamic weight normalization.
+        available = {
+            "D1": d1_score,
+            "D2": d2_score,
+            "D3": d3_score,
+            "D4": d4_score,
+            "D5": d5_score,
+            "D6": d6_score,
+        }
+        weights = {
+            "D1": 0.20,
+            "D2": 0.25,
+            "D3": 0.20,
+            "D4": 0.15,
+            "D5": 0.10,
+            "D6": 0.10,
+        }
+        active_keys = [k for k, v in available.items() if v is not None]
+        if active_keys:
+            active_weight_sum = sum(weights[k] for k in active_keys)
+            composite = sum(float(available[k]) * (weights[k] / active_weight_sum) for k in active_keys)
+        else:
+            composite = 0.0
+        composite = _clamp_01(composite)
+
+        flag = composite > 0.50
+        confidence = "low" if composite < 0.30 else ("medium" if composite < 0.50 else "high")
+
+        result = {
+            "d1_consistency": d1_score,
+            "d1_contradictions": contradictions,
+            "d2_degradation": d2_score,
+            "d2_initial_depth": initial_avg_depth,
+            "d2_followup_depth": followup_avg_depth,
+            "d3_resume_mismatch": d3_score,
+            "d3_skill_breakdown": skill_breakdown,
+            "d3_mismatches": mismatches,
+            "d4_velocity": d4_score,
+            "d5_knowledge_boundary": d5_score,
+            "d6_register_shift": d6_score,
+            "composite": composite,
+            "flag": flag,
+            "confidence": confidence,
+        }
+
+        # Persist best-effort to cheat_signals using the first answer in session.
+        first_answer_id = answers[0].get("answer_id") if answers else None
+        if first_answer_id is not None:
+            signal_weight = "high" if composite >= 0.7 else ("medium" if composite >= 0.4 else "low")
+            payload_data = {
+                "session_id": str(session_id),
+                "signal_type": "category_d",
+                "signals": result,
+                "evidence": {
+                    "contradictions": contradictions,
+                    "skill_breakdown": skill_breakdown,
+                    "mismatches": mismatches,
+                },
+            }
+            try:
+                await _db_execute(
+                    db,
+                    """
+                    INSERT INTO cheat_signals
+                      (interview_answer_id, signal_type, signal_category, weight, details, payload)
+                    VALUES
+                      (:aid, :stype, :scat, :weight, CAST(:details AS jsonb), CAST(:payload AS jsonb))
+                    """,
+                    {
+                        "aid": int(first_answer_id),
+                        "stype": "category_d",
+                        "scat": "D",
+                        "weight": signal_weight,
+                        "details": json.dumps({"session_id": str(session_id), "composite": composite}),
+                        "payload": json.dumps(payload_data),
+                    },
+                )
+                await _db_commit(db)
+            except Exception:
+                log.exception("Category D persist failed for session_id=%s", session_id)
+
+        return result
+    except Exception:
+        # Never raise from this background-style worker.
+        log.exception("Category D computation failed for session_id=%s", session_id)
+        return result

@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from db.session import SessionLocal
 from services.live_scoring import run_live_question_scoring
+from tasks.score_interview import aggregate_interview_scores
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +83,13 @@ def score_turn(turn_id: int):
         overall_dec = Decimal(str(overall))
 
         ai_feedback = scoring_result.get("ai_feedback", {}) or {}
+        if isinstance(ai_feedback, str):
+            try:
+                ai_feedback_dict = json.loads(ai_feedback)
+            except Exception:
+                ai_feedback_dict = {}
+        else:
+            ai_feedback_dict = ai_feedback or {}
         llm_raw = scoring_result.get("llm_raw", "") or ""
 
         # 4) Insert a new row into interview_scores (simple version: one row per scoring)
@@ -106,7 +114,7 @@ def score_turn(turn_id: int):
                     :communication_score,
                     :completeness_score,
                     :overall_score,
-                    :ai_feedback::jsonb,
+                    cast(:ai_feedback as jsonb),
                     :created_at,
                     :llm_raw
                 )
@@ -119,7 +127,7 @@ def score_turn(turn_id: int):
                 "communication_score": comm,
                 "completeness_score": comp,
                 "overall_score": overall_dec,
-                "ai_feedback": json.dumps(ai_feedback),
+                "ai_feedback": json.dumps(ai_feedback_dict if isinstance(ai_feedback_dict, dict) else {}),
                 "created_at": datetime.utcnow(),
                 "llm_raw": llm_raw,
             },
@@ -149,12 +157,12 @@ def score_turn(turn_id: int):
                     :interview_id,
                     :scored_at,
                     :overall_score,
-                    :section_scores::jsonb,
-                    :per_question::jsonb,
-                    :model_meta::jsonb,
+                    cast(:section_scores as jsonb),
+                    cast(:per_question as jsonb),
+                    cast(:model_meta as jsonb),
                     :prompt_hash,
                     :prompt_text,
-                    :weights::jsonb,
+                    cast(:weights as jsonb),
                     :triggered_by,
                     :task_id,
                     :llm_raw_s3_key,
@@ -182,6 +190,24 @@ def score_turn(turn_id: int):
         )
 
         db.commit()
+
+        # Check if all questions for this interview are now scored
+        # If yes, trigger aggregation
+        try:
+            total_qs = db.execute(text(
+                "SELECT COUNT(*) FROM interview_questions WHERE interview_id = :iid"
+            ), {"iid": interview_id}).scalar()
+
+            scored_qs = db.execute(text(
+                "SELECT COUNT(DISTINCT question_id) FROM interview_scores WHERE interview_id = :iid"
+            ), {"iid": interview_id}).scalar()
+
+            if scored_qs >= total_qs:
+                # All questions scored — trigger aggregation
+                aggregate_interview_scores.delay(str(interview_id))
+                log.info("[LIVE_SCORING] All %s questions scored — triggered aggregation for %s", scored_qs, interview_id)
+        except Exception as e:
+            log.warning("[LIVE_SCORING] Could not check completion: %s", e)
 
         # 6) (optional) send a live WS notification — you can add later
         # broadcast_score_update(...)

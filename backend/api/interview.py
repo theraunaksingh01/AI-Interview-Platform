@@ -1147,7 +1147,7 @@ def get_evaluation(interview_id: UUID, db: Session = Depends(get_db)):
     Combines interview metadata, report JSONB, per-question scores, and role context.
     """
     interview = db.execute(text("""
-        SELECT i.id, i.overall_score, i.report,
+        SELECT i.id, i.overall_score, i.report, i.score_details, i.status,
                r.title AS role_title, r.level AS role_level
         FROM interviews i
         LEFT JOIN roles r ON r.id = i.role_id
@@ -1163,8 +1163,29 @@ def get_evaluation(interview_id: UUID, db: Session = Depends(get_db)):
         FROM interviews WHERE id = :iid
     """), {"iid": str(interview_id)}).mappings().first()
 
-    # Fetch per-question detail with question_text
+    # Fetch per-question detail from interview_answers (authoritative for evaluation),
+    # with interview_scores fallback if answers are not scored yet.
     questions = db.execute(text("""
+        SELECT
+          iq.id AS question_id,
+          iq.question_text,
+          iq.type,
+          ia.rubric_scores,
+          ia.overall_score,
+          ia.ai_feedback
+        FROM interview_questions iq
+        LEFT JOIN LATERAL (
+          SELECT z.*
+          FROM interview_answers z
+          WHERE z.interview_question_id = iq.id
+          ORDER BY z.created_at DESC NULLS LAST, z.id DESC
+          LIMIT 1
+        ) ia ON TRUE
+        WHERE iq.interview_id = :iid
+        ORDER BY iq.id ASC
+    """), {"iid": str(interview_id)}).mappings().all()
+
+    fallback_questions = db.execute(text("""
         SELECT s.question_id, q.question_text, q.type,
                s.technical_score, s.communication_score, s.completeness_score,
                s.overall_score, s.ai_feedback
@@ -1181,20 +1202,80 @@ def get_evaluation(interview_id: UUID, db: Session = Depends(get_db)):
         except Exception:
             report = {}
 
+    score_details = interview["score_details"] or {}
+    if isinstance(score_details, str):
+        try:
+            score_details = json.loads(score_details)
+        except Exception:
+            score_details = {}
+
+    score_details = score_details if isinstance(score_details, dict) else {}
+
+    per_question = []
+    for q in questions:
+        rubric = q.get("rubric_scores") or {}
+        if isinstance(rubric, str):
+            try:
+                rubric = json.loads(rubric)
+            except Exception:
+                rubric = {}
+        rubric = rubric if isinstance(rubric, dict) else {}
+
+        tech = rubric.get("technical")
+        comm = rubric.get("communication")
+        comp = rubric.get("completeness")
+
+        per_question.append({
+            "question_id": q.get("question_id"),
+            "question_text": q.get("question_text"),
+            "type": q.get("type"),
+            "technical_score": tech,
+            "communication_score": comm,
+            "completeness_score": comp,
+            "overall_score": q.get("overall_score"),
+            "ai_feedback": q.get("ai_feedback"),
+            "rubric": rubric,
+        })
+
+    has_answer_scores = any((item.get("overall_score") is not None) for item in per_question)
+    if not has_answer_scores and fallback_questions:
+        per_question = [dict(q) for q in fallback_questions]
+
+    rubric_scores = {
+        "technical": score_details.get("technical", 0),
+        "communication": score_details.get("communication", 0),
+        "completeness": score_details.get("completeness", 0),
+    }
+
+    if not any(v for v in rubric_scores.values() if isinstance(v, (int, float))):
+        rs = report.get("rubric_scores") or {}
+        if isinstance(rs, dict):
+            rubric_scores = {
+                "technical": rs.get("technical", rs.get("technical_accuracy", 0)),
+                "communication": rs.get("communication", rs.get("communication_clarity", rs.get("clarity", 0))),
+                "completeness": rs.get("completeness", rs.get("relevance", 0)),
+            }
+
+    overall_score = interview["overall_score"]
+    if overall_score is None and isinstance(report, dict):
+        overall_score = report.get("overall_score")
+
     return {
         "interview_id": str(interview["id"]),
         "candidate_name": (candidate_row["candidate_name"] if candidate_row else None),
         "candidate_email": (candidate_row["candidate_email"] if candidate_row else None),
         "role_title": interview.get("role_title"),
         "role_level": interview.get("role_level"),
-        "overall_score": interview["overall_score"],
+        "overall_score": overall_score,
         "report": report,
-        "rubric_scores": report.get("rubric_scores", {}),
+        "score_details": score_details,
+        "rubric_scores": rubric_scores,
         "hiring_recommendation": report.get("hiring_recommendation", "pending"),
         "strengths": report.get("strengths", []),
         "weaknesses": report.get("weaknesses", []),
-        "per_question": [dict(q) for q in questions],
-        "scored": bool(questions),
+        "per_question": per_question,
+        "scored": bool(per_question) and any((q.get("overall_score") is not None) for q in per_question),
+        "status": interview.get("status"),
     }
 
 

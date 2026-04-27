@@ -10,9 +10,11 @@ import json
 import logging
 import os
 import re
+import warnings
 from typing import Any, Dict, Optional, Tuple
 
 import httpx
+from core.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +24,72 @@ log = logging.getLogger(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+if not (settings.ANTHROPIC_API_KEY or "").strip():
+    warnings.warn("ANTHROPIC_API_KEY not set — Claude scoring disabled, using stubs")
+
+
+def is_ollama_available() -> bool:
+    try:
+        r = httpx.get("http://localhost:11434/api/tags", timeout=3.0)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+def get_llm_response(prompt: str, max_tokens: int = 1000) -> Optional[str]:
+    # Try Claude first if key configured
+    if (settings.ANTHROPIC_API_KEY or "").strip():
+        try:
+            payload = {
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": int(max_tokens),
+                "temperature": 0,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            headers = {
+                "x-api-key": settings.ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            }
+            resp = httpx.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=payload,
+                timeout=120.0,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            content = body.get("content") or []
+            text_chunks = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_chunks.append(str(item.get("text") or ""))
+            response_text = "\n".join(text_chunks).strip()
+            if response_text:
+                return response_text
+        except Exception as e:
+            log.warning("Claude failed: %s", e)
+
+    # Try Ollama
+    if is_ollama_available():
+        try:
+            model = getattr(settings, "OLLAMA_MODEL", "phi3:mini")
+            r = httpx.post(
+                "http://localhost:11434/api/generate",
+                json={"model": model, "prompt": prompt, "stream": False},
+                timeout=120.0,
+            )
+            r.raise_for_status()
+            result = (r.json() or {}).get("response", "")
+            if result:
+                log.info("Ollama scored (%s chars)", len(result))
+                return result
+        except Exception as e:
+            log.warning("Ollama failed: %s", e)
+
+    log.warning("NO LLM AVAILABLE — stub will be used")
+    return None
 
 
 async def gemini_chat(

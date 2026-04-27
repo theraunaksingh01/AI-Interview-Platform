@@ -155,17 +155,17 @@ def generate_mock_questions(
 
     prompt = f"""Generate {count} interview questions for a {seniority} {role_target} position.
 {focus_instruction}
-For each question return JSON with: text, type (dsa/system_design/behavioral), difficulty (easy/medium/hard).
+For each question return JSON with: text, type (dsa/system_design/behavioral), topic (one of: algorithms, system_design, behavioral, coding, database, networking, os_concepts, ml_basics), difficulty (1-5 integer).
 Return only a JSON array, no markdown, no explanation.
-Example: [{{"text": "...", "type": "dsa", "difficulty": "medium"}}]"""
+Example: [{{"text": "...", "type": "dsa", "topic": "algorithms", "difficulty": 3}}]"""
 
     fallback = [
-        {"text": f"Tell me about yourself and your experience as a {role_target}.", "type": "behavioral", "difficulty": "easy"},
-        {"text": "Describe a challenging technical problem you solved recently.", "type": "behavioral", "difficulty": "medium"},
-        {"text": "Given an array of integers, find two numbers that add up to a target sum.", "type": "dsa", "difficulty": "easy"},
-        {"text": "Design a URL shortening service like bit.ly.", "type": "system_design", "difficulty": "medium"},
-        {"text": "Explain the difference between SQL and NoSQL databases.", "type": "behavioral", "difficulty": "easy"},
-        {"text": "How would you optimize a slow database query?", "type": "system_design", "difficulty": "medium"},
+        {"text": f"Tell me about yourself and your experience as a {role_target}.", "type": "behavioral", "topic": "behavioral", "difficulty": 2},
+        {"text": "Describe a challenging technical problem you solved recently.", "type": "behavioral", "topic": "behavioral", "difficulty": 3},
+        {"text": "Given an array of integers, find two numbers that add up to a target sum.", "type": "dsa", "topic": "algorithms", "difficulty": 2},
+        {"text": "Design a URL shortening service like bit.ly.", "type": "system_design", "topic": "system_design", "difficulty": 3},
+        {"text": "Explain the difference between SQL and NoSQL databases.", "type": "behavioral", "topic": "database", "difficulty": 2},
+        {"text": "How would you optimize a slow database query?", "type": "system_design", "topic": "database", "difficulty": 3},
     ]
 
     # Sort: voice/system-design first, actual coding last.
@@ -202,14 +202,20 @@ Example: [{{"text": "...", "type": "dsa", "difficulty": "medium"}}]"""
                 continue
             text = str(item.get("text") or "").strip()
             q_type = str(item.get("type") or "behavioral").strip().lower()
-            difficulty = str(item.get("difficulty") or "medium").strip().lower()
+            topic = str(item.get("topic") or "").strip().lower()
+            raw_diff = item.get("difficulty", 3)
             if not text:
                 continue
             if q_type not in {"dsa", "system_design", "behavioral"}:
                 q_type = "behavioral"
-            if difficulty not in {"easy", "medium", "hard"}:
-                difficulty = "medium"
-            cleaned.append({"text": text, "type": q_type, "difficulty": difficulty})
+            if topic not in {"algorithms", "system_design", "behavioral", "coding", "database", "networking", "os_concepts", "ml_basics"}:
+                topic = "algorithms" if q_type == "dsa" else ("system_design" if q_type == "system_design" else "behavioral")
+            try:
+                difficulty = int(raw_diff)
+            except Exception:
+                difficulty = 3
+            difficulty = max(1, min(5, difficulty))
+            cleaned.append({"text": text, "type": q_type, "topic": topic, "difficulty": difficulty})
 
         if cleaned:
             cleaned.sort(key=sort_key)
