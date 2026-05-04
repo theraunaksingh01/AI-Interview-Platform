@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CandidateDetail } from '@/types/candidates';
 import RubricRadarChart from './RubricRadarChart';
+import IntegrityPanel from './IntegrityPanel';
 import RescoreModal from './RescoreModal';
 
 interface Props {
@@ -108,6 +109,9 @@ export default function CandidateDetailPanel({ roleId, applicationId, onActionCo
                   Reject
                 </button>
               </div>
+            </div>
+            <div className="mt-6">
+              <IntegrityPanel cheatSignals={candidate.cheat_signals || []} />
             </div>
           </div>
         )}

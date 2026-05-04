@@ -1,297 +1,173 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
 
+function MicIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M7 11a5 5 0 0 0 10 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LoaderSpinner() {
+  return <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />;
+}
+
+const ROLE_OPTIONS = [
+  { icon: "⌁", label: "Software Engineer", value: "Software Engineer", tagline: "Balanced technical + communication", focusArea: "mixed" as const },
+  { icon: "◈", label: "Frontend", value: "Frontend", tagline: "UI, performance, state, accessibility", focusArea: "dsa" as const },
+  { icon: "⌂", label: "Backend", value: "Backend", tagline: "APIs, systems, scale, reliability", focusArea: "system_design" as const },
+  { icon: "⬡", label: "Full Stack", value: "Full Stack", tagline: "Product thinking across layers", focusArea: "mixed" as const },
+  { icon: "◉", label: "Data Engineer", value: "Data Engineer", tagline: "Pipelines, orchestration, data quality", focusArea: "system_design" as const },
+  { icon: "◆", label: "System Design", value: "System Design", tagline: "Trade-offs, architecture, scale", focusArea: "system_design" as const },
+];
+const DIFFICULTY_OPTIONS = ["Beginner", "Intermediate", "Advanced"] as const;
+const QUESTION_COUNTS = [5, 8, 11] as const;
+const ROLE_MAP = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r]));
+
 export default function MockLandingPage() {
   const router = useRouter();
 
-  const [roleTarget, setRoleTarget] = useState("");
-  const [seniority, setSeniority] = useState("");
-  const [companyType, setCompanyType] = useState("");
-  const [focusArea, setFocusArea] = useState("");
+  const [roleTarget, setRoleTarget] = useState<string>("");
+  const [seniority, setSeniority] = useState<string>("");
+  const [companyType, setCompanyType] = useState<string>("voice");
+  const [questionCount, setQuestionCount] = useState<5 | 8 | 11>(8);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [micStatus, setMicStatus] = useState<"ready" | "blocked" | "testing">("ready");
+  const [micTesting, setMicTesting] = useState(false);
+  const [micPreviewUrl, setMicPreviewUrl] = useState<string | null>(null);
 
-  const roleOptions = [
-    {
-      icon: "⚙",
-      label: "Backend Engineer",
-      value: "Backend Engineer",
-      tagline: "APIs, databases, infrastructure",
-      iconBg: "#EEF2FF",
-      iconFg: "#6366F1",
-    },
-    {
-      icon: "◈",
-      label: "Frontend Engineer",
-      value: "Frontend Engineer",
-      tagline: "UI, performance, frameworks",
-      iconBg: "#FFF7ED",
-      iconFg: "#F97316",
-    },
-    {
-      icon: "⬡",
-      label: "Full Stack",
-      value: "Full Stack",
-      tagline: "End-to-end product development",
-      iconBg: "#F0FDF4",
-      iconFg: "#22C55E",
-    },
-    {
-      icon: "◉",
-      label: "Data Scientist",
-      value: "Data Scientist",
-      tagline: "ML, analytics, pipelines",
-      iconBg: "#FFF1F2",
-      iconFg: "#F43F5E",
-    },
-    {
-      icon: "□",
-      label: "Product Manager",
-      value: "Product Manager",
-      tagline: "Strategy, roadmap, stakeholders",
-      iconBg: "#FFFBEB",
-      iconFg: "#EAB308",
-    },
-    {
-      icon: "▲",
-      label: "DevOps Engineer",
-      value: "DevOps Engineer",
-      tagline: "CI/CD, cloud, reliability",
-      iconBg: "#F0F9FF",
-      iconFg: "#0EA5E9",
-    },
-  ];
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const seniorityOptions = ["intern", "junior", "mid", "senior", "staff", "principal"];
+  const selectedRole = (ROLE_MAP as any)[roleTarget] || null;
+  const selectedRoleFocus = (selectedRole?.focusArea || "mixed") as "mixed" | "dsa" | "system_design";
+  const allSelected = Boolean(roleTarget && seniority && companyType);
+  const sessionMinutes = questionCount * 3;
 
-  const focusOptions = [
-    {
-      title: "DSA & Coding",
-      value: "dsa",
-      description: "Arrays, trees, dynamic programming",
-      softBg: "#EEF2FF",
-      icon: "◍",
-    },
-    {
-      title: "System Design",
-      value: "system_design",
-      description: "Scalability and architecture",
-      softBg: "#F0FDF4",
-      icon: "◈",
-    },
-    {
-      title: "Behavioral",
-      value: "behavioral",
-      description: "STAR method and leadership",
-      softBg: "#FFFBEB",
-      icon: "◉",
-    },
-    {
-      title: "Mixed (Full Sim)",
-      value: "mixed",
-      description: "Full interview simulation",
-      softBg: "#FFF1F2",
-      icon: "◎",
-    },
-  ];
+  const roleFocusLabel = selectedRoleFocus === "system_design" ? "System design heavy" : selectedRoleFocus === "dsa" ? "Coding focused" : "Mixed simulation";
 
-  const companyOptions = [
-    { title: "Startup", value: "startup", description: "Fast-paced, wear many hats" },
-    { title: "Product Company", value: "product", description: "FAANG-style depth" },
-    { title: "Service/MNC", value: "mnc", description: "Process and communication" },
-  ];
+  const tipText = useMemo(() => {
+    if (!roleTarget || !seniority) return "Select a role and difficulty to see tailored tips.";
+    return `This session focuses on ${roleFocusLabel}.`;
+  }, [roleTarget, seniority, roleFocusLabel]);
 
-  const allSelected = Boolean(roleTarget && seniority && focusArea && companyType);
-
-  const stepState = [Boolean(roleTarget), Boolean(seniority), Boolean(focusArea), Boolean(companyType)];
-  const currentStep = !roleTarget ? 1 : !seniority ? 2 : !focusArea ? 3 : !companyType ? 4 : 4;
-
-  const breakdownRows =
-    focusArea === "mixed"
-      ? [
-          { color: "#6366F1", text: "2 DSA problems" },
-          { color: "#22C55E", text: "2 System design" },
-          { color: "#F59E0B", text: "2 Behavioral" },
-        ]
-      : focusArea === "dsa"
-      ? [{ color: "#6366F1", text: "4 DSA problems" }]
-      : focusArea === "system_design"
-      ? [{ color: "#22C55E", text: "4 System design questions" }]
-      : focusArea === "behavioral"
-      ? [{ color: "#F59E0B", text: "6 Behavioral prompts" }]
-      : [{ color: "#9CA3AF", text: "Select focus area to preview" }];
-
-  const tipText = (() => {
-    if (!focusArea || !seniority) {
-      return "Pick your level and focus to get a personalized strategy tip before you begin.";
+  async function testMic() {
+    setMicTesting(true);
+    setMicStatus("testing");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const mediaRecorder = new (window as any).MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      mediaRecorder.ondataavailable = (e: BlobEvent) => chunks.push(e.data);
+      mediaRecorder.start();
+      await new Promise((r) => setTimeout(r, 1400));
+      mediaRecorder.stop();
+      await new Promise((r) => (mediaRecorder.onstop = r));
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      const url = URL.createObjectURL(blob);
+      setMicPreviewUrl(url);
+      setMicStatus("ready");
+    } catch (e) {
+      setMicStatus("blocked");
+    } finally {
+      setMicTesting(false);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
     }
-    if (focusArea === "system_design" && (seniority === "senior" || seniority === "staff" || seniority === "principal")) {
-      return "Senior system design questions focus on trade-offs, not just architecture. Be prepared to justify every decision.";
-    }
-    if (focusArea === "dsa") {
-      return "State brute-force first, then optimize with a clean complexity argument. Interviewers reward structured thinking.";
-    }
-    if (focusArea === "behavioral") {
-      return "Use STAR with outcomes and metrics. Keep each story tight, relevant, and reflective.";
-    }
-    return "In mixed rounds, announce your approach out loud before each answer so communication stays sharp across formats.";
-  })();
+  }
 
   async function startMock() {
     if (!allSelected) return;
     setLoading(true);
     setError(null);
-
-    const existingGuestToken =
-      typeof window !== "undefined" ? localStorage.getItem("mock_guest_token") : null;
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
-        : null;
-
     try {
-      const res = await fetch(`${API_BASE}/api/mock/session/start`, {
+      const resp = await fetch(`${API_BASE}/api/mock/session/start`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          role_target: roleTarget,
-          seniority,
-          company_type: companyType,
-          focus_area: focusArea,
-          guest_token: existingGuestToken,
-          resume_uploaded: false,
-          duration_mins: 45,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: roleTarget, difficulty: seniority, mode: companyType, questions: questionCount }),
       });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        if (body?.detail === "signup_required") {
-          router.push("/signup?reason=mock_limit");
-          return;
-        }
-        if (body?.detail === "limit_reached") {
-          setError("limit_reached");
-          return;
-        }
-        throw new Error(body?.detail || "Unable to start mock session");
+      if (!resp.ok) throw new Error("Failed to start session");
+      const data = await resp.json();
+      const id = data?.session_id || data?.id || null;
+      if (id) {
+        router.push(`/mock/${id}`);
+      } else {
+        setError("Unable to create session");
       }
-
-      const data = await res.json();
-      if (data.guest_token && typeof window !== "undefined") {
-        localStorage.setItem("mock_guest_token", data.guest_token);
-      }
-      if (data.session_id && typeof window !== "undefined") {
-        localStorage.setItem("mock_session_id", data.session_id);
-      }
-      if (data.interview_id && typeof window !== "undefined") {
-        localStorage.setItem("mock_interview_id", data.interview_id);
-      }
-
-      router.push(`/mock/session/${data.session_id}`);
     } catch (e: any) {
-      setError(e?.message || "Network error while creating mock session");
+      setError(e?.message || String(e));
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
   return (
-    <main className="min-h-screen bg-[#F9FAFB] text-[#111]">
-      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-8 px-8 py-12 lg:grid-cols-12 lg:gap-12">
-        <section className="lg:col-span-7">
-          <p className="text-xs text-[#9CA3AF]">Home &gt; Mock Interview</p>
-          <h1 className="mt-3 text-[30px] font-bold text-[#111]">Start a Mock Interview</h1>
-          <p className="mt-2 text-[15px] text-[#6B7280]">Personalized to your role, level, and goals.</p>
+    <main className="min-h-screen bg-gray-50">
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <header className="mb-8">
+          <p className="text-xs tracking-widest text-gray-400 font-medium mb-2">MOCK INTERVIEW</p>
+          <h1 className="text-3xl font-semibold text-gray-900">Practice, built for real interviews.</h1>
+          <p className="text-sm text-gray-500 mt-1">Personalised questions. Live feedback. No pressure.</p>
+        </header>
 
-          <div className="mt-7 rounded-xl border border-[#E5E7EB] bg-white px-4 py-4">
-            <div className="flex items-center gap-2 sm:gap-3">
-              {[
-                { n: 1, label: "Role" },
-                { n: 2, label: "Level" },
-                { n: 3, label: "Focus" },
-                { n: 4, label: "Company" },
-              ].map((item, idx) => {
-                const completed = idx > 0 ? stepState[idx - 1] : false;
-                const active = currentStep === item.n;
-                return (
-                  <div key={item.n} className="flex min-w-0 flex-1 items-center gap-2">
-                    <div
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                        completed
-                          ? "bg-[#6366F1] text-white"
-                          : active
-                          ? "bg-[#EEF2FF] text-[#6366F1]"
-                          : "bg-[#F3F4F6] text-[#9CA3AF]"
-                      }`}
-                    >
-                      {completed ? "✓" : item.n}
-                    </div>
-                    <span className={`text-xs sm:text-sm ${active ? "text-[#6366F1]" : "text-[#9CA3AF]"}`}>{item.label}</span>
-                    {idx < 3 && <div className="h-px flex-1 bg-[#E5E7EB]" />}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+              <div className="mb-4">
+                <div className="text-sm font-medium text-gray-700">Role</div>
+                <div className="text-xs text-gray-400">Choose the interview track</div>
+              </div>
 
-          <div className="mt-7 space-y-7">
-            <div>
-              <h2 className="mb-3 text-[13px] font-medium text-[#374151]">Target Role</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {roleOptions.map((role) => {
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {ROLE_OPTIONS.map((role) => {
                   const selected = roleTarget === role.value;
                   return (
                     <button
                       key={role.value}
                       type="button"
                       onClick={() => setRoleTarget(role.value)}
-                      className={`rounded-[10px] border p-4 text-left transition-all ${
-                        selected
-                          ? "border-[1.5px] border-[#6366F1] bg-[#F5F3FF]"
-                          : "border-[#E5E7EB] bg-white hover:border-[#C7D2FE]"
+                      className={`text-left rounded-xl border p-4 transition-all duration-150 ${
+                        selected ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="flex h-9 w-9 items-center justify-center rounded-full text-sm"
-                          style={{ backgroundColor: role.iconBg, color: role.iconFg }}
-                        >
-                          {role.icon}
-                        </span>
-                        <div>
-                          <p className="text-sm font-medium text-[#111]">{role.label}</p>
-                          <p className="text-xs text-[#9CA3AF]">{role.tagline}</p>
-                        </div>
-                      </div>
+                      <div className="text-2xl">{role.icon}</div>
+                      <div className="mt-2 text-sm font-medium text-gray-900">{role.label}</div>
+                      <div className="mt-0.5 text-xs text-gray-500">{role.tagline}</div>
                     </button>
                   );
                 })}
               </div>
-            </div>
 
-            {roleTarget && (
-              <div style={{ animation: "slideIn 280ms ease-out" }}>
-                <h2 className="mb-3 text-[13px] font-medium text-[#374151]">Experience Level</h2>
-                <div className="flex flex-wrap gap-2.5">
-                  {seniorityOptions.map((level) => {
+              <div className="mb-6">
+                <div className="text-sm font-medium text-gray-700">Difficulty</div>
+                <div className="text-xs text-gray-400 mb-3">Sets pacing and question complexity</div>
+                <div className="flex gap-3">
+                  {DIFFICULTY_OPTIONS.map((level) => {
                     const selected = seniority === level;
                     return (
                       <button
                         key={level}
                         type="button"
                         onClick={() => setSeniority(level)}
-                        className={`rounded-full border px-4 py-2 text-sm capitalize transition-all ${
-                          selected
-                            ? "border-[#6366F1] bg-[#6366F1] text-white"
-                            : "border-[#E5E7EB] bg-white text-[#374151]"
+                        className={`px-5 py-2 rounded-full text-sm transition ${
+                          selected ? "bg-indigo-500 text-white border border-indigo-500 font-medium" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
                         }`}
                       >
                         {level}
@@ -300,189 +176,164 @@ export default function MockLandingPage() {
                   })}
                 </div>
               </div>
-            )}
 
-            {seniority && (
-              <div style={{ animation: "fadeInUp 260ms ease-out" }}>
-                <h2 className="mb-3 text-[13px] font-medium text-[#374151]">Practice Focus</h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {focusOptions.map((focus) => {
-                    const selected = focusArea === focus.value;
+              <div className="mb-6">
+                <div className="text-sm font-medium text-gray-700">Session Type</div>
+                <div className="text-xs text-gray-400 mb-3">Choose voice or typed practice</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCompanyType("voice")}
+                    className={`rounded-xl p-4 text-center ${companyType === "voice" ? "border-indigo-500 bg-indigo-50" : "border border-gray-200"}`}
+                  >
+                    <div className="text-2xl">🎙️</div>
+                    <div className="mt-2 text-sm font-medium text-gray-900">Voice Interview</div>
+                    <div className="mt-1 text-xs text-gray-500">Speak your answers</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCompanyType("text")}
+                    className={`rounded-xl p-4 text-center ${companyType === "text" ? "border-indigo-500 bg-indigo-50" : "border border-gray-200"}`}
+                  >
+                    <div className="text-2xl">⌨️</div>
+                    <div className="mt-2 text-sm font-medium text-gray-900">Text Interview</div>
+                    <div className="mt-1 text-xs text-gray-500">Type your answers</div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <div className="text-sm font-medium text-gray-700">Number of Questions</div>
+                <div className="flex gap-3 mt-3">
+                  {QUESTION_COUNTS.map((count) => {
+                    const selected = questionCount === count;
                     return (
                       <button
-                        key={focus.value}
+                        key={count}
                         type="button"
-                        onClick={() => setFocusArea(focus.value)}
-                        className={`rounded-[10px] border p-5 text-left transition-all ${selected ? "border-[#6366F1] ring-2 ring-[#6366F1]" : "border-transparent"}`}
-                        style={{ backgroundColor: focus.softBg }}
+                        onClick={() => setQuestionCount(count as 5 | 8 | 11)}
+                        className={`px-5 py-2 rounded-full text-sm ${selected ? "bg-indigo-500 text-white" : "border border-gray-200 text-gray-600"}`}
                       >
-                        <p className="text-sm font-semibold text-[#111]">{focus.icon} {focus.title}</p>
-                        <p className="mt-1 text-xs text-[#6B7280]">{focus.description}</p>
+                        {count}
                       </button>
                     );
                   })}
                 </div>
+                <div className="text-xs text-gray-400 mt-3">Estimated duration: {sessionMinutes} minutes</div>
               </div>
-            )}
 
-            {focusArea && (
-              <div style={{ animation: "fadeInUp 260ms ease-out" }}>
-                <h2 className="mb-3 text-[13px] font-medium text-[#374151]">Interview Style</h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {companyOptions.map((company) => {
-                    const selected = companyType === company.value;
-                    return (
-                      <button
-                        key={company.value}
-                        type="button"
-                        onClick={() => setCompanyType(company.value)}
-                        className={`rounded-[10px] border p-4 text-left transition-all ${
-                          selected
-                            ? "border-[1.5px] border-[#6366F1] bg-[#F5F3FF]"
-                            : "border-[#E5E7EB] bg-white"
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-[#111]">{company.title}</p>
-                        <p className="mt-1 text-xs text-[#9CA3AF]">{company.description}</p>
-                      </button>
-                    );
-                  })}
+              {companyType === "voice" && (
+                <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                    <span className="text-sm text-gray-600">Microphone ready</span>
+                  </div>
+                  <button type="button" onClick={testMic} className="text-xs text-indigo-600 hover:text-indigo-700 underline">
+                    Test mic
+                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {allSelected && (
-              <div style={{ animation: "fadeInUp 260ms ease-out" }}>
+              {micPreviewUrl && (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-4">
+                  <div className="text-xs uppercase tracking-[0.22em] text-gray-500 mb-2">Preview playback</div>
+                  <audio controls className="w-full" src={micPreviewUrl} />
+                </div>
+              )}
+
+              <div>
                 <button
                   type="button"
                   onClick={startMock}
-                  disabled={loading}
-                  className="h-[52px] w-full rounded-[10px] bg-gradient-to-r from-[#6366F1] to-[#4F46E5] text-base font-semibold text-white disabled:opacity-60"
+                  disabled={loading || !allSelected}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm py-3.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Starting..." : "Start Interview →"}
-                </button>
-                <p className="mt-3 text-center text-sm text-[#6B7280]">
-                  ~45 minutes · 6 questions · Results in 2 minutes
-                </p>
-                {error && error !== "limit_reached" ? <p className="mt-2 text-center text-sm text-red-600">{error}</p> : null}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside className="lg:col-span-5">
-          <div className="sticky top-6 rounded-2xl border border-[#E5E7EB] bg-white p-7">
-            <p className="text-[15px] font-semibold text-[#111]">Interview Preview</p>
-
-            <div className="mt-5 space-y-3">
-              {[
-                { icon: "⚙", key: "Role", value: roleTarget || "Not selected" },
-                { icon: "◍", key: "Level", value: seniority || "Not selected" },
-                { icon: "◈", key: "Focus", value: focusArea || "Not selected" },
-                { icon: "◎", key: "Style", value: companyType || "Not selected" },
-              ].map((row) => {
-                const selected = row.value !== "Not selected";
-                return (
-                  <div key={row.key} className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-[#374151]">{row.icon} {row.key}</p>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs ${
-                        selected ? "bg-[#EEF2FF] text-[#6366F1]" : "bg-[#F3F4F6] text-[#374151]"
-                      }`}
-                    >
-                      {row.value}
+                  {loading ? (
+                    <span className="inline-flex items-center justify-center gap-3">
+                      <LoaderSpinner />
+                      Starting session...
                     </span>
+                  ) : (
+                    <span>Start Session →</span>
+                  )}
+                </button>
+              </div>
+
+              {error && <p className="mt-3 text-center text-sm text-rose-500">{error}</p>}
+            </div>
+          </div>
+
+          <aside className="lg:col-span-2 lg:sticky lg:top-8 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between">
+                <div className="text-lg font-semibold text-gray-900">What to expect.</div>
+                <div className="text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">{sessionMinutes} min</div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm">🎯</div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Real-time coaching overlay</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Guided nudges while you speak</div>
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="my-5 h-px bg-[#E5E7EB]" />
-
-            <p className="text-[13px] font-medium text-[#374151]">Question breakdown</p>
-            <div className="mt-3 space-y-2">
-              {breakdownRows.map((row, i) => (
-                <div key={`${row.text}-${i}`} className="flex items-center gap-2 text-sm text-[#374151]">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.color }} />
-                  <span>{row.text}</span>
                 </div>
-              ))}
-            </div>
 
-            <div className="my-5 h-px bg-[#E5E7EB]" />
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm">✦</div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">AI scoring on 3 dimensions</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Technical, communication, completeness</div>
+                  </div>
+                </div>
 
-            <div className="rounded-r-lg border-l-[3px] border-[#F59E0B] bg-[#FFFBEB] px-4 py-3">
-              <p className="text-xs font-semibold text-[#92400E]">💡 Pro tip</p>
-              <p className="mt-1 text-[13px] text-[#92400E]">{tipText}</p>
-            </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm">📄</div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Full transcript + feedback</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Every answer captured with written review</div>
+                  </div>
+                </div>
 
-            <div className="mt-6 grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-[#F9FAFB] p-3 text-center">
-                <p className="text-base font-bold text-[#111]">47,832</p>
-                <p className="text-xs text-[#6B7280]">Interviews</p>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm">📈</div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Communication metrics</div>
+                    <div className="text-xs text-gray-500 mt-0.5">WPM, filler words, silence gaps</div>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-lg bg-[#F9FAFB] p-3 text-center">
-                <p className="text-base font-bold text-[#111]">94%</p>
-                <p className="text-xs text-[#6B7280]">Satisfaction</p>
-              </div>
-              <div className="rounded-lg bg-[#F9FAFB] p-3 text-center">
-                <p className="text-base font-bold text-[#111]">4.8★</p>
-                <p className="text-xs text-[#6B7280]">Rating</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="text-xs tracking-widest text-gray-400 font-medium">SAMPLE QUESTION</div>
+              {roleTarget ? (
+                <div className="mt-4 bg-gray-50 rounded-xl border border-gray-200 p-5">
+                  <div className="inline-flex items-center bg-indigo-100 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full mb-3">{selectedRole?.label}</div>
+                  <div className="text-sm text-gray-800 leading-relaxed">{selectedRole?.focusArea === "system_design" ? "How would you design a rate limiter for an API that handles 10,000 RPS?" : selectedRole?.focusArea === "dsa" ? "Explain how you'd optimise a slow React render." : "Walk me through a recent architectural decision."}</div>
+                  <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400 flex justify-between">
+                    <div>Topic: {selectedRole ? (selectedRole.focusArea === "dsa" ? "Performance" : selectedRole.focusArea === "system_design" ? "Architecture" : "Mixed") : "—"}</div>
+                    <div>Difficulty: {seniority || "Intermediate"}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
+                  <div className="text-sm text-gray-400">Select a role to preview a sample question</div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <div className="text-xs tracking-widest text-gray-400 font-medium">YOUR PROGRESS</div>
+              <div className="mt-4 flex justify-between text-sm">
+                <div className="text-gray-500">Last score</div>
+                <div className="text-gray-900 font-medium">—</div>
               </div>
             </div>
-          </div>
-        </aside>
-      </div>
-
-      <style jsx global>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
-
-      {error === "limit_reached" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[90%] max-w-[440px] rounded-2xl bg-white p-10 text-center">
-            <div className="mb-4 text-[40px]">🎯</div>
-            <h2 className="mb-2 text-[22px] font-bold text-[#111]">You've used your free interview</h2>
-            <p className="mb-6 text-sm text-[#6B7280]">
-              Free plan includes 1 mock interview per month. Upgrade to Pro for unlimited interviews, full reports, and live coaching.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => router.push("/pricing")}
-                className="rounded-lg bg-[#6366F1] px-6 py-3 text-[15px] font-semibold text-white"
-              >
-                View Plans
-              </button>
-              <button
-                onClick={() => setError(null)}
-                className="rounded-lg border border-[#E5E7EB] bg-white px-6 py-3 text-[15px] text-[#6B7280]"
-              >
-                Maybe later
-              </button>
-            </div>
-          </div>
+          </aside>
         </div>
-      )}
+      </div>
     </main>
   );
 }

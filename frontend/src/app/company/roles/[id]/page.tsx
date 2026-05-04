@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import CandidateList from '@/components/CandidateList';
 import CandidateDetailPanel from '@/components/CandidateDetailPanel';
+import IntegrityPanel from '@/components/IntegrityPanel';
 import BulkActions from '@/components/BulkActions';
 import { CandidateListItem } from '@/types/candidates';
 
@@ -162,11 +163,18 @@ export default function RoleDashboard() {
         {/* Right: Detail Panel */}
         <div className="flex-1 bg-gray-50 overflow-y-auto">
           {selectedCandidate ? (
-            <CandidateDetailPanel
-              roleId={roleId}
-              applicationId={selectedCandidate.application_id}
-              onActionComplete={() => fetchCandidates()}
-            />
+            <>
+              <CandidateDetailPanel
+                roleId={roleId}
+                applicationId={selectedCandidate.application_id}
+                onActionComplete={() => fetchCandidates()}
+              />
+
+              <div className="mt-6 pt-6 border-t border-gray-100 px-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Candidate Integrity Verification</h3>
+                <IntegrityPanel cheatSignals={[]} />
+              </div>
+            </>
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">
               Select a candidate to view details

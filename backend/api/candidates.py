@@ -212,6 +212,32 @@ def get_candidates(
 
 
 # ============================================================================
+# GET /api/company/integrity-demo — Demo integrity payload without auth
+# ============================================================================
+
+@router.get("/integrity-demo")
+def integrity_demo(db: Session = Depends(get_db)):
+    """Demo endpoint — returns integrity signals for report screenshot."""
+    result = db.execute(text("""
+        SELECT cs.payload
+        FROM cheat_signals cs
+        JOIN interview_answers ia ON ia.id = cs.interview_answer_id
+        JOIN interview_questions iq ON iq.id = ia.interview_question_id
+        WHERE iq.interview_id = 'a3ed3b9e-0cd1-42dc-944c-5469bb1a8bd6'
+        AND cs.signal_type = 'category_d'
+        ORDER BY cs.created_at DESC
+        LIMIT 1
+    """)).fetchone()
+
+    if not result:
+        return {"signals": {}, "cheat_signals": []}
+
+    payload = result[0]
+    signals = payload.get("signals", {}) if payload else {}
+    return {"signals": signals, "cheat_signals": [{"payload": payload}]}
+
+
+# ============================================================================
 # GET /api/company/roles/{role_id}/candidates/{app_id} — Get candidate detail
 # ============================================================================
 
@@ -279,7 +305,12 @@ def get_candidate_detail(
         # Get cheat signals
         signals = db.execute(
             text("""
-                SELECT * FROM cheat_signals WHERE interview_id = :interview_id
+                SELECT cs.* FROM cheat_signals cs
+JOIN interview_answers ia ON ia.id = cs.interview_answer_id
+JOIN interview_questions iq ON iq.id = ia.interview_question_id
+WHERE iq.interview_id = :interview_id
+ORDER BY cs.created_at DESC
+LIMIT 1
             """),
             {"interview_id": interview["id"]},
         ).mappings().all()
@@ -311,10 +342,6 @@ def rescore_answer(
         text("SELECT * FROM interview_answers WHERE id = :id"),
         {"id": answer_id},
     ).mappings().first()
-
-    if not answer:
-        raise HTTPException(status_code=404, detail="Answer not found")
-
     old_score = answer.get("ai_score")
 
     # Update answer with manual score
