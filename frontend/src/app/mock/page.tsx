@@ -86,20 +86,30 @@ export default function MockLandingPage() {
   }
 
   async function startMock() {
-    if (!allSelected) return;
+    if (!roleTarget || !seniority) {
+      setError("Please select a role and difficulty before starting.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/mock/session/start`, {
+      const resp = await fetch(`/api/mock/session/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: roleTarget, difficulty: seniority, mode: companyType, questions: questionCount }),
+        body: JSON.stringify({
+          role_target: roleTarget,
+          seniority: seniority.toLowerCase(),
+          company_type: companyType || "voice",
+          focus_area: ROLE_MAP[roleTarget]?.focusArea || "mixed",
+          duration_mins: questionCount * 3,
+          resume_uploaded: false
+        }),
       });
       if (!resp.ok) throw new Error("Failed to start session");
       const data = await resp.json();
-      const id = data?.session_id || data?.id || null;
-      if (id) {
-        router.push(`/mock/${id}`);
+      const session_id = data?.session_id || null;
+      if (session_id) {
+        router.push(`/mock/session/${session_id}`);
       } else {
         setError("Unable to create session");
       }
@@ -143,9 +153,8 @@ export default function MockLandingPage() {
                       key={role.value}
                       type="button"
                       onClick={() => setRoleTarget(role.value)}
-                      className={`text-left rounded-xl border p-4 transition-all duration-150 ${
-                        selected ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30"
-                      }`}
+                      className={`text-left rounded-xl border p-4 transition-all duration-150 ${selected ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" : "border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30"
+                        }`}
                     >
                       <div className="text-2xl">{role.icon}</div>
                       <div className="mt-2 text-sm font-medium text-gray-900">{role.label}</div>
@@ -166,9 +175,8 @@ export default function MockLandingPage() {
                         key={level}
                         type="button"
                         onClick={() => setSeniority(level)}
-                        className={`px-5 py-2 rounded-full text-sm transition ${
-                          selected ? "bg-indigo-500 text-white border border-indigo-500 font-medium" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                        }`}
+                        className={`px-5 py-2 rounded-full text-sm transition ${selected ? "bg-indigo-500 text-white border border-indigo-500 font-medium" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                          }`}
                       >
                         {level}
                       </button>

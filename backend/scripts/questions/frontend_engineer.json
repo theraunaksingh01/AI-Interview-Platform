@@ -1,0 +1,899 @@
+[
+  {
+    "question_text": "What is the difference between == and === in JavaScript? Give an example where they produce different results.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "== performs type coercion before comparison while === checks both value and type without coercion. A strong answer gives a concrete example like 0 == '0' being true while 0 === '0' is false, and explains why relying on == is dangerous in production code due to JavaScript's complex coercion rules. Bonus for mentioning Object.is() as an even stricter comparison that handles NaN and -0 correctly.",
+    "follow_up_questions": [
+      {"text": "What does 0 == false evaluate to and why?", "difficulty": 1, "topic": "general-behavior"},
+      {"text": "What is the Abstract Equality Comparison algorithm and when would you intentionally use ==?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says === is 'stricter' without explaining type coercion or cannot produce a concrete example where the two operators differ."
+  },
+  {
+    "question_text": "What is the CSS box model? Explain the difference between content-box and border-box sizing.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "The box model describes how an element's total size is computed from content, padding, border, and margin. With content-box (default), width/height applies only to content so padding and border add to the total rendered size. With border-box, width/height includes padding and border making layout calculations intuitive. Strong answers explain why * { box-sizing: border-box } is considered a best practice and how border-box prevents common layout bugs when combining percentages with fixed padding.",
+    "follow_up_questions": [
+      {"text": "If an element has width: 100px, padding: 10px, border: 5px, what is the rendered width in content-box vs border-box?", "difficulty": 1, "topic": "general-behavior"},
+      {"text": "How does margin collapsing work and in what situations does it not occur?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate cannot explain what border-box changes or confuses padding and margin as equivalent components of the box model."
+  },
+  {
+    "question_text": "What is the difference between null and undefined in JavaScript?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "undefined means a variable has been declared but not assigned a value, or a function returns without a return statement — it is set by the JavaScript engine. null is an explicit assignment representing intentional absence of a value — it is set by the developer. Strong answers note that typeof null === 'object' is a historical bug, that null == undefined is true but null === undefined is false, and give practical examples of when you'd assign null to signal an empty state.",
+    "follow_up_questions": [
+      {"text": "What does the nullish coalescing operator ?? do and how does it differ from ||?", "difficulty": 2, "topic": "general-behavior"},
+      {"text": "What does optional chaining ?. return when it encounters a null or undefined in the chain?", "difficulty": 2, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says null and undefined are interchangeable or cannot explain that undefined is engine-assigned while null is developer-assigned."
+  },
+  {
+    "question_text": "What is the difference between localStorage, sessionStorage, and cookies? When would you use each?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 1,
+    "is_fundamental": false,
+    "expected_answer_framework": "localStorage persists until explicitly cleared, sessionStorage lasts for the browser tab session, and cookies can have explicit expiry dates and are sent with every HTTP request. Cookies are necessary for server-side authentication (httpOnly flag prevents XSS access), localStorage is suitable for user preferences and cached data, and sessionStorage is ideal for single-session state like a multi-step form. Strong answers mention storage limits (localStorage ~5MB, cookies ~4KB), and security considerations like never storing tokens in localStorage due to XSS vulnerability.",
+    "follow_up_questions": [
+      {"text": "Why is storing a JWT in localStorage considered a security risk and what is the alternative?", "difficulty": 3, "topic": "api-design"},
+      {"text": "What is an httpOnly cookie and why can't JavaScript access it?", "difficulty": 2, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate does not mention that cookies are sent with HTTP requests while localStorage/sessionStorage are not, missing the fundamental architectural difference."
+  },
+  {
+    "question_text": "Explain how the JavaScript event loop works. What is the call stack, the task queue, and the microtask queue?",
+    "type": "voice",
+    "topic": "concurrency",
+    "difficulty": 2,
+    "is_fundamental": true,
+    "expected_answer_framework": "The call stack executes synchronous code one frame at a time. When async operations complete, their callbacks are placed in the task queue (macrotasks: setTimeout, setInterval, I/O) or microtask queue (Promise callbacks, queueMicrotask). After each task, the event loop drains the entire microtask queue before picking the next macrotask. Strong answers demonstrate this with a concrete example showing that Promise.resolve().then() always executes before setTimeout(fn, 0), and explain why infinite microtask chains can starve the render loop.",
+    "follow_up_questions": [
+      {"text": "What is the output order of: console.log(1), setTimeout(()=>console.log(2),0), Promise.resolve().then(()=>console.log(3)), console.log(4)?", "difficulty": 2, "topic": "concurrency"},
+      {"text": "What is requestAnimationFrame and where does it fit in the event loop relative to tasks and microtasks?", "difficulty": 4, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate says JavaScript is multi-threaded or cannot explain the difference between the microtask queue and the task queue and their relative priority."
+  },
+  {
+    "question_text": "What is the difference between display: none, visibility: hidden, and opacity: 0?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "display: none removes the element from the layout flow entirely — it takes no space and is not accessible to screen readers. visibility: hidden makes the element invisible but it still occupies space in the layout and remains in the accessibility tree. opacity: 0 makes the element fully transparent but it still occupies space, receives pointer events, and is visible to screen readers. Strong answers mention that display:none triggers layout reflow, that opacity:0 elements can still be focused and interacted with (a common accessibility bug), and discuss animation implications.",
+    "follow_up_questions": [
+      {"text": "Which of the three properties can be CSS-transitioned and why?", "difficulty": 2, "topic": "general-behavior"},
+      {"text": "How would you hide an element visually but keep it accessible to screen readers?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says all three achieve the same visual result and cannot explain the layout, accessibility, or event handling differences."
+  },
+  {
+    "question_text": "What is event delegation in JavaScript and why is it a performance optimization?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 2,
+    "is_fundamental": true,
+    "expected_answer_framework": "Event delegation attaches a single event listener to a parent element rather than individual listeners on each child, leveraging event bubbling so that events on children propagate up to the parent handler. Performance benefit: fewer event listeners means less memory usage and faster initialization — critical for lists with hundreds or thousands of items. Strong answers explain how to identify the event source using event.target, discuss the limitation that not all events bubble (focus, blur — use focusin/focusout instead), and give a concrete example like a dynamic list where items are added/removed.",
+    "follow_up_questions": [
+      {"text": "What is event.stopPropagation() and when would its use break event delegation?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "How does event capturing differ from event bubbling and when would you use the capture phase?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate describes event delegation as 'adding listeners to child elements' or cannot explain why it uses less memory than attaching individual listeners."
+  },
+  {
+    "question_text": "What are CSS specificity rules? How does the browser decide which CSS rule wins when multiple rules target the same element?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Specificity is calculated as a four-part weight: inline styles (1,0,0,0), IDs (0,1,0,0), classes/attributes/pseudo-classes (0,0,1,0), and elements/pseudo-elements (0,0,0,1). The rule with the highest specificity wins; equal specificity falls back to source order (last wins). Strong answers mention that !important overrides specificity (except other !important rules), that the universal selector * has zero specificity, and explain why over-relying on IDs or !important makes CSS hard to maintain.",
+    "follow_up_questions": [
+      {"text": "What is the specificity of: div.container > p:first-child?", "difficulty": 2, "topic": "general-behavior"},
+      {"text": "What is the CSS cascade and how does specificity interact with cascade layers?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says 'the last rule always wins' with no understanding of the specificity weight system or cannot calculate specificity for a multi-selector rule."
+  },
+  {
+    "question_text": "Write a function that implements a debounce utility. It should delay invoking a function until after a specified wait time has elapsed since the last time it was called. Include a leading option that fires on the first call immediately.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement a closure that stores a timer reference, clears it on each call with clearTimeout, and sets a new timer with setTimeout. With leading:true, invoke immediately on the first call and suppress subsequent calls during the wait period. Strong candidates return the debounced function with a .cancel() method to clear pending timers, preserve the correct 'this' context and arguments, and explain the difference between debounce (wait for activity to stop) vs throttle (fire at most once per interval).",
+    "follow_up_questions": [
+      {"text": "Now implement a throttle function that ensures the callback fires at most once per interval.", "difficulty": 3, "topic": "algorithms"},
+      {"text": "What memory leak can occur if a debounced function is created inside a React component without cleanup?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate uses a boolean flag instead of clearTimeout, producing a debounce that only works once, or cannot explain the closure that captures the timer reference."
+  },
+  {
+    "question_text": "What is the virtual DOM? Why did React introduce it and what are its performance trade-offs?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "The virtual DOM is an in-memory JavaScript representation of the real DOM tree. React uses it to batch and minimize real DOM mutations by diffing the previous and new virtual DOM trees (reconciliation) and applying only the necessary changes. This is faster than naively re-rendering the entire DOM but adds overhead of the diffing algorithm itself. Strong answers acknowledge that the virtual DOM is not always faster — frameworks like Svelte and Solid compile to direct DOM updates avoiding VDOM overhead entirely — and explain React's fiber architecture as an incremental rendering evolution.",
+    "follow_up_questions": [
+      {"text": "What is React's reconciliation algorithm and what assumptions does it make to achieve O(n) complexity?", "difficulty": 4, "topic": "algorithms"},
+      {"text": "Why is the key prop critical for list rendering performance in React?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says the virtual DOM is always faster than direct DOM manipulation with no understanding that VDOM diffing has its own overhead and that compiler-based frameworks avoid it entirely."
+  },
+  {
+    "question_text": "What is the difference between useMemo and useCallback in React? When would you use each and when are they unnecessary?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "useMemo memoizes a computed value and recomputes only when dependencies change — use for expensive calculations. useCallback memoizes a function reference and returns the same function instance across renders — use when passing callbacks to memoized child components to prevent re-renders. Both are unnecessary for cheap operations or components that render regardless, and both have a cost (memory, dependency comparison). Strong answers warn against premature optimization, explain that useCallback is essentially useMemo returning a function, and describe when React.memo on child components is the prerequisite for useCallback to have any effect.",
+    "follow_up_questions": [
+      {"text": "If useCallback is missing a dependency in its array, what bug can occur?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What is the React compiler (React Forget) and how does it aim to eliminate the need for manual memoization?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says you should always wrap every function in useCallback for performance, demonstrating no understanding that memoization has a cost and is only beneficial in specific re-render scenarios."
+  },
+  {
+    "question_text": "Explain CSS Flexbox. How do justify-content and align-items differ and what axes do they operate on?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Flexbox is a one-dimensional layout model. justify-content controls alignment along the main axis (default: horizontal row), distributing space between items with values like flex-start, flex-end, center, space-between, space-around. align-items controls alignment along the cross axis (perpendicular to main), with values like stretch (default), center, flex-start. Strong answers explain that the main and cross axes swap when flex-direction is column, distinguish align-items (all items) from align-self (individual item), and mention flex-grow, flex-shrink, and flex-basis as the core sizing properties.",
+    "follow_up_questions": [
+      {"text": "What is the difference between flex-wrap and flex-shrink?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "When would you choose CSS Grid over Flexbox and how do they complement each other?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says justify-content is always vertical or cannot correctly identify which axis each property controls when flex-direction changes."
+  },
+  {
+    "question_text": "What is CORS? Why does it exist and how do you configure a frontend app to work with a CORS-restricted API?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "CORS (Cross-Origin Resource Sharing) is a browser security mechanism that restricts cross-origin HTTP requests initiated by JavaScript. It exists to prevent malicious sites from making authenticated requests to other domains using the user's credentials. Configuration: the server must include Access-Control-Allow-Origin headers; for credentialed requests (cookies), the server must set Access-Control-Allow-Credentials: true and cannot use wildcard origin. Strong answers explain preflight requests (OPTIONS) for non-simple requests, distinguish simple from preflighted requests, and describe that CORS is enforced by the browser — backend-to-backend calls are unaffected.",
+    "follow_up_questions": [
+      {"text": "What is a preflight request and when is it triggered?", "difficulty": 3, "topic": "api-design"},
+      {"text": "Why does a proxy-based development setup (Webpack devServer proxy) bypass CORS restrictions?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says to 'disable CORS in the browser' or adds a CORS extension as a production solution, showing no understanding that CORS is a server-side configuration not a browser bug."
+  },
+  {
+    "question_text": "Write a function that deeply clones a JavaScript object without using JSON.parse/JSON.stringify. It should handle nested objects, arrays, Date objects, and circular references.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should use a WeakMap to track already-cloned objects for circular reference detection — on encountering an object already in the map, return the cached clone. Handle each type: Date (new Date(obj)), Array (recursively clone elements), plain objects (recursively clone enumerable own properties). Strong candidates handle null correctly, preserve prototype chain for known types, discuss what JSON.parse/JSON.stringify breaks (Date→string, undefined→omitted, functions→omitted, circular→throws), and note that structuredClone() is the modern native solution.",
+    "follow_up_questions": [
+      {"text": "What does structuredClone() handle that your implementation might miss?", "difficulty": 3, "topic": "algorithms"},
+      {"text": "How would you extend your clone to handle Map and Set objects?", "difficulty": 4, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate produces a shallow clone using Object.assign or spread operator without recursive cloning, or ignores circular references causing a stack overflow on cyclic structures."
+  },
+  {
+    "question_text": "What is CSS Grid? Explain how grid-template-columns, grid-column, and auto-fill vs auto-fit differ.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "CSS Grid is a two-dimensional layout system. grid-template-columns defines column track sizes using px, fr (fraction of available space), repeat(), and minmax(). grid-column: span 2 makes an item span two columns. auto-fill creates as many tracks as fit, keeping empty tracks when items run out. auto-fit collapses empty tracks, allowing remaining items to grow. Strong answers demonstrate repeat(auto-fit, minmax(250px, 1fr)) as the classic responsive card grid pattern, and explain that fr units distribute space proportionally after fixed/minmax constraints are satisfied.",
+    "follow_up_questions": [
+      {"text": "What is the difference between implicit and explicit grid tracks?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "How would you create a masonry layout using CSS Grid?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate cannot explain the difference between auto-fill and auto-fit or says CSS Grid and Flexbox are interchangeable without understanding Grid's two-dimensional capability."
+  },
+  {
+    "question_text": "What is the difference between server-side rendering (SSR), client-side rendering (CSR), and static site generation (SSG)? When would you choose each?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "CSR sends a minimal HTML shell and renders entirely in the browser — fast subsequent navigation, poor initial load and SEO. SSR renders HTML on the server per request — good SEO, fast first contentful paint, but higher server cost and TTFB. SSG pre-renders HTML at build time — fastest delivery, best SEO, but cannot serve personalized or real-time content. Strong answers introduce ISR (Incremental Static Regeneration in Next.js), explain hydration cost in SSR/SSG, and map use cases: SSG for marketing pages, SSR for auth-gated dashboards, CSR for highly interactive apps.",
+    "follow_up_questions": [
+      {"text": "What is hydration in SSR and what is the hydration mismatch error?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What are React Server Components and how do they differ from SSR?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says SSR is always better than CSR without discussing TTFB, server cost, hydration overhead, or mapping rendering strategy to specific use case requirements."
+  },
+  {
+    "question_text": "Explain the React component lifecycle. How do the main useEffect patterns map to class component lifecycle methods?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Class lifecycle: componentDidMount (after first render), componentDidUpdate (after every update), componentWillUnmount (before removal). useEffect with no deps array runs after every render (no direct equivalent), with [] runs once after mount (componentDidMount), with [dep] runs after mount and when dep changes, and returning a cleanup function maps to componentWillUnmount. Strong answers explain that useEffect runs asynchronously after paint (unlike componentDidMount which ran synchronously), introduce useLayoutEffect for synchronous post-DOM measurement, and discuss why the mental model should shift from lifecycle events to synchronizing with external systems.",
+    "follow_up_questions": [
+      {"text": "What is the difference between useEffect and useLayoutEffect and when would you use the latter?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "Why can you not make the useEffect callback itself an async function?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate cannot map useEffect dependency array patterns to lifecycle methods or says useEffect with [] is exactly equivalent to componentDidMount without acknowledging the async timing difference."
+  },
+  {
+    "question_text": "What is code splitting and lazy loading in a JavaScript application? How do you implement it and what metrics does it improve?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Code splitting breaks a JavaScript bundle into smaller chunks loaded on demand instead of upfront. Lazy loading defers loading chunks until needed (route navigation, component render, user interaction). Implementation: React.lazy() + Suspense for component-level splitting, dynamic import() for feature-level splitting, route-based splitting with React Router. Metrics improved: initial bundle size, Time to Interactive (TTI), First Contentful Paint (FCP). Strong answers discuss chunk waterfall risks (nested lazy components), preloading critical routes, and using webpack bundle analyzer or Vite's rollup visualizer to identify splitting opportunities.",
+    "follow_up_questions": [
+      {"text": "What is the Suspense boundary in React and how does it interact with lazy-loaded components?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What is module federation in Webpack 5 and how does it enable micro-frontend architectures?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says code splitting means 'putting code in separate files' without explaining dynamic import, bundle chunks, or the network waterfall implications of lazy loading."
+  },
+  {
+    "question_text": "What is the browser's critical rendering path? How does it affect web performance optimization decisions?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_summary": "The critical rendering path is the sequence of steps the browser takes to display the first pixel: parse HTML → build DOM, parse CSS → build CSSOM, combine → render tree, layout (reflow), paint, composite. JavaScript blocks HTML parsing (unless async/defer), CSS blocks rendering. Optimizations: minimize render-blocking resources, inline critical CSS, defer non-critical JS, reduce layout thrashing (batch DOM reads before writes), use will-change to promote elements to compositor layers. Strong answers mention Core Web Vitals (LCP, FID/INP, CLS) as the measurable outcomes these optimizations affect.",
+    "expected_answer_framework": "The critical rendering path is the sequence from HTML parsing to first pixel: DOM → CSSOM → Render Tree → Layout → Paint → Composite. JavaScript blocks HTML parsing unless async or defer is used, and CSS blocks rendering. Optimizations target minimizing render-blocking resources, inlining critical CSS, using will-change for compositor layers, and avoiding layout thrashing by batching reads before writes.",
+    "follow_up_questions": [
+      {"text": "What is layout thrashing and how do you fix it with requestAnimationFrame?", "difficulty": 4, "topic": "general-behavior"},
+      {"text": "What is the difference between repaint and reflow and which is more expensive?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says the browser 'just loads the page' with no knowledge of DOM/CSSOM construction, render blocking, or how JavaScript placement affects parse timing."
+  },
+  {
+    "question_text": "Write a function that implements infinite scroll for a list of items. It should use IntersectionObserver to detect when the user reaches the bottom sentinel element and trigger a paginated data fetch. Include loading and error states.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should create a sentinel element at the bottom of the list, attach an IntersectionObserver that triggers when the sentinel enters the viewport, and on intersection fetch the next page with a page counter. State management: isLoading flag to prevent duplicate fetches (unobserve during fetch), hasMore flag to stop observing when data is exhausted, and error state for failed requests. Strong candidates use useEffect cleanup to disconnect the observer, implement exponential backoff or retry logic, and discuss how to handle race conditions if the user scrolls rapidly.",
+    "follow_up_questions": [
+      {"text": "How would you implement this with cursor-based pagination instead of page-number pagination?", "difficulty": 4, "topic": "api-design"},
+      {"text": "What is virtual scrolling and when would you use it instead of infinite scroll for very large lists?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate implements infinite scroll using a scroll event listener without debouncing or throttling, ignoring the performance overhead of synchronous scroll handlers compared to IntersectionObserver."
+  },
+  {
+    "question_text": "What are Web Workers and when would you use them in a frontend application?",
+    "type": "voice",
+    "topic": "concurrency",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Web Workers run JavaScript in a background thread separate from the main thread, enabling true parallelism for CPU-intensive tasks without blocking the UI. Communication via postMessage/onmessage with structured cloning of data (no shared state by default). Use cases: large dataset processing, image manipulation, compression, cryptography, real-time data parsing. Limitations: no DOM access, no localStorage, message serialization overhead. Strong answers distinguish dedicated, shared, and service workers, mention SharedArrayBuffer with Atomics for low-overhead shared memory, and discuss Comlink as a library that wraps Worker communication in a cleaner proxy API.",
+    "follow_up_questions": [
+      {"text": "What is a Service Worker and how does it differ from a Web Worker?", "difficulty": 3, "topic": "system-design"},
+      {"text": "How would you use SharedArrayBuffer and Atomics to avoid message-passing overhead in a Web Worker?", "difficulty": 5, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate says Web Workers run code asynchronously like Promises, confusing thread-based parallelism with JavaScript's single-threaded async concurrency model."
+  },
+  {
+    "question_text": "What is XSS (Cross-Site Scripting)? How do you prevent it in a React application versus a vanilla JavaScript application?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "XSS is an attack where malicious scripts are injected into web pages viewed by other users, enabling cookie theft, keylogging, and account takeover. In vanilla JS: always escape user content before inserting into innerHTML, use textContent instead of innerHTML, and sanitize with DOMPurify when HTML rendering is required. React automatically escapes JSX expressions, making it safe by default — but dangerouslySetInnerHTML bypasses this protection and requires the same sanitization. Strong answers distinguish stored XSS (persisted in DB), reflected XSS (URL parameter), and DOM-based XSS, and mention Content Security Policy (CSP) as a defense-in-depth mechanism.",
+    "follow_up_questions": [
+      {"text": "What is a Content Security Policy and how does it mitigate XSS?", "difficulty": 4, "topic": "api-design"},
+      {"text": "How would you safely render user-submitted Markdown that may contain HTML?", "difficulty": 4, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says React is immune to XSS with no mention of dangerouslySetInnerHTML or that React's auto-escaping only applies to JSX expressions."
+  },
+  {
+    "question_text": "Design the frontend architecture for a collaborative whiteboard application that needs real-time multi-user drawing with low latency. What rendering approach, state management, and communication strategy would you use?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should choose Canvas API over SVG for performance at scale (many shapes), WebSockets for bidirectional real-time communication, and an operational transform or CRDT approach for conflict resolution when multiple users draw simultaneously. State management needs to separate local optimistic state (immediate rendering of own strokes) from synchronized server state. Strong answers discuss rendering pipeline (requestAnimationFrame loop for canvas, dirty-region invalidation), offline handling, undo/redo as an operation log, and performance concerns like throttling mousemove events and using OffscreenCanvas with a Web Worker for heavy rendering.",
+    "follow_up_questions": [
+      {"text": "How would you implement an undo/redo system for collaborative drawing where multiple users are making changes?", "difficulty": 5, "topic": "algorithms"},
+      {"text": "How would you efficiently synchronize a new user joining a whiteboard session that already has 10,000 drawn elements?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes using React state and SVG elements for real-time drawing with no awareness of performance at scale or the complexity of concurrent state synchronization."
+  },
+  {
+    "question_text": "Write a function that implements a virtual list (windowing) component from scratch. Given an array of n items and a fixed item height, render only the items visible in the viewport plus a buffer, translating the container to simulate the full scroll height.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should compute: total height = n * itemHeight (applied to a spacer div), scrollTop from the scroll event, startIndex = Math.floor(scrollTop / itemHeight), endIndex = startIndex + Math.ceil(viewportHeight / itemHeight) + buffer. Render only items[startIndex:endIndex] with a transform or paddingTop equal to startIndex * itemHeight to position them correctly. Strong candidates use requestAnimationFrame to throttle scroll handlers, implement ResizeObserver for dynamic viewport changes, explain the DOM node count reduction from O(n) to O(viewport/itemHeight), and discuss the extension needed for variable-height items.",
+    "follow_up_questions": [
+      {"text": "How would you handle variable-height items in a virtual list where item heights are unknown until rendered?", "difficulty": 5, "topic": "algorithms"},
+      {"text": "What is the trade-off between buffer size and scroll performance in virtual lists?", "difficulty": 4, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate proposes rendering all n items and using CSS to hide non-visible ones, defeating the purpose of virtualization by still mounting thousands of DOM nodes."
+  },
+  {
+    "question_text": "What is the difference between reflow and repaint in browser rendering? How would you diagnose and fix layout thrashing in a performance-critical animation?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Reflow (layout) recalculates the geometry of all elements — expensive and cascades to descendants. Repaint re-renders pixels without geometry changes — less expensive. Layout thrashing occurs when JavaScript alternates between reading and writing DOM geometry properties in a loop, forcing synchronous reflow on every read. Fix: batch all reads before all writes, use requestAnimationFrame to synchronize writes with the browser's paint cycle, cache DOM measurements, and use CSS transforms instead of top/left for animation (triggers only composite, not layout or paint). Diagnosis: Chrome DevFramework Performance tab, forced reflow markers, and the FastDOM library.",
+    "follow_up_questions": [
+      {"text": "Why does animating CSS transform and opacity not trigger layout or paint?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What does will-change: transform do and what are the risks of overusing it?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says reflow and repaint are the same thing or cannot explain why reading offsetHeight inside a write loop causes synchronous forced layout."
+  },
+  {
+    "question_text": "What is state management in React? Compare useState, useReducer, Context API, and an external store like Zustand or Redux. When does each make sense?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "useState is ideal for simple local component state. useReducer is better for complex state with multiple sub-values or when next state depends on previous state in complex ways — think finite state machines. Context API solves prop drilling for shared state but causes all consumers to re-render on any state change, making it unsuitable for high-frequency updates. External stores (Zustand, Redux) provide fine-grained subscriptions (components re-render only when their slice changes), devtools, and middleware. Strong answers map each tool to its appropriate scale: useState for single components, Context for low-frequency global state like theme/auth, external store for complex shared state with performance requirements.",
+    "follow_up_questions": [
+      {"text": "What is the Context API's performance problem and how does Zustand's subscription model solve it?", "difficulty": 4, "topic": "general-behavior"},
+      {"text": "What is Redux Toolkit's createSlice and how does it differ from vanilla Redux?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says Redux should always be used for all state or that Context API is a complete Redux replacement with no understanding of re-render performance implications."
+  },
+  {
+    "question_text": "What is TypeScript and what are its key advantages over plain JavaScript for large frontend codebases? Explain generics with a practical example.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "TypeScript adds a static type layer that catches errors at compile time rather than runtime, enables IDE autocompletion and refactoring confidence, and serves as living documentation. Generics allow writing type-safe, reusable functions/components parameterized by type: function identity<T>(arg: T): T ensures the return type matches the input type without losing type information (unlike using any). A practical example: a useFetch<T>(url: string): T generic hook. Strong answers mention discriminated unions for exhaustive switch cases, utility types (Partial, Required, Pick, Omit), and the performance cost of compilation vs runtime JS.",
+    "follow_up_questions": [
+      {"text": "What is a discriminated union in TypeScript and how does it enable exhaustive type checking?", "difficulty": 4, "topic": "general-behavior"},
+      {"text": "What is the difference between type and interface in TypeScript and when would you choose one over the other?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says TypeScript is just 'JavaScript with types' and cannot give a concrete example of generics or explain how the type system prevents runtime bugs."
+  },
+  {
+    "question_text": "Write a function that implements a pub/sub event emitter from scratch. It should support on(event, listener), off(event, listener), emit(event, ...args), and once(event, listener) for one-time listeners.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement a class with a Map or plain object of event names to arrays of listener functions. on() adds a listener to the array, off() removes by reference (filter or splice), emit() calls all listeners with spread args. once() wraps the listener in a self-removing wrapper that calls off() after the first invocation. Strong candidates handle the case where a listener is removed during emit (iterate over a snapshot copy of the array), prevent memory leaks by returning an unsubscribe function from on(), and discuss the use case for this pattern in decoupled component communication.",
+    "follow_up_questions": [
+      {"text": "How would you add wildcard event support so listeners can subscribe to all events with *?", "difficulty": 4, "topic": "algorithms"},
+      {"text": "What memory leak occurs if once() listeners are never triggered and how do you expose a cleanup mechanism?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate implements on() and emit() but off() removes the wrong listener (matching by index rather than reference) or once() does not properly clean up the wrapper after firing."
+  },
+  {
+    "question_text": "What are Core Web Vitals? Explain LCP, CLS, and INP and what frontend optimizations improve each metric.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "LCP (Largest Contentful Paint) measures when the largest visible element loads — improve by optimizing hero images (preload, AVIF/WebP, correct sizing), eliminating render-blocking resources, and using CDNs. CLS (Cumulative Layout Shift) measures unexpected layout shifts — fix by defining explicit dimensions for images/iframes/ads, avoiding inserting content above existing content, and using CSS transform for animations. INP (Interaction to Next Paint, replaced FID) measures input responsiveness — improve by breaking up long tasks, using web workers for heavy computation, and deferring non-critical work. Strong answers mention how each maps to user experience and how to measure them using Lighthouse, Chrome UX Report, and PerformanceObserver.",
+    "follow_up_questions": [
+      {"text": "What is the Long Tasks API and how would you use it to identify INP bottlenecks?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How does preloading critical resources with <link rel=preload> affect LCP?", "difficulty": 3, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says 'just make the site faster' with no knowledge of the specific metrics, their measurement methodology, or the targeted optimizations for each."
+  },
+  {
+    "question_text": "What is micro-frontend architecture? What are the trade-offs compared to a monolithic SPA and how would you implement shared state between micro-frontends?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Micro-frontends decompose a frontend into independently deployable units owned by different teams, enabling technology diversity and autonomous releases. Trade-offs: independent deployment and team scaling vs bundle duplication (each MFE ships its own React), increased complexity in shared state/routing/auth, performance overhead of multiple framework instances, and inconsistent UX if design system is not shared. Implementation approaches: iframes (isolation but poor UX), Web Components (framework-agnostic), Module Federation (share runtime dependencies), and build-time integration. Shared state: custom events on window, a shared event bus library, or a micro-frontend communication protocol. Strong answers discuss the operational maturity required before micro-frontends add value.",
+    "follow_up_questions": [
+      {"text": "What is Webpack Module Federation and how does it enable runtime dependency sharing between micro-frontends?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you implement a shared authentication state across independently deployed micro-frontends?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says micro-frontends are always better than monolithic SPAs with no discussion of bundle duplication, shared dependency management, or the team maturity required to justify the complexity."
+  },
+  {
+    "question_text": "Design a component library and design system for a large company's frontend teams. How do you handle theming, versioning, documentation, and preventing breaking changes?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Component library: build on CSS custom properties for theming (runtime theme switching without recompile), use a design token layer (Figma tokens → CSS variables → component styles), strict semantic versioning with deprecation warnings before removals. Versioning: separate packages per component for granular updates, or a monorepo with a single versioned package depending on team preferences. Documentation: Storybook with interaction tests, accessibility audits, and usage examples. Breaking change prevention: visual regression testing (Chromatic, Percy), TypeScript-enforced prop contracts, and a changelog-driven release process. Strong answers discuss consumer team DX: codemods for migrations, automated upgrade tooling.",
+    "follow_up_questions": [
+      {"text": "How would you implement a dark mode theme toggle that works across all components without prop drilling?", "difficulty": 3, "topic": "system-design"},
+      {"text": "What are design tokens and how do you maintain them as the single source of truth between Figma and code?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes a simple CSS file with variables with no discussion of versioning strategy, documentation tooling, or how to prevent consuming teams from breaking on library updates."
+  },
+  {
+    "question_text": "Write a function that implements a retry mechanism for a fetch call with exponential backoff, jitter, and a circuit breaker that stops retrying after N consecutive failures within a time window.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement: retry loop with configurable maxRetries, delay = baseDelay * 2^attempt + Math.random() * jitter, only retry on network errors and 5xx status (not 4xx). Circuit breaker: track consecutive failure count and timestamp of first failure in a closure or class state, enter OPEN state after threshold and reject all calls until a cooldown window passes before entering HALF-OPEN for a trial request. Strong candidates use AbortController for request timeout, reset the circuit breaker on success, return structured error with retryAfter on circuit open, and discuss how jitter prevents thundering herd recovery.",
+    "follow_up_questions": [
+      {"text": "How would you make this circuit breaker state shareable across multiple concurrent fetch calls in the same session?", "difficulty": 5, "topic": "concurrency"},
+      {"text": "What is the difference between a circuit breaker and a bulkhead pattern for API resilience?", "difficulty": 4, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate implements linear backoff without exponential growth and jitter, or implements a retry loop with no circuit breaker mechanism, potentially hammering a failing backend indefinitely."
+  },
+  {
+    "question_text": "What are React Server Components? How do they differ from SSR and what new capabilities do they introduce?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "React Server Components (RSC) render exclusively on the server and their output (a JSON-serialized component tree, not HTML) is streamed to the client, where client components hydrate into it. Unlike SSR which sends HTML and re-runs all component code on the client for hydration, RSCs never ship their code to the browser — reducing bundle size. RSCs can directly access databases, file systems, and secrets. Limitations: no useState, no event handlers, no browser APIs. Strong answers explain the client/server component boundary ('use client' directive), how RSCs enable async components at the top level, and how Next.js App Router implements RSC with streaming and Suspense-based progressive rendering.",
+    "follow_up_questions": [
+      {"text": "What is the difference between RSC payload and HTML sent from traditional SSR?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you pass data from a Server Component to a Client Component and what are the serialization constraints?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says RSC is just another name for SSR or that RSC components send JavaScript to the client like regular components, missing the fundamental code exclusion and bundle size benefit."
+  },
+  {
+    "question_text": "What is a Service Worker? How do you implement an offline-first caching strategy using the Cache API and service worker lifecycle?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "A Service Worker is a script that runs in a separate thread, intercepting network requests and managing a Cache API storage — enabling offline capability, push notifications, and background sync. Lifecycle: install (precache static assets), activate (delete old caches), fetch (intercept requests). Caching strategies: cache-first (serve from cache, fall back to network — fast, offline capable), network-first (try network, fall back to cache — fresh data preferred), stale-while-revalidate (serve cache immediately, update cache in background). Strong answers discuss cache versioning to bust stale assets on deploy, skipWaiting/clients.claim for immediate activation, and the background sync API for queuing failed mutations.",
+    "follow_up_questions": [
+      {"text": "What is the stale-while-revalidate caching strategy and what type of content is it ideal for?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How do you handle cache invalidation in a service worker when you deploy a new version of your app?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate confuses Service Workers with Web Workers or describes the service worker as just a caching layer with no understanding of the install/activate/fetch lifecycle and its implications for deployment."
+  },
+  {
+    "question_text": "Write a React hook called useAsync that manages the lifecycle of any async operation: loading state, resolved data, error state, and the ability to re-trigger the operation. Handle race conditions from rapid re-triggers.",
+    "type": "code",
+    "topic": "concurrency",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement useAsync(asyncFn, deps) returning {data, error, loading, execute}. Inside useEffect, call asyncFn, set loading:true, on resolve set data, on reject set error, always set loading:false. Race condition: use a stale closure flag (let cancelled = false) or AbortController — in useEffect cleanup set cancelled = true and ignore state updates if cancelled. Strong candidates type the hook with TypeScript generics, separate trigger from effect for manual-invoke use case, debounce rapid triggers, and explain why setState after unmount causes the React warning that this pattern prevents.",
+    "follow_up_questions": [
+      {"text": "How would you add a timeout to the async operation so it rejects after N milliseconds?", "difficulty": 4, "topic": "concurrency"},
+      {"text": "How does React Query or SWR solve the same problem and what additional features do they add beyond this hook?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate implements the hook without race condition handling, allowing a slow earlier request to overwrite the result of a faster later request when dependencies change rapidly."
+  },
+  {
+    "question_text": "Explain how you would build a high-performance, accessible autocomplete search component from scratch. Consider keyboard navigation, ARIA, debouncing, caching, and screen reader support.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should cover: ARIA roles (role=combobox on input, role=listbox on dropdown, role=option on items, aria-expanded, aria-activedescendant for announcing active option), keyboard navigation (arrow keys to move active option, Enter to select, Escape to close, Tab to dismiss), debounced input handler (200-300ms) to throttle API calls, client-side result cache (Map keyed by query) to avoid redundant network requests, and loading/empty/error states. Should discuss click-outside detection to dismiss, scrolling the active option into view, not closing on listbox scroll, and testing with VoiceOver/NVDA. Strong answers mention using Downshift or Radix UI headless primitives and explain why building accessible combobox interactions from scratch is non-trivial.",
+    "follow_up_questions": [
+      {"text": "What is the difference between aria-activedescendant and physically moving focus to list items and why does the combobox pattern use the former?", "difficulty": 5, "topic": "general-behavior"},
+      {"text": "How would you implement type-ahead search with instant local filtering while also fetching remote results asynchronously?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate describes a basic input with a dropdown div and onClick handlers with no mention of ARIA roles, keyboard navigation, or screen reader accessibility requirements."
+  },
+  {
+    "question_text": "Tell me about a significant frontend performance problem you identified and fixed in a production application. What was your diagnostic process and how did you measure success?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Strong answer demonstrates a structured diagnostic approach: identify the symptom (user complaint, metrics alert), instrument with tooling (Chrome DevTools Performance tab, Lighthouse, WebPageTest, RUM data), isolate root cause (large bundle, layout thrashing, N+1 API calls, unvirtualized list), implement a targeted fix, and measure improvement with before/after metrics tied to Core Web Vitals or business metrics. Bonus for mentioning the rollout strategy, how they prevented regression, and what monitoring they added.",
+    "follow_up_questions": [
+      {"text": "How did you communicate the performance improvements and their business impact to non-technical stakeholders?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What performance budgets or automated checks did you add to prevent the issue from regressing?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate cannot describe a specific root cause or measurement methodology, offering only vague improvements like 'I optimized the code' with no before/after metrics or tooling used."
+  },
+  {
+    "question_text": "What is WebAssembly (WASM)? When would you use it in a frontend application and what are its limitations?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "WebAssembly is a binary instruction format that runs in the browser at near-native speed, enabling languages like Rust, C++, and Go to execute in the browser alongside JavaScript. Use cases: computationally intensive tasks where JavaScript is too slow (video encoding, physics engines, cryptography, CAD tools, image processing). Limitations: no direct DOM access (must bridge through JS), larger initial payload than equivalent JS (though smaller than the equivalent unminified source), complex debugging toolchain, and startup overhead for module compilation. Strong answers discuss the JS-WASM boundary cost (marshaling overhead), how tools like Emscripten and wasm-bindgen simplify integration, and note that WASM does not replace JavaScript for most frontend work.",
+    "follow_up_questions": [
+      {"text": "What is the JS-WASM bridge and why does frequent data transfer across it negate WASM performance gains?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you use Rust with WebAssembly to accelerate a client-side image processing pipeline?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says WASM should replace JavaScript for all frontend code or cannot explain why DOM manipulation still requires JavaScript even when business logic is in WASM."
+  },
+  [
+{
+"question_text": "What is the DOM and how does the browser use it?",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Explain DOM as a tree representation of HTML, how browsers parse HTML into DOM, and how JavaScript manipulates it.",
+"follow_up_questions": [
+{
+"text": "What is the difference between DOM and Virtual DOM?",
+"difficulty": 2,
+"topic": "api-design"
+},
+{
+"text": "How does reflow and repaint work?",
+"difficulty": 2,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain what DOM represents or how it is used."
+},
+{
+"question_text": "What is CSS box model?",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Explain content, padding, border, and margin and how they affect layout and sizing.",
+"follow_up_questions": [
+{
+"text": "What is box-sizing?",
+"difficulty": 2,
+"topic": "api-design"
+},
+{
+"text": "Difference between margin and padding?",
+"difficulty": 1,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot describe basic layout structure."
+},
+{
+"question_text": "What is event bubbling and capturing?",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 2,
+"is_fundamental": true,
+"expected_answer_framework": "Explain event propagation phases, bubbling vs capturing, and how to stop propagation.",
+"follow_up_questions": [
+{
+"text": "What is event delegation?",
+"difficulty": 2,
+"topic": "api-design"
+},
+{
+"text": "When would you use capturing phase?",
+"difficulty": 3,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Confuses bubbling with capturing."
+},
+{
+"question_text": "What is responsive design?",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Explain adapting layouts to different screen sizes using media queries, flexible layouts, and responsive units.",
+"follow_up_questions": [
+{
+"text": "What are breakpoints?",
+"difficulty": 1,
+"topic": "system-design"
+},
+{
+"text": "What is mobile-first design?",
+"difficulty": 2,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Gives vague definition without techniques."
+},
+{
+"question_text": "What is asynchronous JavaScript?",
+"type": "voice",
+"topic": "concurrency",
+"difficulty": 2,
+"is_fundamental": true,
+"expected_answer_framework": "Explain async execution, event loop, callbacks, promises, and async/await.",
+"follow_up_questions": [
+{
+"text": "What is the event loop?",
+"difficulty": 2,
+"topic": "concurrency"
+},
+{
+"text": "Difference between promises and async/await?",
+"difficulty": 2,
+"topic": "concurrency"
+}
+],
+"red_flag_answers": "Cannot explain async behavior."
+},
+{
+"question_text": "Write a function to debounce an input handler.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Implement debounce using closures and setTimeout, ensuring function delays execution until inactivity.",
+"follow_up_questions": [
+{
+"text": "What is throttling?",
+"difficulty": 2,
+"topic": "algorithms"
+},
+{
+"text": "When would you use debounce vs throttle?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Cannot implement delay logic."
+},
+{
+"question_text": "Write a function to flatten a nested array.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Use recursion or iteration to flatten nested arrays and handle arbitrary depth.",
+"follow_up_questions": [
+{
+"text": "Can you do it iteratively?",
+"difficulty": 3,
+"topic": "algorithms"
+},
+{
+"text": "What is the time complexity?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Fails to handle nested structures."
+},
+{
+"question_text": "What is CORS and why is it needed?",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Explain cross-origin requests, browser security model, and how headers enable controlled access.",
+"follow_up_questions": [
+{
+"text": "What are preflight requests?",
+"difficulty": 3,
+"topic": "api-design"
+},
+{
+"text": "How to fix CORS issues?",
+"difficulty": 2,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Does not understand cross-origin concept."
+},
+{
+"question_text": "Explain how React rendering works.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain component lifecycle, Virtual DOM diffing, reconciliation, and rendering updates.",
+"follow_up_questions": [
+{
+"text": "What triggers re-render?",
+"difficulty": 3,
+"topic": "system-design"
+},
+{
+"text": "What is memoization?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Only mentions React updates UI without mechanism."
+},
+{
+"question_text": "Write a function to deep clone an object.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Use recursion to copy nested objects and arrays, handling edge cases like null.",
+"follow_up_questions": [
+{
+"text": "What about circular references?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "Shallow vs deep copy?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses JSON stringify blindly."
+},
+{
+"question_text": "Explain browser rendering pipeline.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain parsing HTML/CSS, building DOM/CSSOM, render tree, layout, paint, and composite.",
+"follow_up_questions": [
+{
+"text": "What causes layout thrashing?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "How to optimize rendering?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Cannot explain rendering steps."
+},
+{
+"question_text": "Write a function to implement throttle.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Limit function execution rate using timestamps or timers.",
+"follow_up_questions": [
+{
+"text": "Difference between debounce and throttle?",
+"difficulty": 2,
+"topic": "algorithms"
+},
+{
+"text": "Use cases?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Incorrect timing logic."
+},
+{
+"question_text": "How would you design a scalable frontend architecture?",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss modularization, component design, state management, performance, and deployment.",
+"follow_up_questions": [
+{
+"text": "How to handle state at scale?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "Code splitting strategies?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Only talks about UI without architecture."
+},
+{
+"question_text": "Design a real-time dashboard.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss WebSockets, data streaming, rendering efficiency, and scalability.",
+"follow_up_questions": [
+{
+"text": "Handling large data streams?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "Optimizing rendering?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Ignores performance considerations."
+},
+{
+"question_text": "Write a function to find the longest substring without repeating characters.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Use sliding window with hash map for O(n) solution.",
+"follow_up_questions": [
+{
+"text": "Can you optimize space?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "Edge cases?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses brute force."
+},
+{
+"question_text": "Explain hydration in SSR.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Explain server-rendered HTML becoming interactive via client-side JS.",
+"follow_up_questions": [
+{
+"text": "What is CSR vs SSR?",
+"difficulty": 3,
+"topic": "system-design"
+},
+{
+"text": "Benefits of SSR?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Cannot explain SSR basics."
+},
+{
+"question_text": "Explain how you optimize frontend performance.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss lazy loading, code splitting, caching, and minimizing re-renders.",
+"follow_up_questions": [
+{
+"text": "What is tree shaking?",
+"difficulty": 3,
+"topic": "system-design"
+},
+{
+"text": "How to measure performance?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Gives generic answers without techniques."
+},
+{
+"question_text": "Explain promises in JavaScript.",
+"type": "voice",
+"topic": "concurrency",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain states, chaining, error handling, and async flow.",
+"follow_up_questions": [
+{
+"text": "What is Promise.all?",
+"difficulty": 3,
+"topic": "concurrency"
+},
+{
+"text": "Error handling in promises?",
+"difficulty": 3,
+"topic": "concurrency"
+}
+],
+"red_flag_answers": "Cannot explain promise lifecycle."
+},
+{
+"question_text": "Describe a challenging frontend bug you fixed.",
+"type": "voice",
+"topic": "general-behavior",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Use STAR method, explain debugging approach, resolution, and impact.",
+"follow_up_questions": [
+{
+"text": "What tools did you use?",
+"difficulty": 2,
+"topic": "general-behavior"
+},
+{
+"text": "What did you learn?",
+"difficulty": 2,
+"topic": "general-behavior"
+}
+],
+"red_flag_answers": "No concrete example."
+}
+]
+
+]

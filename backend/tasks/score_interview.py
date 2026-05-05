@@ -244,6 +244,44 @@ async def _llm_json(prompt: str) -> Tuple[Dict[str, Any], str]:
             "red_flags": [],
         })
         return json.loads(raw), raw
+    
+    if AI_PROVIDER == "claude":
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(
+                api_key=os.getenv("ANTHROPIC_API_KEY")
+            )
+            message = await client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            raw_text = message.content[0].text
+            # Strip markdown fences if present
+            clean = raw_text.strip()
+            if clean.startswith("```"):
+                clean = clean.split("```")[1]
+                if clean.startswith("json"):
+                    clean = clean[4:]
+                clean = clean.strip()
+            try:
+                parsed = json.loads(clean)
+                return parsed, raw_text
+            except Exception:
+                import re
+                m = re.search(r'(\{[\s\S]*\})', clean)
+                if m:
+                    try:
+                        parsed = json.loads(m.group(1))
+                        return parsed, raw_text
+                    except Exception:
+                        pass
+                return {"summary": raw_text}, raw_text
+        except Exception as e:
+            log.exception("Claude API call failed: %s", e)
+            return {"summary": f"claude_error: {str(e)}", 
+                    "technical": 0, "communication": 0, 
+                    "completeness": 0, "red_flags": []}, str(e)
 
     if AI_PROVIDER == "ollama":
         try:

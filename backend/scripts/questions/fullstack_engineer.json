@@ -1,0 +1,977 @@
+[
+  {
+    "question_text": "What is the difference between HTTP and HTTPS? What does TLS actually do during a connection?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "HTTP transmits data in plaintext making it vulnerable to interception, while HTTPS wraps HTTP in TLS which provides encryption, authentication, and integrity. The TLS handshake negotiates a cipher suite, verifies the server's certificate against a trusted CA, and establishes a shared symmetric session key using asymmetric cryptography. Strong answers explain why HTTPS protects against man-in-the-middle attacks, mention HSTS for forcing HTTPS, and note that TLS 1.3 reduced the handshake to one round trip.",
+    "follow_up_questions": [
+      {"text": "What is a certificate authority and how does certificate chain validation work?", "difficulty": 2, "topic": "api-design"},
+      {"text": "What is HSTS and how does it prevent SSL stripping attacks?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says HTTPS is just HTTP with a padlock icon and cannot explain what TLS actually does to protect the connection."
+  },
+  {
+    "question_text": "What is the difference between GET, POST, PUT, PATCH, and DELETE HTTP methods? What makes GET idempotent and safe?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "GET retrieves data and is both safe (no side effects) and idempotent (same result on repeated calls). POST creates resources and is neither safe nor idempotent. PUT replaces a resource entirely and is idempotent. PATCH partially updates a resource. DELETE removes a resource and is idempotent. Strong answers explain that idempotency matters for retry logic — retrying a failed GET or DELETE is safe while retrying a POST may create duplicates, and discuss why PATCH requires careful implementation to remain idempotent.",
+    "follow_up_questions": [
+      {"text": "Why would you choose PATCH over PUT for updating a user's email address?", "difficulty": 2, "topic": "api-design"},
+      {"text": "How do you make a POST endpoint idempotent using idempotency keys?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says GET and POST are equivalent alternatives or cannot define idempotency and its practical implications for retry logic."
+  },
+  {
+    "question_text": "What is a RESTful API? What constraints make an API truly RESTful versus just using HTTP?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "REST is an architectural style with six constraints: stateless client-server communication, uniform interface (resource-based URLs, standard HTTP methods, self-descriptive messages), layered system, cacheable responses, and optionally code-on-demand. The statelessness constraint means each request contains all context needed — no server-side session state. Strong answers distinguish REST from REST-like APIs (most production APIs), explain HATEOAS as the full REST constraint few implement, and compare REST to RPC and GraphQL trade-offs.",
+    "follow_up_questions": [
+      {"text": "What is HATEOAS and why do most production APIs not implement it?", "difficulty": 3, "topic": "api-design"},
+      {"text": "When would you choose GraphQL over REST and what problems does it solve?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says REST means using JSON over HTTP endpoints with no mention of statelessness, resource-based design, or the architectural constraints that define REST."
+  },
+  {
+    "question_text": "What is a primary key and an index in a relational database? How does an index speed up queries and what is the trade-off?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "A primary key uniquely identifies each row and automatically creates a clustered index on most databases. An index is a separate data structure (typically a B-tree) that maintains a sorted copy of column values with pointers to the actual rows, enabling O(log n) lookups instead of O(n) full table scans. The trade-off: indexes consume additional storage and slow down write operations (INSERT, UPDATE, DELETE must update the index). Strong answers mention covering indexes, composite index column order, and using EXPLAIN to verify index usage.",
+    "follow_up_questions": [
+      {"text": "What is the difference between a clustered and non-clustered index?", "difficulty": 2, "topic": "databases"},
+      {"text": "How do you decide which columns to index and when does adding an index hurt performance?", "difficulty": 3, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says indexes always make queries faster with no mention of write overhead or storage cost, or cannot explain the underlying B-tree data structure."
+  },
+  {
+    "question_text": "What is the difference between synchronous and asynchronous code in JavaScript? How do Promises and async/await work?",
+    "type": "voice",
+    "topic": "concurrency",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Synchronous code executes line by line blocking further execution until each operation completes. Asynchronous code initiates an operation and continues executing while waiting for the result via callbacks, Promises, or async/await. Promises represent a value that will be available in the future with three states (pending, fulfilled, rejected). async/await is syntactic sugar over Promises making async code read synchronously. Strong answers explain Promise chaining vs async/await, the difference between Promise.all and Promise.allSettled, and that async functions always return a Promise.",
+    "follow_up_questions": [
+      {"text": "What is the difference between Promise.all, Promise.allSettled, Promise.any, and Promise.race?", "difficulty": 2, "topic": "concurrency"},
+      {"text": "What happens if you use await inside a forEach loop and how do you fix it?", "difficulty": 3, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate says async/await is a different mechanism from Promises rather than syntactic sugar, or cannot explain what happens to the call stack while awaiting a Promise."
+  },
+  {
+    "question_text": "What is the difference between a cookie, localStorage, and a session? How does session-based authentication work versus token-based authentication?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Session-based auth: server creates a session record in a store (Redis, DB) and returns a session ID in a cookie; every request the server looks up the session to validate identity — stateful. Token-based (JWT): server issues a signed token containing the user's claims; the client stores it and sends it with requests; the server validates the signature without a DB lookup — stateless. Strong answers cover security implications (httpOnly cookies prevent XSS for session IDs; JWTs in localStorage are XSS-vulnerable; JWTs can't be revoked before expiry without a blacklist), scaling implications (session-based requires shared store in distributed systems), and when each is appropriate.",
+    "follow_up_questions": [
+      {"text": "How do you revoke a JWT before it expires and what does that imply about statelessness?", "difficulty": 3, "topic": "api-design"},
+      {"text": "What is a refresh token and how does it improve security compared to a long-lived access token?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate cannot explain the stateful vs stateless distinction or says JWTs are always more secure than session cookies without discussing XSS token theft."
+  },
+  {
+    "question_text": "What is SQL injection and how do you prevent it? Give an example of a vulnerable query and its safe equivalent.",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "SQL injection occurs when user input is concatenated directly into a SQL query, allowing attackers to modify query logic. Example vulnerable query: 'SELECT * FROM users WHERE name = ' + userInput — an attacker can input ' OR '1'='1 to return all users. Prevention: parameterized queries/prepared statements where user input is never interpolated into SQL (the database treats it as a literal value). Strong answers mention ORMs as a safe abstraction, principle of least privilege for DB users, input validation as defense-in-depth, and that stored procedures alone don't prevent injection if they use dynamic SQL.",
+    "follow_up_questions": [
+      {"text": "How does a parameterized query technically prevent SQL injection at the database driver level?", "difficulty": 3, "topic": "databases"},
+      {"text": "What is a second-order SQL injection attack and why is input escaping insufficient to prevent it?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says input sanitization or escaping special characters is sufficient prevention with no mention of parameterized queries or prepared statements."
+  },
+  {
+    "question_text": "What is Docker and why is it useful for full stack development? What is the difference between an image and a container?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Docker is a containerization platform that packages applications with all their dependencies into isolated, reproducible environments. An image is an immutable, layered blueprint (like a class); a container is a running instance of an image (like an object). Benefits for full stack development: eliminates 'works on my machine' problems, enables identical environments across dev/staging/production, and simplifies multi-service orchestration with Docker Compose. Strong answers explain the layered image filesystem, how Dockerfile instructions create layers, and the difference between Docker Compose for development and Kubernetes for production orchestration.",
+    "follow_up_questions": [
+      {"text": "What is a multi-stage Docker build and why does it reduce production image size?", "difficulty": 3, "topic": "system-design"},
+      {"text": "What is the difference between Docker Compose and Kubernetes and when would you use each?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate confuses Docker containers with virtual machines or cannot explain the difference between an image and a container."
+  },
+  {
+    "question_text": "Write a function that implements pagination for a database query result set. Given a flat array of items, a page number, and a page size, return the correct page of results along with metadata: total items, total pages, current page, has next, has previous.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should compute: totalItems = items.length, totalPages = Math.ceil(totalItems / pageSize), startIndex = (page - 1) * pageSize, endIndex = startIndex + pageSize, data = items.slice(startIndex, endIndex). Return metadata: currentPage, totalPages, totalItems, hasPrevious = page > 1, hasNext = page < totalPages. Strong candidates validate inputs (page < 1, pageSize < 1, page > totalPages), handle empty arrays gracefully, and discuss how this changes for database-level pagination using LIMIT/OFFSET or cursor-based pagination for large datasets.",
+    "follow_up_questions": [
+      {"text": "What are the performance problems with OFFSET-based pagination at large page numbers and how does cursor-based pagination solve them?", "difficulty": 3, "topic": "databases"},
+      {"text": "How would you implement this pagination directly in SQL with LIMIT and OFFSET?", "difficulty": 2, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate implements pagination with off-by-one errors in page calculation or does not include metadata about total pages and navigation state."
+  },
+  {
+    "question_text": "What are database transactions and ACID properties? Walk me through a real scenario where violating atomicity causes a data integrity bug.",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "ACID: Atomicity (all operations in a transaction succeed or all roll back), Consistency (data moves between valid states), Isolation (concurrent transactions don't see each other's partial state), Durability (committed data survives crashes). Concrete atomicity scenario: transferring money between accounts — debit account A then credit account B. Without a transaction, if the server crashes after the debit but before the credit, money disappears. A transaction ensures both operations commit together or neither does. Strong answers cover isolation levels and their anomalies (dirty reads, phantom reads), and when to use savepoints.",
+    "follow_up_questions": [
+      {"text": "What are database isolation levels and what concurrency anomaly does each prevent?", "difficulty": 4, "topic": "databases"},
+      {"text": "What is optimistic locking and when would you use it over pessimistic locking?", "difficulty": 3, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate recites the ACID acronym without definitions or cannot construct a concrete example where missing atomicity causes observable data corruption."
+  },
+  {
+    "question_text": "What is the N+1 query problem in web applications? Show how it manifests with an ORM and how to fix it.",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "N+1 occurs when code issues 1 query to fetch N parent records, then N additional queries for each parent's related data — totaling N+1 database round trips. ORM example: fetching 100 blog posts then calling post.author for each triggers 100 individual author queries. Fix: eager loading with a JOIN (ORM includes/preload) that retrieves all posts and authors in one or two queries. Strong answers mention using query logging or APM tools to detect N+1 in production, DataLoader batching for GraphQL resolvers, and when SELECT IN is preferable to a JOIN.",
+    "follow_up_questions": [
+      {"text": "How does Facebook's DataLoader solve the N+1 problem in GraphQL APIs?", "difficulty": 4, "topic": "databases"},
+      {"text": "When can eager loading cause its own performance problem by fetching too much data?", "difficulty": 3, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate describes N+1 as a caching problem rather than a query batching problem, or cannot explain the difference between lazy and eager loading in an ORM."
+  },
+  {
+    "question_text": "Explain how you would design a RESTful API for a blog platform with users, posts, and comments. Include resource naming, relationships, and how you'd handle authentication.",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should design resource-based URLs: GET /posts, POST /posts, GET /posts/:id, PUT/PATCH /posts/:id, DELETE /posts/:id, GET /posts/:id/comments, POST /posts/:id/comments. Authentication via JWT Bearer token in Authorization header or httpOnly cookie session. Should cover: HTTP status codes (201 for create, 204 for delete, 404 for not found, 403 for forbidden), filtering/sorting/pagination query params (?page=1&limit=20&sort=created_at), and response envelope vs flat response debate. Strong answers address versioning strategy (URL prefix /v1/ vs Accept header), and how to handle the author relationship (embed vs link).",
+    "follow_up_questions": [
+      {"text": "How would you design the API to allow users to like posts and efficiently return whether the current user has liked each post in a list response?", "difficulty": 4, "topic": "api-design"},
+      {"text": "How would you implement API rate limiting per user and per IP simultaneously?", "difficulty": 4, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate uses verb-based URLs like /getPosts or /createComment instead of resource-based nouns and cannot explain why URL design matters for REST semantics."
+  },
+  {
+    "question_text": "What is the difference between WebSockets and HTTP long polling? When would you use each for real-time features?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "HTTP long polling holds a request open until the server has data to send, then the client immediately re-connects — simulates push but with significant overhead per message (full HTTP headers, new connection setup). WebSockets establish a persistent bidirectional TCP connection with minimal framing overhead per message, enabling true real-time full-duplex communication. Use WebSockets for chat, collaborative editing, games, and live dashboards where low latency matters. Use SSE (Server-Sent Events) for one-directional server push. Long polling is a fallback for environments where WebSockets are blocked. Strong answers mention WebSocket scaling challenges (sticky sessions or pub/sub with Redis).",
+    "follow_up_questions": [
+      {"text": "How would you scale a WebSocket server horizontally when users connected to different instances need to receive the same message?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is Server-Sent Events (SSE) and when would you prefer it over WebSockets?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says WebSockets and long polling are equivalent alternatives differing only in browser support, missing the fundamental connection overhead and latency differences."
+  },
+  {
+    "question_text": "Write a function that builds a query string builder utility. Given a base URL and a parameters object (supporting nested objects and arrays), return a properly encoded URL. Handle null/undefined values by omitting them.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should iterate over the params object, skip null/undefined values, use encodeURIComponent for values, and handle arrays by repeating the key (key=1&key=2) or bracket notation (key[]=1&key[]=2). For nested objects, either flatten with dot notation (user.name=John) or bracket notation (user[name]=John). Strong candidates use URLSearchParams as a foundation, handle boolean values (convert to strings), discuss the ambiguity in array encoding standards (no universal convention), and return a properly formatted URL that handles the case where the base URL already has query parameters.",
+    "follow_up_questions": [
+      {"text": "How would you write the inverse: parse a query string back into a nested JavaScript object?", "difficulty": 3, "topic": "algorithms"},
+      {"text": "What security risk arises if you build query strings without proper encoding?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate uses string concatenation without encodeURIComponent, producing a function that breaks on values containing special characters like spaces, ampersands, or equal signs."
+  },
+  {
+    "question_text": "What is middleware in a backend web framework? Describe the request-response pipeline and give three real examples of middleware you would use in production.",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Middleware are functions that sit in the request-response pipeline, each receiving the request and response objects and a next() function to pass control forward. The pipeline executes middleware in order: request enters, flows through each middleware layer, reaches the route handler, then response flows back. Production examples: authentication (verify JWT and attach user to request), rate limiting (count requests per IP/user and reject at threshold), request logging (record method, path, latency, status for observability), CORS handling, body parsing, and error normalization. Strong answers discuss that middleware order matters and that error-handling middleware has a different signature.",
+    "follow_up_questions": [
+      {"text": "How would you implement a middleware that logs request duration without modifying the route handler?", "difficulty": 2, "topic": "api-design"},
+      {"text": "How do you handle errors thrown inside an async middleware in Express.js?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate cannot explain next() or the pipeline concept, describing middleware as just 'helper functions' with no understanding of the sequential execution model."
+  },
+  {
+    "question_text": "What is caching and where can you apply it in a full stack application? Compare in-memory caching, CDN caching, and HTTP caching headers.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Caching stores computed results to serve future requests faster. In-memory caching (Redis, Memcached): server-side, subsecond retrieval for DB query results, sessions, and computed data — controlled expiry with TTL. CDN caching: edge servers cache static assets and API responses geographically close to users — reduces origin server load and latency for global users. HTTP caching: browser-side via Cache-Control (max-age, no-cache, immutable), ETag for conditional requests (304 Not Modified), and Last-Modified headers. Strong answers discuss cache invalidation strategies, cache-aside vs write-through patterns, and the trade-off between freshness and performance.",
+    "follow_up_questions": [
+      {"text": "What is a cache stampede and how do you prevent it with probabilistic early expiry or locking?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is the difference between Cache-Control: no-cache and Cache-Control: no-store?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate describes caching only as Redis with no knowledge of HTTP caching headers or CDN layers, or says cache invalidation is straightforward."
+  },
+  {
+    "question_text": "What is CI/CD? Describe a pipeline you would implement for a full stack application from code commit to production deployment.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "CI (Continuous Integration) automatically builds and tests code on every commit, catching integration issues early. CD (Continuous Delivery/Deployment) extends CI to automatically deploy passing builds to staging or production. A production pipeline: push to main → lint and type check → unit tests → integration tests → build Docker image → push to registry → deploy to staging → run smoke tests → canary deploy to production → health check → full rollout or automatic rollback. Strong answers discuss branch protection rules, environment-specific configurations via secrets management, database migration strategy (run before or after deploy), and zero-downtime deployment techniques.",
+    "follow_up_questions": [
+      {"text": "How do you handle database migrations in a zero-downtime deployment without breaking running instances?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is a canary deployment and how do you automatically roll back a bad release?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate describes CI/CD as just 'automating deployments' with no mention of testing stages, environment promotion, health checks, or rollback strategies."
+  },
+  {
+    "question_text": "Write an Express.js middleware function that implements API key authentication. It should validate an API key from the Authorization header against a database of valid keys, cache valid keys in memory for 5 minutes to avoid repeated DB calls, and return appropriate error responses.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should extract the Bearer token from the Authorization header, check an in-memory cache (Map with timestamp) for the key, if cache miss query the database, cache the result with a timestamp, and call next() if valid or return 401/403 if invalid. Cache invalidation: check if (Date.now() - cachedAt) > 5 * 60 * 1000 on each lookup. Strong candidates handle malformed headers (missing scheme, wrong format), use a constant-time comparison to prevent timing attacks, implement cache cleanup to prevent memory growth (delete stale entries or use a size-bounded LRU cache), and add the authenticated key's metadata to req for downstream handlers.",
+    "follow_up_questions": [
+      {"text": "What is a timing attack on API key validation and how does constant-time string comparison prevent it?", "difficulty": 4, "topic": "api-design"},
+      {"text": "How would you scale this cache to work across multiple API server instances?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate uses === for string comparison (timing attack vulnerable), does not handle malformed Authorization headers, or implements the cache without expiry allowing stale keys to be valid indefinitely."
+  },
+  {
+    "question_text": "How does React's reconciliation algorithm work? What role does the key prop play and what happens when you use array index as key?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "React's reconciliation diffs the previous and new virtual DOM trees to compute the minimal set of real DOM mutations. It uses two heuristics for O(n): different element types produce different trees (full remount), and keys identify list items across renders for stable matching. Using array index as key causes bugs when the list order changes — React sees the same key at each position and preserves the wrong DOM node's state (e.g. an input's value stays at position 0 even if the item at position 0 changed). Strong answers explain that stable, unique business IDs should be keys, discuss the fiber architecture as React's incremental rendering unit, and mention React 18's concurrent features.",
+    "follow_up_questions": [
+      {"text": "What is React Fiber and how does it enable time-slicing and concurrent rendering?", "difficulty": 5, "topic": "general-behavior"},
+      {"text": "What is the difference between controlled and uncontrolled components in React and when would you use each?", "difficulty": 2, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says keys are just for React's warning system with no understanding that incorrect keys cause state bugs in reordered lists."
+  },
+  {
+    "question_text": "What is GraphQL? Compare it to REST for a full stack application — when does each shine and what are GraphQL's operational challenges?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "GraphQL is a query language where clients specify exactly what data they need in a single request, eliminating over-fetching and under-fetching. REST returns fixed response shapes per endpoint. GraphQL shines for: complex data requirements from multiple resources (avoids N roundtrips), rapid frontend iteration without backend changes, and multiple clients with different data needs (mobile vs web). Operational challenges: query complexity and depth attacks requiring query cost analysis, N+1 resolver problems requiring DataLoader, caching is harder (POST requests, query-specific cache keys), and introspection schema exposure risks. Strong answers mention when REST's simplicity wins for simple CRUD APIs.",
+    "follow_up_questions": [
+      {"text": "How do you prevent a malicious user from sending a deeply nested GraphQL query that overloads your server?", "difficulty": 4, "topic": "api-design"},
+      {"text": "What is the DataLoader pattern and how does it batch and cache resolver calls?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says GraphQL is always better than REST with no discussion of caching complexity, N+1 resolver problems, or query attack surface."
+  },
+  {
+    "question_text": "What is connection pooling and why is it critical for database performance in a web application? What happens when your pool is exhausted?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Opening a database connection is expensive (TCP handshake, authentication, memory allocation), so a connection pool maintains a set of reusable open connections shared across requests. Without pooling, high-traffic applications would exhaust database connection limits and incur connection overhead per request. Pool exhaustion: new requests queue waiting for a connection — if the wait exceeds the timeout, requests fail with a pool timeout error, causing cascading failures. Strong answers cover pool size tuning (not always bigger is better — too many connections increases DB memory and context switching), monitoring pool wait time as a key metric, and tools like PgBouncer as an external connection pooler.",
+    "follow_up_questions": [
+      {"text": "Why can setting your connection pool size too large actually degrade database performance?", "difficulty": 3, "topic": "databases"},
+      {"text": "What is PgBouncer and in which mode (session, transaction, statement pooling) would you run it for a typical web app?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says to always increase pool size when experiencing performance issues with no understanding of DB-side connection limits or the overhead of too many concurrent connections."
+  },
+  {
+    "question_text": "Design the architecture for a URL shortener service like bit.ly. Cover the full stack: database schema, API design, frontend, and scalability considerations for 100M daily redirects.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should address: URL encoding strategy (Base62 of auto-increment ID or random — trade-offs of each), DB schema (short_code, original_url, user_id, created_at, expiry, click_count), API design (POST /urls returns short code, GET /:code redirects with 301 vs 302 — 301 is cached by browser preventing analytics), caching hot URLs in Redis (read-heavy, high cache hit rate expected), and async click analytics via a queue to avoid write bottleneck on redirects. Scalability: CDN for redirect responses, read replicas, rate limiting on URL creation. Frontend: creation form, user dashboard, click analytics visualization. Strong answers discuss 301 vs 302 analytics implications.",
+    "follow_up_questions": [
+      {"text": "Why would you use a 302 redirect instead of a 301 and what analytics capability does it preserve?", "difficulty": 3, "topic": "api-design"},
+      {"text": "How would you design the click analytics system to handle 100M daily events without slowing down the redirect path?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate designs only the backend API with no consideration for caching, database schema design, the 301 vs 302 implications, or how the redirect path stays fast under high load."
+  },
+  {
+    "question_text": "Write a full stack feature: implement a rate-limited endpoint that accepts a user's email and sends a password reset email. Include input validation, database check, rate limiting by IP and email, and a mock email send. Return safe error messages that don't reveal whether the email exists.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should: validate email format with regex or validator library, implement rate limiting using an in-memory or Redis store tracking (IP: count, email: count) with TTL, query DB for the user without returning a different response for found vs not found (always respond with 'if email exists, instructions sent'), generate a time-limited signed token (crypto.randomBytes or JWT with expiry), store the token hash in DB, and call a mock sendEmail function. Strong candidates handle the timing attack (always sleep a consistent duration regardless of user found or not), discuss that the token should be single-use and stored as a hash, and log suspicious rate limit triggers.",
+    "follow_up_questions": [
+      {"text": "What is a user enumeration attack and how does your consistent response message prevent it?", "difficulty": 3, "topic": "api-design"},
+      {"text": "How would you implement the token verification endpoint that checks the reset token and updates the password?", "difficulty": 4, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate returns different responses for 'user not found' vs 'email sent', enabling user enumeration attacks, or implements rate limiting with a simple counter that resets on server restart."
+  },
+  {
+    "question_text": "What is server-side rendering (SSR) with Next.js? Explain getServerSideProps, getStaticProps, and ISR and when each is appropriate.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "getStaticProps runs at build time generating a static HTML file served by a CDN — best for content that rarely changes (marketing pages, blog posts). getServerSideProps runs on every request on the server — best for personalized or real-time data (user dashboards, auth-gated pages) but adds server cost and TTFB. ISR (Incremental Static Regeneration) generates static pages at build time but revalidates them in the background after a specified interval — combines static speed with eventual freshness, ideal for product pages or content that changes occasionally. Strong answers discuss hydration cost, the transition to App Router with React Server Components, and streaming SSR.",
+    "follow_up_questions": [
+      {"text": "What is the App Router in Next.js 13+ and how does it differ from the Pages Router's data fetching model?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is hydration and what causes hydration mismatch errors in SSR applications?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate cannot distinguish between build-time and request-time data fetching or says getServerSideProps and getStaticProps are interchangeable with no performance difference."
+  },
+  {
+    "question_text": "How would you implement real-time collaborative editing (like Google Docs) for a shared task list? What consistency challenges arise and how do you resolve conflicts?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should identify the core challenge: two users editing simultaneously creates conflicts. Solutions: Operational Transformation (OT) — operations are transformed against concurrent operations before applying, requires a central server to sequence operations. CRDTs (Conflict-free Replicated Data Types) — data structures that merge automatically without coordination. For a task list: last-write-wins per task field is simplest but loses data; CRDT set operations handle add/remove without conflict. Architecture: WebSocket server broadcasts operations, client applies optimistic local updates immediately then reconciles with server-confirmed operations. Strong answers compare OT complexity vs CRDT scalability and discuss presence indicators.",
+    "follow_up_questions": [
+      {"text": "What is a CRDT and how does a grow-only counter CRDT work?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you implement cursor presence (showing where other users are) in the collaborative editor?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes database row locking to prevent concurrent edits, which serializes all changes and defeats the purpose of collaborative real-time editing."
+  },
+  {
+    "question_text": "Write a function that implements a generic retry wrapper for any async operation with exponential backoff, jitter, configurable retryable error conditions, and a timeout per attempt.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement async retry(fn, options) where options includes maxRetries, baseDelay, maxDelay, jitter, attemptTimeout, and isRetryable (predicate function). Each attempt: wrap fn() with Promise.race against a timeout Promise (AbortController or reject after N ms). On failure: check isRetryable(error), if true compute delay = min(baseDelay * 2^attempt + random*jitter, maxDelay), await delay, recurse. Return result on success, throw last error after exhausting retries. Strong candidates use AbortController for clean cancellation, differentiate retryable (503, network error) from non-retryable (400, 401) errors, and log each retry attempt with structured metadata for observability.",
+    "follow_up_questions": [
+      {"text": "How would you add a circuit breaker pattern on top of this retry wrapper?", "difficulty": 5, "topic": "api-design"},
+      {"text": "Why is jitter important in distributed systems where many clients might retry simultaneously?", "difficulty": 3, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate implements fixed-interval retry with no exponential backoff, no jitter, and retries all error types including 400 Bad Request which will never succeed on retry."
+  },
+  {
+    "question_text": "What is database sharding? How would you shard a users table for an application with 500 million users and what queries become difficult after sharding?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Sharding horizontally partitions data across multiple database nodes where each shard holds a subset of rows. For a users table: hash-based sharding on user_id distributes users evenly using consistent hashing to minimize resharding on shard addition. Queries that become difficult: cross-shard JOINs (must scatter-gather across all shards), aggregates across all users (require application-level merging), queries by non-shard-key fields (must fan out to all shards without a secondary index). Strong answers discuss shard key selection criteria (high cardinality, even distribution, query alignment), hotspot prevention, and alternatives like Vitess or CockroachDB that handle sharding transparently.",
+    "follow_up_questions": [
+      {"text": "What is consistent hashing and how does it minimize data movement when adding a new shard?", "difficulty": 5, "topic": "databases"},
+      {"text": "How would you implement a cross-shard search for users by email address efficiently?", "difficulty": 5, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate confuses sharding with read replicas or cannot identify which queries break after sharding and why cross-shard JOINs are problematic."
+  },
+  {
+    "question_text": "Design a notification system that sends email, SMS, and push notifications. It must handle 10 million notifications per day, support user preferences, guarantee delivery, and handle provider failures.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Architecture: notification service receives events from other services, looks up user preferences (DB or cache), enqueues to a message queue (Kafka/SQS) with notification type routing, worker pools consume queues and dispatch to provider SDKs (SendGrid, Twilio, FCM). Delivery guarantee: at-least-once delivery via idempotency keys and DB delivery tracking, dead-letter queues for failed messages after N retries. Provider failure: circuit breaker per provider, fallback to secondary provider (two email providers). User preferences: opt-out per channel/type stored in cache. Strong answers discuss digest/batching for high-frequency events, and rate limiting per user to prevent notification spam.",
+    "follow_up_questions": [
+      {"text": "How would you implement digest emails that batch multiple events into a single email per user per hour?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How do you guarantee exactly-once delivery for a critical notification like a payment confirmation?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes a synchronous notification call inside the API request handler with no queue, no retry logic, and no discussion of what happens when the email provider is down."
+  },
+  {
+    "question_text": "What are React Server Components and how do they change the full stack architecture in Next.js App Router? What can and cannot a Server Component do?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "React Server Components render exclusively on the server and never ship their code to the client, enabling direct database access, reduced bundle size, and async data fetching as top-level await. They cannot use useState, useEffect, event handlers, or browser APIs. In Next.js App Router, all components are Server Components by default — adding 'use client' creates a client component boundary. This enables a new pattern: fetch data at the component level without API roundtrips, compose server and client components in the same tree. Strong answers explain the streaming capability with Suspense boundaries, how RSC payload differs from SSR HTML, and the data-fetching waterfall problem RSC helps eliminate.",
+    "follow_up_questions": [
+      {"text": "How do you pass data from a Server Component to a Client Component and what serialization constraints exist?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is the RSC payload and how does it enable navigation without full page reloads in the App Router?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says RSC is just another name for SSR or cannot explain the distinction between components that run on the server vs components that hydrate in the browser."
+  },
+  {
+    "question_text": "Write a full implementation of an optimistic UI update pattern. Given a todo list component, implement adding a new todo that immediately updates the UI, calls the API in the background, and rolls back the change with an error message if the API call fails.",
+    "type": "code",
+    "topic": "general-behavior",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should generate a temporary client ID (Date.now() or uuid) for the optimistic item, immediately add it to state with a pending flag, call the API, on success replace the temp item with the server response (real ID), on failure remove the temp item and display an error toast or inline error. State management: keep originalItems snapshot before mutation to enable clean rollback. Strong candidates handle concurrent optimistic mutations (multiple todos added quickly), implement the pattern with useReducer for more predictable state transitions, add a retry mechanism on failure, and discuss how React Query's useMutation handles this pattern automatically.",
+    "follow_up_questions": [
+      {"text": "How does React Query's useMutation onMutate/onError/onSettled implement this pattern?", "difficulty": 4, "topic": "general-behavior"},
+      {"text": "What happens to the UI if two optimistic mutations are in flight and the first one fails?", "difficulty": 5, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate waits for the API response before updating the UI, implementing a pessimistic update that ignores the performance and UX goal of optimistic updates entirely."
+  },
+  {
+    "question_text": "How would you implement a distributed job queue for background processing in a full stack application? Cover job persistence, worker scaling, failure handling, and visibility into job status.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Job queue components: producer (API adds jobs to queue), queue backend (Redis with BullMQ, SQS, or database-backed queue), worker pool (processes jobs, horizontally scalable). Job lifecycle: created → waiting → active (worker claimed it with visibility timeout) → completed/failed. Failure handling: retry with exponential backoff, max retries then dead-letter queue, job-level idempotency keys for safe retries. Persistence: job data stored durably (Redis persistence or DB-backed queue) to survive worker crashes. Visibility: job status API (GET /jobs/:id), admin dashboard showing queue depth/throughput/failure rate, alerting on queue depth growth. Strong answers discuss priority queues, job deduplication, and rate limiting workers to respect third-party API limits.",
+    "follow_up_questions": [
+      {"text": "What is the visibility timeout pattern in SQS and how does it prevent two workers from processing the same job?", "difficulty": 4, "topic": "concurrency"},
+      {"text": "How would you implement job prioritization so paid users' jobs always process before free tier jobs?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes storing jobs in a SQL table with workers polling with SELECT FOR UPDATE but without a visibility timeout or dead-letter mechanism, risking stuck jobs when workers crash mid-processing."
+  },
+  {
+    "question_text": "What is event sourcing and CQRS? How do they change the data layer of a full stack application and when are they worth the added complexity?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Event sourcing stores all state changes as an immutable append-only log of events rather than mutable current state — the current state is derived by replaying events. CQRS (Command Query Responsibility Segregation) separates write operations (commands that produce events) from read operations (queries against optimized read models/projections). Benefits: complete audit log, time travel debugging, ability to build new read projections from history. Costs: eventual consistency between write and read models, increased complexity (projection rebuilding, snapshot strategies for long event streams), and steep learning curve. Worth it for: domains with complex audit requirements (finance, healthcare), highly asymmetric read/write patterns, and need for multiple derived read models.",
+    "follow_up_questions": [
+      {"text": "How do you handle a bug in your event processing logic that has already produced incorrect projections from 1 million events?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What is an event store and how does it differ from a message queue like Kafka?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says CQRS just means having separate read and write database replicas with no understanding of the command/event model or the consistency challenges of maintaining separate projections."
+  },
+  {
+    "question_text": "Write a function that implements a simple in-memory cache with TTL expiration, LRU eviction when capacity is reached, and O(1) operations for get, set, and delete.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate must combine a doubly linked list with a HashMap: HashMap keys point to list nodes for O(1) access; list maintains access order (most recent at head). Get: find node via HashMap, move to head, check TTL (delete and return null if expired). Set: if key exists update node value/TTL and move to head; if new and at capacity evict tail node (delete from both map and list) then add new node at head. Each node stores key, value, expiresAt. Delete: find via map, remove from list and map. Strong candidates implement a separate periodic cleanup sweep for expired entries that haven't been accessed, and discuss lazy vs eager TTL expiration trade-offs.",
+    "follow_up_questions": [
+      {"text": "How would you make this cache thread-safe in a multi-threaded environment?", "difficulty": 4, "topic": "concurrency"},
+      {"text": "What is the time complexity of your cleanup sweep for expired entries and how would you optimize it?", "difficulty": 4, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate uses an ordered dict or array requiring O(n) eviction rather than a doubly linked list, or implements TTL by storing entries with timestamps but checking all entries on every get rather than only the accessed entry."
+  },
+  {
+    "question_text": "How do you approach monitoring and observability for a full stack application in production? What is the difference between logs, metrics, and traces and when would you use each?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "The three pillars of observability: Logs (structured, timestamped records of events — best for debugging specific errors and audit trails), Metrics (numerical time-series measurements like request rate, error rate, latency percentiles — best for alerting and dashboards), Traces (end-to-end distributed request flow across services — best for identifying latency bottlenecks in microservices). Full stack monitoring: frontend (Real User Monitoring for Core Web Vitals, error tracking with Sentry), backend (RED metrics: Rate/Errors/Duration, APM for DB query analysis), infrastructure (CPU, memory, disk). Strong answers discuss structured logging format (JSON with trace IDs), correlation IDs for tying logs to traces, and SLO/SLA definition.",
+    "follow_up_questions": [
+      {"text": "What is a distributed trace and how does a trace ID propagate through a request that touches five microservices?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How would you design an alerting strategy that minimizes both false positives and alert fatigue?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says monitoring means 'adding console.log statements' or cannot distinguish between metrics suitable for alerting and logs suitable for debugging individual events."
+  },
+  {
+    "question_text": "Tell me about the most complex full stack feature you built end-to-end. What were the hardest technical decisions, what went wrong, and what would you do differently?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Strong answer demonstrates ownership of the full stack: database schema design, API design decisions, frontend architecture, and deployment considerations. The 'hardest decisions' should reveal depth — trade-offs between approaches, not just technical choices. The 'what went wrong' should be specific and honest (not 'everything went perfectly'), and the retrospective should show growth. Bonus for discussing how they collaborated across the stack, how they tested the feature, and what they'd architect differently now.",
+    "follow_up_questions": [
+      {"text": "How did you test this feature — what was your strategy across unit, integration, and end-to-end tests?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "If you had to scale this feature to 100x the current load, what would break first and how would you address it?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate describes a tutorial project or cannot articulate any specific technical trade-offs, presenting a flawless narrative with no genuine engineering challenges or learnings."
+  },
+  {
+    "question_text": "What is WebAssembly and how could a full stack engineer leverage it to offload computationally expensive work from the server to the browser?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "WebAssembly (WASM) is a binary instruction format that runs at near-native speed in the browser, enabling languages like Rust, C++, and Go to execute client-side. Full stack applications can offload to WASM: PDF generation, video transcoding, image processing, cryptographic operations, and data compression — reducing server compute costs and improving responsiveness. Integration: compile library to WASM module, load asynchronously in the browser, call exported functions from JavaScript. Strong answers discuss the JS-WASM boundary marshaling overhead (only numbers cross natively, complex data requires serialization), that WASM cannot access the DOM directly, and use cases where server-side processing still wins (secrets, large data already on server).",
+    "follow_up_questions": [
+      {"text": "What operations have high marshaling overhead across the JS-WASM boundary and how do SharedArrayBuffer and Atomics help?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you use WASM to run the same data validation logic on both the client and server without duplicating code?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says WASM is a replacement for JavaScript or cannot explain the JS-WASM boundary cost and why WASM does not provide benefit for DOM manipulation."
+  },
+  [
+{
+"question_text": "Explain the client-server architecture in a web application.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Describe how frontend (client) communicates with backend (server), request-response flow, and responsibilities of each layer.",
+"follow_up_questions": [
+{
+"text": "What is a REST API?",
+"difficulty": 1,
+"topic": "api-design"
+},
+{
+"text": "What is statelessness?",
+"difficulty": 2,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain separation between client and server."
+},
+{
+"question_text": "What is a database and why do we use it?",
+"type": "voice",
+"topic": "databases",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Explain data storage, retrieval, persistence, and structured vs unstructured storage.",
+"follow_up_questions": [
+{
+"text": "What is SQL vs NoSQL?",
+"difficulty": 2,
+"topic": "databases"
+},
+{
+"text": "What is indexing?",
+"difficulty": 2,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Gives vague or incorrect explanation."
+},
+{
+"question_text": "What is an API and how is it used in full stack development?",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Explain APIs as communication layer between frontend and backend using HTTP requests and responses.",
+"follow_up_questions": [
+{
+"text": "What is an endpoint?",
+"difficulty": 1,
+"topic": "api-design"
+},
+{
+"text": "What are HTTP methods?",
+"difficulty": 1,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain API usage."
+},
+{
+"question_text": "Explain what concurrency means in web applications.",
+"type": "voice",
+"topic": "concurrency",
+"difficulty": 2,
+"is_fundamental": true,
+"expected_answer_framework": "Explain handling multiple requests simultaneously, threads, async processing, and scalability impact.",
+"follow_up_questions": [
+{
+"text": "What is a race condition?",
+"difficulty": 2,
+"topic": "concurrency"
+},
+{
+"text": "What is async/await?",
+"difficulty": 2,
+"topic": "concurrency"
+}
+],
+"red_flag_answers": "Confuses concurrency with parallelism."
+},
+{
+"question_text": "What is version control and why is it important?",
+"type": "voice",
+"topic": "general-behavior",
+"difficulty": 2,
+"is_fundamental": true,
+"expected_answer_framework": "Explain tracking changes, collaboration, and tools like Git with branching and merging.",
+"follow_up_questions": [
+{
+"text": "What is a merge conflict?",
+"difficulty": 2,
+"topic": "general-behavior"
+},
+{
+"text": "What is branching strategy?",
+"difficulty": 3,
+"topic": "general-behavior"
+}
+],
+"red_flag_answers": "No understanding of version control."
+},
+{
+"question_text": "Write a function to reverse a string.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 1,
+"is_fundamental": false,
+"expected_answer_framework": "Use iteration or built-in methods and handle edge cases like empty input.",
+"follow_up_questions": [
+{
+"text": "Can you do it in-place?",
+"difficulty": 2,
+"topic": "algorithms"
+},
+{
+"text": "What is time complexity?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Fails basic implementation."
+},
+{
+"question_text": "Write a function to find the maximum element in an array.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 1,
+"is_fundamental": false,
+"expected_answer_framework": "Iterate through array and track maximum with O(n) complexity.",
+"follow_up_questions": [
+{
+"text": "What if array is empty?",
+"difficulty": 2,
+"topic": "algorithms"
+},
+{
+"text": "Recursive solution?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Incorrect logic."
+},
+{
+"question_text": "Explain CORS and why it exists.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Explain browser security model and cross-origin requests with headers.",
+"follow_up_questions": [
+{
+"text": "What is preflight request?",
+"difficulty": 3,
+"topic": "api-design"
+},
+{
+"text": "How to fix CORS errors?",
+"difficulty": 2,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain cross-origin concept."
+},
+{
+"question_text": "Explain REST API design principles.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss statelessness, resources, HTTP verbs, and proper status codes.",
+"follow_up_questions": [
+{
+"text": "What is idempotency?",
+"difficulty": 3,
+"topic": "api-design"
+},
+{
+"text": "How to version APIs?",
+"difficulty": 3,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain REST constraints."
+},
+{
+"question_text": "Write a function to implement binary search.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Implement binary search correctly with O(log n) complexity and boundary checks.",
+"follow_up_questions": [
+{
+"text": "What if array is unsorted?",
+"difficulty": 3,
+"topic": "algorithms"
+},
+{
+"text": "Recursive vs iterative?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses linear search."
+},
+{
+"question_text": "Explain database normalization.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain reducing redundancy and ensuring data integrity with normal forms.",
+"follow_up_questions": [
+{
+"text": "What is 3NF?",
+"difficulty": 3,
+"topic": "databases"
+},
+{
+"text": "When to denormalize?",
+"difficulty": 3,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Cannot explain purpose."
+},
+{
+"question_text": "Explain caching strategies.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss cache-aside, write-through, eviction policies, and trade-offs.",
+"follow_up_questions": [
+{
+"text": "What is cache invalidation?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "What is TTL?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Only says caching improves speed."
+},
+{
+"question_text": "Write a function to detect duplicates in an array.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Use hash set for O(n) solution and discuss trade-offs.",
+"follow_up_questions": [
+{
+"text": "Can you do it without extra space?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "Time complexity?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses inefficient loops."
+},
+{
+"question_text": "Explain authentication vs authorization.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain identity verification vs access control with examples like JWT and roles.",
+"follow_up_questions": [
+{
+"text": "What is JWT?",
+"difficulty": 3,
+"topic": "api-design"
+},
+{
+"text": "OAuth vs JWT?",
+"difficulty": 4,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Confuses both concepts."
+},
+{
+"question_text": "Explain asynchronous programming in backend.",
+"type": "voice",
+"topic": "concurrency",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain event loop, async I/O, promises/futures and scalability benefits.",
+"follow_up_questions": [
+{
+"text": "What is event loop?",
+"difficulty": 3,
+"topic": "concurrency"
+},
+{
+"text": "Blocking vs non-blocking?",
+"difficulty": 3,
+"topic": "concurrency"
+}
+],
+"red_flag_answers": "Cannot explain async flow."
+},
+{
+"question_text": "Write a function to merge two sorted arrays.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Use two-pointer technique for O(n) merge.",
+"follow_up_questions": [
+{
+"text": "In-place merge?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "Edge cases?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Incorrect merging logic."
+},
+{
+"question_text": "Explain microservices architecture.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain independent services, communication, scalability, and trade-offs.",
+"follow_up_questions": [
+{
+"text": "How services communicate?",
+"difficulty": 3,
+"topic": "system-design"
+},
+{
+"text": "Challenges?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Only gives buzzwords."
+},
+{
+"question_text": "Explain rate limiting.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain token bucket, leaky bucket, and protecting services.",
+"follow_up_questions": [
+{
+"text": "Distributed rate limiting?",
+"difficulty": 4,
+"topic": "api-design"
+},
+{
+"text": "Handling bursts?",
+"difficulty": 3,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot name strategies."
+},
+{
+"question_text": "Design a URL shortener system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss ID generation, storage, collisions, scaling, and redirection.",
+"follow_up_questions": [
+{
+"text": "How to avoid collisions?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "Scaling reads?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Misses system design aspects."
+},
+{
+"question_text": "Design a real-time chat system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss WebSockets, message queues, storage, and scaling.",
+"follow_up_questions": [
+{
+"text": "Offline users?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "Ordering messages?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Focuses only on UI."
+},
+{
+"question_text": "Write a function to find longest substring without repeating characters.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Use sliding window with hash map for O(n) solution.",
+"follow_up_questions": [
+{
+"text": "Optimize space?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "Edge cases?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses brute force."
+},
+{
+"question_text": "Explain distributed transactions.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 5,
+"is_fundamental": false,
+"expected_answer_framework": "Explain two-phase commit, consistency challenges, and trade-offs.",
+"follow_up_questions": [
+{
+"text": "What is saga pattern?",
+"difficulty": 5,
+"topic": "databases"
+},
+{
+"text": "CAP theorem relation?",
+"difficulty": 4,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Cannot explain distributed systems."
+},
+{
+"question_text": "Design a scalable e-commerce system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 5,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss catalog, orders, payments, caching, and scaling strategies.",
+"follow_up_questions": [
+{
+"text": "Handling inventory?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "Handling high traffic?",
+"difficulty": 5,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Misses core components."
+},
+{
+"question_text": "Describe a full-stack project you built.",
+"type": "voice",
+"topic": "general-behavior",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Explain architecture, technologies, challenges, and impact.",
+"follow_up_questions": [
+{
+"text": "What was hardest part?",
+"difficulty": 2,
+"topic": "general-behavior"
+},
+{
+"text": "What would you improve?",
+"difficulty": 3,
+"topic": "general-behavior"
+}
+],
+"red_flag_answers": "No real example."
+}
+]
+
+]

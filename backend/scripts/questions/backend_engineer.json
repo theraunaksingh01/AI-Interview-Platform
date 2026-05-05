@@ -1,0 +1,1063 @@
+[
+  {
+    "question_text": "What is the difference between SQL and NoSQL databases? When would you choose one over the other?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "A strong answer distinguishes relational (structured, ACID, joins) from NoSQL (flexible schema, horizontal scaling, eventual consistency). Candidate should name specific use cases: SQL for transactional systems, NoSQL for high-write or unstructured data. Bonus for mentioning CAP theorem or specific engines like PostgreSQL vs MongoDB.",
+    "follow_up_questions": [
+      {"text": "How would you handle a schema migration in a production SQL database with zero downtime?", "difficulty": 3, "topic": "databases"},
+      {"text": "What is an index and how does it affect read vs write performance?", "difficulty": 2, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate cannot articulate trade-offs and gives a generic 'SQL is structured, NoSQL is not' answer with no mention of use cases or consistency models."
+  },
+  {
+    "question_text": "Explain what REST is and what makes an API truly RESTful.",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Candidate should cover the six REST constraints: statelessness, client-server separation, uniform interface, cacheability, layered system, and optionally code-on-demand. Should mention HTTP verbs (GET, POST, PUT, DELETE, PATCH), resource-based URLs, and status codes. Bonus for mentioning HATEOAS.",
+    "follow_up_questions": [
+      {"text": "What is the difference between PUT and PATCH?", "difficulty": 2, "topic": "api-design"},
+      {"text": "How do you handle versioning in a REST API?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate confuses REST with HTTP or says 'it uses JSON' as the defining trait, showing no understanding of statelessness or resource design."
+  },
+  {
+    "question_text": "What is a foreign key and why is it important in relational databases?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 1,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain referential integrity — a foreign key enforces that a value in one table must exist in another. Should mention cascading deletes/updates and the trade-off between strict FK constraints and performance in high-write systems. Good answers mention that some teams drop FKs at scale and enforce integrity at the application layer.",
+    "follow_up_questions": [
+      {"text": "What happens when you delete a row that is referenced by a foreign key?", "difficulty": 1, "topic": "databases"},
+      {"text": "When might you intentionally avoid using foreign keys in production?", "difficulty": 3, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate defines foreign key as just 'a key from another table' with no mention of referential integrity or the implications of constraint violations."
+  },
+  {
+    "question_text": "What is the difference between a process and a thread?",
+    "type": "voice",
+    "topic": "concurrency",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Candidate should explain that processes have isolated memory spaces while threads share memory within a process. Should cover the cost of context switching, IPC for processes vs shared state for threads, and the trade-offs around isolation vs. performance. Bonus for mentioning the GIL in Python or Go's goroutines.",
+    "follow_up_questions": [
+      {"text": "What is a race condition and how do you prevent it?", "difficulty": 2, "topic": "concurrency"},
+      {"text": "What is the difference between parallelism and concurrency?", "difficulty": 2, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate says threads and processes are essentially the same thing or cannot explain why shared memory in threads requires synchronization."
+  },
+  {
+    "question_text": "What is Big O notation? What is the time complexity of looking up a value in a hash map?",
+    "type": "voice",
+    "topic": "algorithms",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Candidate should define Big O as a way to express worst-case time or space complexity as input size grows. Hash map average-case lookup is O(1); candidate should acknowledge worst-case O(n) due to hash collisions. Strong answers mention how collision resolution strategies (chaining vs open addressing) affect this.",
+    "follow_up_questions": [
+      {"text": "What is the time complexity of sorting an array using merge sort?", "difficulty": 2, "topic": "algorithms"},
+      {"text": "When would you prefer a sorted array with binary search over a hash map?", "difficulty": 3, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate claims hash map lookup is always O(1) with no acknowledgment of collision scenarios, or cannot explain what Big O notation represents."
+  },
+  {
+    "question_text": "What are HTTP status codes? Give examples of 2xx, 4xx, and 5xx codes and when you'd use them.",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should map status families: 2xx (success — 200 OK, 201 Created, 204 No Content), 4xx (client errors — 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 422 Unprocessable Entity), 5xx (server errors — 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable). Strong answers note that using the right code is critical for client-side error handling.",
+    "follow_up_questions": [
+      {"text": "What is the difference between 401 and 403?", "difficulty": 2, "topic": "api-design"},
+      {"text": "Why would returning a 200 OK with an error body in the JSON be a bad practice?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate only knows 200 and 404, or conflates 401 (unauthenticated) and 403 (unauthorized), showing shallow understanding of HTTP semantics."
+  },
+  {
+    "question_text": "What is database indexing and how does a B-tree index work?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain that an index is a data structure that speeds up reads at the cost of write overhead and storage. B-tree indexes maintain sorted order, allowing O(log n) lookups, range queries, and ordered scans. Strong answers contrast with hash indexes (O(1) point lookups, no range support) and mention composite indexes and index selectivity.",
+    "follow_up_questions": [
+      {"text": "What is a covering index?", "difficulty": 3, "topic": "databases"},
+      {"text": "How do you identify which queries need an index in production?", "difficulty": 3, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says 'indexes make queries faster' without being able to explain the underlying data structure or the write performance trade-off."
+  },
+  {
+    "question_text": "What is middleware in the context of a backend web framework? Give a real example of what you'd use it for.",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should describe middleware as functions that sit in the request-response pipeline and can read, modify, or terminate requests before they reach route handlers. Real examples: authentication/authorization checks, request logging, rate limiting, CORS handling, body parsing, error normalization. Strong answers mention ordering matters and that middleware can be global or route-scoped.",
+    "follow_up_questions": [
+      {"text": "How would you implement a rate-limiting middleware from scratch?", "difficulty": 4, "topic": "api-design"},
+      {"text": "How do you handle errors thrown inside middleware?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate cannot give a concrete example beyond a vague description, or confuses middleware with a service or database layer."
+  },
+  {
+    "question_text": "Write a function that finds the two numbers in an array that sum to a given target. Return their indices. Assume exactly one solution exists. Example: Input: nums = [2, 7, 11, 15], target = 9. Output: [0, 1]",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should arrive at the O(n) hash map solution: iterate once, store each number's index, check if (target - current) exists in the map. Should reject the naive O(n²) brute force or treat it as a starting point only. Strong answers handle edge cases like duplicate values and explain space-time trade-offs.",
+    "follow_up_questions": [
+      {"text": "How would your solution change if the array were sorted?", "difficulty": 2, "topic": "algorithms"},
+      {"text": "Now find all unique pairs that sum to the target, not just one.", "difficulty": 3, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate only produces the O(n²) nested loop solution and cannot optimize it, or produces a hash map solution they cannot explain."
+  },
+  {
+    "question_text": "What is connection pooling in the context of databases and why does it matter for backend services?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain that opening a new DB connection is expensive (TCP handshake, auth, memory allocation), so a pool reuses a fixed set of connections across requests. Should cover pool size tuning, what happens when the pool is exhausted (queuing vs rejecting), and tools like PgBouncer or built-in poolers in ORMs. Strong answers connect this to latency under high concurrency.",
+    "follow_up_questions": [
+      {"text": "What is the risk of setting your connection pool size too large?", "difficulty": 3, "topic": "databases"},
+      {"text": "How would you diagnose a connection pool exhaustion issue in production?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says connection pooling 'caches queries' or cannot explain what overhead is saved, conflating it with query caching."
+  },
+  {
+    "question_text": "Explain the CAP theorem. Can a distributed system be both consistent and available during a network partition?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define Consistency (every read sees the latest write), Availability (every request gets a non-error response), and Partition Tolerance (system works despite network splits). During a partition, you must choose between C and A — you cannot have both. Should cite real systems: Zookeeper/HBase (CP), Cassandra/DynamoDB (AP), and nuance with PACELC for latency vs consistency in the no-partition case.",
+    "follow_up_questions": [
+      {"text": "What is eventual consistency and what are the practical implications for your application?", "difficulty": 3, "topic": "system-design"},
+      {"text": "How does Cassandra handle consistency vs availability trade-offs at the query level?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says 'you can have all three with the right architecture' or cannot give a concrete example of a CP vs AP system choice."
+  },
+  {
+    "question_text": "What is an N+1 query problem? How do you detect and fix it?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain N+1 as issuing one query to fetch N parent records, then N individual queries for related child records, totaling N+1 round trips. Solutions include eager loading (JOINs or ORM includes), batching with WHERE IN, or DataLoader-style batching for GraphQL. Detection via query logging, slow query analysis, or APM tools like Datadog or New Relic.",
+    "follow_up_questions": [
+      {"text": "How does DataLoader solve N+1 in a GraphQL context?", "difficulty": 4, "topic": "databases"},
+      {"text": "When might a JOIN be worse than N+1 queries?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate has never encountered N+1 issues in production or claims that ORMs always handle this automatically with no explanation of how."
+  },
+  {
+    "question_text": "Design a URL shortening service like bit.ly. Walk me through your high-level architecture.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should cover: encoding strategy (Base62 over a unique ID), storage (KV store like Redis for hot URLs, SQL for persistence), redirect flow (301 vs 302 and analytics implications), scalability (read-heavy so caching is critical), and edge cases like custom aliases and expiration. Strong answers estimate QPS, propose CDN usage, and discuss collision handling.",
+    "follow_up_questions": [
+      {"text": "How would you ensure the same long URL doesn't generate duplicate short codes?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How would you add click analytics without slowing down the redirect path?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate dives into code before discussing scale requirements or proposes only a single-server solution with a relational DB and no caching layer."
+  },
+  {
+    "question_text": "What is a deadlock in concurrent programming? How do you prevent it?",
+    "type": "voice",
+    "topic": "concurrency",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define deadlock as a cycle of threads each waiting on a resource held by another. Should cover the four Coffman conditions (mutual exclusion, hold and wait, no preemption, circular wait) and prevention strategies: consistent lock ordering, lock timeouts, optimistic locking, or using higher-level abstractions like message queues to avoid shared state. Database deadlock detection and retry loops are a bonus.",
+    "follow_up_questions": [
+      {"text": "How does a database like PostgreSQL detect and resolve deadlocks?", "difficulty": 4, "topic": "databases"},
+      {"text": "What is the difference between a deadlock and a livelock?", "difficulty": 3, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate confuses deadlock with a race condition or offers only 'add a timeout' as a prevention strategy with no understanding of root cause."
+  },
+  {
+    "question_text": "Write a function to implement an LRU (Least Recently Used) cache with O(1) get and put operations. The cache should have a max capacity.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate must use a doubly linked list combined with a hash map: the map stores key-to-node references for O(1) access, and the list maintains usage order for O(1) eviction. On get, move node to head; on put, add to head and evict tail if over capacity. Strong answers write clean node classes, handle edge cases (capacity=1, duplicate puts), and explain why a singly linked list would be insufficient.",
+    "follow_up_questions": [
+      {"text": "How would you make this LRU cache thread-safe?", "difficulty": 4, "topic": "concurrency"},
+      {"text": "What would change in your design to implement an LFU (Least Frequently Used) cache instead?", "difficulty": 5, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate uses an ordered dict without understanding the internals, or proposes an O(n) solution by scanning for the least recently used element on every operation."
+  },
+  {
+    "question_text": "What is JWT (JSON Web Token)? How does token-based authentication work and what are its security risks?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain JWT structure (header.payload.signature), that the server signs the token and the client presents it on each request, enabling stateless auth. Security risks include: weak signing keys, algorithm confusion (alg:none attack), lack of revocation mechanism, storing sensitive data in payload (it's Base64, not encrypted), and XSS/CSRF risks depending on storage (localStorage vs httpOnly cookies).",
+    "follow_up_questions": [
+      {"text": "How do you invalidate a JWT before it expires?", "difficulty": 4, "topic": "api-design"},
+      {"text": "What is the difference between access tokens and refresh tokens?", "difficulty": 3, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate says the payload is encrypted and secure, or cannot explain what happens when a token is stolen and why revocation is non-trivial."
+  },
+  {
+    "question_text": "What are database transactions and what do ACID properties guarantee?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define each ACID property with precision: Atomicity (all-or-nothing), Consistency (data moves between valid states), Isolation (concurrent transactions don't interfere), Durability (committed data survives crashes). Strong answers mention isolation levels (Read Committed, Repeatable Read, Serializable) and their trade-offs with concurrency anomalies like dirty reads and phantom reads.",
+    "follow_up_questions": [
+      {"text": "What is the difference between optimistic and pessimistic locking?", "difficulty": 3, "topic": "databases"},
+      {"text": "When would you use a SAVEPOINT inside a transaction?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate can recite the acronym but cannot explain what isolation means in practice or give an example of a concurrency problem that transactions prevent."
+  },
+  {
+    "question_text": "Explain how you would implement pagination in a REST API. What are the trade-offs between offset-based and cursor-based pagination?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Offset pagination is simple but degrades at large offsets (O(n) DB scan) and suffers from data drift (items inserted/deleted shift pages). Cursor pagination uses an opaque pointer (last seen ID or timestamp), enabling stable, O(log n) lookups. Cursor is preferred for infinite scroll or real-time feeds; offset works for small, stable datasets with page-number UIs. Should mention keyset pagination as the implementation of cursor-based approach.",
+    "follow_up_questions": [
+      {"text": "How do you handle filtering and sorting alongside cursor-based pagination?", "difficulty": 4, "topic": "api-design"},
+      {"text": "What metadata should your pagination response include?", "difficulty": 2, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate only knows LIMIT/OFFSET and cannot explain why it degrades at scale or causes page drift when records are inserted concurrently."
+  },
+  {
+    "question_text": "Write a function that checks if a string of brackets is valid. A string is valid if every opening bracket has a matching closing bracket in the correct order. Example: '()[]{}' is valid, '([)]' is not.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should use a stack: push opening brackets, and on a closing bracket, check if the top of the stack is the matching opener. Return true if the stack is empty at the end. Should handle edge cases: empty string (valid), odd-length string (invalid), string starting with a closing bracket. Time O(n), space O(n). Strong candidates also discuss why a counter-based approach fails for multi-bracket types.",
+    "follow_up_questions": [
+      {"text": "How would you extend this to also validate HTML or XML tags?", "difficulty": 4, "topic": "algorithms"},
+      {"text": "Can you solve this with O(1) space for the single bracket type case?", "difficulty": 3, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate uses nested loops or regex-based replacement in a loop (O(n²)) without realizing a stack gives a linear solution."
+  },
+  {
+    "question_text": "What is eventual consistency and how would you handle it in an application that shows a user their own profile updates?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define eventual consistency as a model where replicas converge to the same state given no new updates. For the user's own profile, strategies include: read-your-own-writes consistency (route user reads to the primary or the same replica), optimistic UI updates (update client state immediately before server confirm), and sticky sessions. Should discuss the trade-off between user experience and strict consistency.",
+    "follow_up_questions": [
+      {"text": "How does Amazon DynamoDB handle read-your-own-writes consistency?", "difficulty": 4, "topic": "databases"},
+      {"text": "What is the difference between strong consistency and linearizability?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says 'just use a stronger consistency model' without acknowledging the latency cost or without a practical approach for the specific user-facing scenario."
+  },
+  {
+    "question_text": "What is a message queue and when would you use one instead of direct synchronous API calls?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain that message queues decouple producers and consumers, enabling async processing, load leveling, and fault tolerance. Use cases: sending emails/notifications, processing large files, fan-out to multiple services, and absorbing traffic spikes. Should compare pub/sub vs point-to-point, and mention real systems like Kafka, RabbitMQ, or SQS. Strong answers discuss at-least-once delivery and idempotency.",
+    "follow_up_questions": [
+      {"text": "How would you ensure a message is processed exactly once?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is the difference between Kafka and RabbitMQ and when would you pick one?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate treats message queues as just 'async HTTP calls' or cannot explain what happens to queued messages when a consumer crashes."
+  },
+  {
+    "question_text": "Write a function to find the longest substring without repeating characters in a given string. Example: Input 'abcabcbb' → Output 3 (the substring 'abc').",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement the sliding window technique with a hash map tracking last seen positions. The window expands right; when a duplicate is found, the left pointer jumps past the previous occurrence. Time O(n), space O(min(n, charset)). Strong answers explicitly state the sliding window pattern, handle edge cases (empty string, all unique, all same characters), and discuss the space complexity relative to character set size.",
+    "follow_up_questions": [
+      {"text": "How would you modify your solution to allow at most K distinct characters?", "difficulty": 4, "topic": "algorithms"},
+      {"text": "What is the time complexity of your solution and can you do better?", "difficulty": 3, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate generates all substrings (O(n²) or O(n³)) without recognizing that a sliding window eliminates the need to revisit characters."
+  },
+  {
+    "question_text": "How does caching work in a backend system? Explain cache invalidation strategies.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should cover cache placement (in-process vs distributed like Redis), cache-aside vs write-through vs write-behind vs read-through patterns. Invalidation strategies: TTL-based expiry, event-driven invalidation on write, cache versioning/tagging, and LRU eviction. Strong answers reference Phil Karlton's quote about invalidation being hard and give a concrete example of a stale cache bug they'd watch for.",
+    "follow_up_questions": [
+      {"text": "What is a cache stampede and how do you prevent it?", "difficulty": 4, "topic": "system-design"},
+      {"text": "When would you prefer write-through over cache-aside?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate only mentions TTL as an invalidation strategy and cannot describe write-through or event-driven invalidation, showing only surface-level caching knowledge."
+  },
+  {
+    "question_text": "What is the difference between optimistic and pessimistic locking? Give a concrete scenario where you'd use each.",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Pessimistic locking (SELECT FOR UPDATE) prevents concurrent access upfront — suitable for high-contention writes like bank transfers. Optimistic locking uses a version column: reads are free, but writes check the version and abort on mismatch — suitable for low-contention scenarios like editing a user profile where conflicts are rare. Candidate should discuss retry logic for optimistic failures and the performance implications of each.",
+    "follow_up_questions": [
+      {"text": "How do you implement optimistic locking in an ORM like SQLAlchemy or Hibernate?", "difficulty": 3, "topic": "databases"},
+      {"text": "What happens if two transactions both read the same row with SELECT FOR UPDATE?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate cannot name a concrete use case for each strategy or conflates locking with database transactions in general."
+  },
+  {
+    "question_text": "Write a function to serialize and deserialize a binary tree. The function should convert a tree to a string and reconstruct the original tree from that string.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement BFS or pre-order DFS serialization with null markers to encode tree structure unambiguously. Serialization joins node values with delimiters; deserialization reconstructs using a queue (BFS) or recursion with an index/iterator (DFS). Should handle edge cases: empty tree, single node, skewed trees. Strong candidates justify their traversal choice and analyze O(n) time and space for both operations.",
+    "follow_up_questions": [
+      {"text": "Why can't you reconstruct a tree from only in-order traversal?", "difficulty": 3, "topic": "algorithms"},
+      {"text": "How would your approach change for an N-ary tree instead of a binary tree?", "difficulty": 4, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate serializes without null markers, producing an ambiguous string that cannot be uniquely deserialized, or cannot write the deserialization counterpart."
+  },
+  {
+    "question_text": "Design a rate limiting system for a public API. It should support per-user limits of 100 requests per minute.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should compare algorithms: fixed window (simple, boundary burst problem), sliding window log (accurate, memory intensive), sliding window counter (good balance), token bucket (allows bursts, smooth), and leaky bucket (strict rate). Implementation via Redis with atomic operations (INCR + EXPIRE or Lua scripts). Should address distributed consistency, key design (user_id:minute), response headers (X-RateLimit-*), and graceful degradation.",
+    "follow_up_questions": [
+      {"text": "How would you handle rate limiting across multiple API gateway instances without a central bottleneck?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What is the token bucket algorithm and how does it differ from the leaky bucket?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes only a fixed window counter in application memory, missing distributed consistency issues and the boundary burst vulnerability entirely."
+  },
+  {
+    "question_text": "What is database sharding? How would you shard a users table for a social platform with 500 million users?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define sharding as horizontal partitioning across multiple database nodes. Sharding strategies: hash-based (consistent hashing — uniform distribution, hard to rebalance), range-based (easy range queries, hotspot risk), directory-based (flexible, single point of failure). For users: hash on user_id for uniform distribution. Should discuss cross-shard queries, global secondary indexes, resharding complexity, and the alternative of using a managed distributed DB like Vitess or CockroachDB.",
+    "follow_up_questions": [
+      {"text": "How do you run a query that joins data across two shards?", "difficulty": 5, "topic": "databases"},
+      {"text": "What is consistent hashing and why is it preferred for sharding?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate confuses sharding with replication, or proposes range-based sharding on user_id without identifying the hotspot risk for new user registrations."
+  },
+  {
+    "question_text": "Explain the concept of backpressure in streaming systems. How would you implement it in a producer-consumer pipeline?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define backpressure as a feedback mechanism where a slow consumer signals a fast producer to slow down, preventing memory exhaustion and system collapse. Strategies: bounded queues with blocking/rejection, reactive streams protocol (request-N), TCP flow control as an analogy, and circuit breakers. Real-world: Kafka consumer lag monitoring, gRPC flow control, RxJava backpressure operators. Strong answers contrast dropping, buffering, and blocking as load-shedding strategies.",
+    "follow_up_questions": [
+      {"text": "What is the difference between backpressure and a circuit breaker?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How does Kafka handle a consumer that is too slow to keep up with a producer?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate has never heard of backpressure or conflates it with simply adding more queue capacity, missing the fundamental flow-control mechanism entirely."
+  },
+  {
+    "question_text": "What are database isolation levels? Explain dirty reads, non-repeatable reads, and phantom reads.",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define all four isolation levels (Read Uncommitted, Read Committed, Repeatable Read, Serializable) and the anomalies they prevent: dirty read (reading uncommitted data), non-repeatable read (same query returns different rows within a transaction), phantom read (new rows appear due to another transaction's insert). Should explain that higher isolation = fewer anomalies but more locking/contention. PostgreSQL's default Read Committed should be mentioned.",
+    "follow_up_questions": [
+      {"text": "How does PostgreSQL implement Repeatable Read using MVCC rather than locks?", "difficulty": 5, "topic": "databases"},
+      {"text": "When would you intentionally use Read Uncommitted in production?", "difficulty": 4, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate can name the isolation levels but cannot explain which anomaly each level prevents or give a concrete scenario demonstrating a phantom read."
+  },
+  {
+    "question_text": "How would you design the backend for a real-time collaborative document editor (like Google Docs)? Focus on conflict resolution.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should introduce Operational Transformation (OT) or Conflict-free Replicated Data Types (CRDTs) as the core algorithms. OT: each operation is transformed against concurrent operations before being applied; requires a central server for sequencing. CRDTs: data structures that merge automatically without coordination, suitable for peer-to-peer. Infrastructure: WebSocket connections for low-latency, operation log for replay, snapshot + delta storage. Strong answers compare OT complexity vs CRDT scalability.",
+    "follow_up_questions": [
+      {"text": "What is a CRDT and how does a grow-only set work?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you handle a user going offline and then reconnecting with local edits?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes 'last write wins' as a conflict resolution strategy or suggests locking the document to a single user at a time, showing no understanding of collaborative editing challenges."
+  },
+  {
+    "question_text": "Write a function to find all strongly connected components (SCCs) in a directed graph. Explain your algorithm choice.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement Kosaraju's or Tarjan's algorithm. Kosaraju: DFS to get finish order, transpose graph, DFS in reverse finish order — each DFS tree is an SCC. Tarjan: single DFS pass using discovery times and low-link values with a stack. Both O(V+E). Strong answers explain why naive BFS fails, articulate the low-link invariant in Tarjan's, and discuss practical applications (detecting circular dependencies, deadlock detection).",
+    "follow_up_questions": [
+      {"text": "How would you use SCCs to detect circular dependencies in a module dependency graph?", "difficulty": 4, "topic": "algorithms"},
+      {"text": "What is the difference between a strongly connected component and a weakly connected component?", "difficulty": 3, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate proposes BFS/DFS reachability checks for all node pairs (O(V*(V+E))) without recognizing this as an SCC problem or knowing Tarjan's/Kosaraju's algorithms."
+  },
+  {
+    "question_text": "What is the saga pattern in microservices? How does it differ from a distributed transaction?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain that distributed transactions (2PC) require all services to lock resources until a global commit — costly and fragile in microservices. The saga pattern decomposes a transaction into a sequence of local transactions, each publishing events that trigger the next. On failure, compensating transactions roll back completed steps. Choreography (event-driven, decentralized) vs. orchestration (central saga orchestrator). Should discuss the risk of partial failures and the importance of idempotency.",
+    "follow_up_questions": [
+      {"text": "What is the difference between choreography and orchestration in the saga pattern?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How do you handle a compensating transaction that also fails?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate treats sagas as just 'distributed transactions done right' without understanding compensating transactions or the fundamental difference in locking semantics."
+  },
+  {
+    "question_text": "Write a function to implement a thread-safe producer-consumer queue with a bounded buffer. Producers should block when the buffer is full, and consumers should block when it's empty.",
+    "type": "code",
+    "topic": "concurrency",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should use a mutex (lock) combined with two condition variables: 'not_full' and 'not_empty'. Producer: acquire lock → wait on not_full if full → enqueue → signal not_empty → release. Consumer: acquire lock → wait on not_empty if empty → dequeue → signal not_full → release. Should use a while loop (not if) for condition checks to handle spurious wakeups. Strong candidates note that Python's queue.Queue, Java's BlockingQueue, or Go's buffered channels handle this natively.",
+    "follow_up_questions": [
+      {"text": "Why must the condition check be inside a while loop rather than an if statement?", "difficulty": 4, "topic": "concurrency"},
+      {"text": "How would you implement this without condition variables, using only semaphores?", "difficulty": 5, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate uses busy-waiting (spinning in a loop checking the queue size) or places the lock acquisition inside the loop rather than outside, creating a race condition."
+  },
+  {
+    "question_text": "Design a distributed job scheduler that needs to run millions of cron-like jobs reliably with at-least-once execution guarantees.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should address: job storage (database with next_run_time index), leader election for scheduler coordination (to avoid double-triggering — Zookeeper, etcd, or DB row locks), worker polling vs push model, execution guarantees via idempotency keys and heartbeat timeouts for failure detection, retry with exponential backoff, and dead-letter queues for permanently failing jobs. Discuss sharding job queues by tenant or job type for scale. Reference systems like Celery, Temporal, or Quartz.",
+    "follow_up_questions": [
+      {"text": "How do you prevent two scheduler nodes from triggering the same job simultaneously?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What is the difference between at-least-once and exactly-once delivery and which is harder to achieve?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes a single-node cron process without considering failure scenarios, double-execution prevention, or what happens to scheduled jobs when the scheduler itself crashes."
+  },
+  {
+    "question_text": "Explain MVCC (Multiversion Concurrency Control). How does PostgreSQL use it to implement isolation without locking readers?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should explain that MVCC maintains multiple versions of each row with xmin/xmax transaction IDs, so readers see a consistent snapshot of the database as of their transaction start without blocking writers. Writers create new row versions rather than modifying in-place. Should discuss transaction ID visibility rules, the role of the snapshot in Repeatable Read, and vacuum/autovacuum for cleaning up dead row versions. Contrast with lock-based isolation where readers block writers.",
+    "follow_up_questions": [
+      {"text": "What is table bloat in PostgreSQL and how does VACUUM address it?", "difficulty": 5, "topic": "databases"},
+      {"text": "What is a transaction ID wraparound and why is it catastrophic?", "difficulty": 5, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate describes MVCC as 'caching old data' or cannot explain the xmin/xmax visibility mechanism, showing knowledge of the term without understanding the implementation."
+  },
+  {
+    "question_text": "Write a function to find the median of a stream of integers in O(log n) time per insertion. The function should support: addNum(num) and findMedian().",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should use two heaps: a max-heap for the lower half and a min-heap for the upper half, keeping them balanced (size difference ≤ 1). addNum: push to appropriate heap, rebalance if needed. findMedian: if equal size, average both tops; otherwise return top of the larger heap. Total O(log n) per insertion, O(1) for median. Strong answers explain the heap invariant, handle the rebalancing logic precisely, and note that this is a well-known streaming statistics problem.",
+    "follow_up_questions": [
+      {"text": "How would you find the median of the last K elements in a stream?", "difficulty": 5, "topic": "algorithms"},
+      {"text": "Can you solve this problem using an order-statistics tree? What would that give you?", "difficulty": 5, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate proposes sorting the accumulated array on each findMedian call (O(n log n)) or storing all elements in a list and doing a full pass, failing to achieve the required O(log n) insertion time."
+  },
+  {
+    "question_text": "Design the backend architecture for a global payments processing system that must handle 10,000 TPS with strict consistency for money movement.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate must address: double-entry ledger for auditability, idempotency keys to prevent duplicate charges, two-phase commit or saga pattern for cross-account transfers, row-level locking strategy, and how to scale while maintaining consistency (avoid over-sharding accounts). Infrastructure: global load balancing, regional read replicas, WAL-based replication, strict primary routing for writes. Compliance considerations: PCI DSS, audit logs, and reconciliation jobs. Reference architectures like Stripe's or Square's ledger systems.",
+    "follow_up_questions": [
+      {"text": "How do you ensure a payment is never charged twice even if the client retries the request?", "difficulty": 5, "topic": "system-design"},
+      {"text": "How would you handle a cross-currency transfer that involves two external banking APIs that can each fail independently?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes a simple REST API over a single relational database with no discussion of idempotency, double-spend prevention, or what happens if the system crashes mid-transfer."
+  },
+  {
+    "question_text": "Tell me about a time you identified and resolved a performance bottleneck in a backend system. What was your diagnostic process?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Strong answer follows a structured diagnostic process: observe symptoms (latency spike, high CPU/memory), form hypotheses, use tooling (APM traces, slow query logs, profilers, flame graphs) to isolate the bottleneck, implement a fix, and measure the impact. The fix should be proportionate and the candidate should discuss any trade-offs made. Bonus for mentioning rollback plan and post-mortem.",
+    "follow_up_questions": [
+      {"text": "How did you ensure your fix didn't introduce a regression elsewhere?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What monitoring would you add to catch this class of issue proactively in the future?", "difficulty": 3, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate describes a vague 'I just optimized it' story with no mention of measurement, tooling, or a systematic root-cause analysis process."
+  },
+  {
+    "question_text": "Describe a time you had to make a technical decision with incomplete information under time pressure. How did you decide and what happened?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Strong answer shows structured decision-making under uncertainty: framing the decision, gathering the most important data quickly, articulating trade-offs explicitly, making a reversible choice where possible, and communicating the rationale to stakeholders. Should mention what they'd do differently or how they validated the decision afterward. Judgment, not just outcome, is what matters.",
+    "follow_up_questions": [
+      {"text": "In hindsight, was there information you could have gotten faster that would have changed your decision?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "How do you distinguish between a decision that needs more research and one that needs to be made now?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate either claims they always have full information before deciding (lack of real-world experience) or made a gut-feel decision with no structured reasoning and cannot articulate the trade-offs."
+  },
+  {
+    "question_text": "Write a function to implement a basic consistent hashing ring with virtual nodes. Support addServer(server), removeServer(server), and getServer(key) operations.",
+    "type": "code",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should hash both servers and keys onto a ring (sorted list or balanced BST). Virtual nodes replicate each server at multiple ring positions to improve distribution. getServer: hash key, find the next clockwise server position (binary search). addServer: add virtual nodes, no rehashing of other servers. removeServer: remove its virtual nodes; affected keys automatically reroute to the next server. Should analyze that only K/N keys remap on server changes. Strong candidates discuss vnodes count tuning and real-world use in Cassandra or Redis Cluster.",
+    "follow_up_questions": [
+      {"text": "Without virtual nodes, what distribution problem occurs with basic consistent hashing?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How does Cassandra use consistent hashing with virtual nodes in practice?", "difficulty": 5, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate implements modulo hashing (key % num_servers) which requires rehashing all keys when servers are added or removed, defeating the purpose of consistent hashing entirely."
+  },
+  {
+    "question_text": "How do you approach code reviews? What do you look for and how do you give feedback on a junior engineer's PR?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should describe a layered review approach: correctness first (logic bugs, edge cases, tests), then design (abstractions, coupling, SOLID principles), then readability and conventions. For junior engineers: specific and actionable feedback with explanation of the 'why', separating blocking issues from suggestions, and framing feedback as collaboration not criticism. Bonus for mentioning nit: labels, async communication norms, and reviewing in multiple passes.",
+    "follow_up_questions": [
+      {"text": "How do you handle a situation where you disagree with a senior engineer's code review comment on your PR?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What's the most impactful type of feedback you can give in a code review that most engineers overlook?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate focuses exclusively on style/formatting issues or describes a review process focused on finding fault rather than ensuring correctness and knowledge transfer."
+  },
+  [
+{
+"question_text": "Explain the HTTP request-response lifecycle in a web application.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Describe how a client sends a request, how DNS, load balancer, and server process it, and how a response is returned. Mention statelessness and headers/body structure.",
+"follow_up_questions": [
+{
+"text": "What are common HTTP status codes?",
+"difficulty": 1,
+"topic": "api-design"
+},
+{
+"text": "What is the difference between GET and POST?",
+"difficulty": 1,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain basic request-response flow."
+},
+{
+"question_text": "What is a relational database and how does it store data?",
+"type": "voice",
+"topic": "databases",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Explain tables, rows, columns, schemas, and relationships using primary and foreign keys. Mention SQL queries.",
+"follow_up_questions": [
+{
+"text": "What is a primary key?",
+"difficulty": 1,
+"topic": "databases"
+},
+{
+"text": "What is a foreign key?",
+"difficulty": 1,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Does not understand tables or relationships."
+},
+{
+"question_text": "What is an API and why is it important?",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 1,
+"is_fundamental": true,
+"expected_answer_framework": "Define API as an interface for communication between systems, explain endpoints and request-response model with examples.",
+"follow_up_questions": [
+{
+"text": "What is REST?",
+"difficulty": 2,
+"topic": "api-design"
+},
+{
+"text": "What is an endpoint?",
+"difficulty": 1,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Provides vague or incorrect definition."
+},
+{
+"question_text": "Explain what indexing is in databases.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 2,
+"is_fundamental": true,
+"expected_answer_framework": "Explain indexes as data structures to speed up queries and discuss trade-offs like slower writes and storage overhead.",
+"follow_up_questions": [
+{
+"text": "What structures are used for indexing?",
+"difficulty": 2,
+"topic": "databases"
+},
+{
+"text": "When should you avoid indexing?",
+"difficulty": 3,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Claims indexes always improve performance."
+},
+{
+"question_text": "What is concurrency and why is it important in backend systems?",
+"type": "voice",
+"topic": "concurrency",
+"difficulty": 2,
+"is_fundamental": true,
+"expected_answer_framework": "Define concurrency, contrast with parallelism, and explain handling multiple tasks using threads or async processing.",
+"follow_up_questions": [
+{
+"text": "What is a race condition?",
+"difficulty": 2,
+"topic": "concurrency"
+},
+{
+"text": "How do locks work?",
+"difficulty": 3,
+"topic": "concurrency"
+}
+],
+"red_flag_answers": "Cannot distinguish concurrency concepts."
+},
+{
+"question_text": "Write a function to reverse a string.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 1,
+"is_fundamental": false,
+"expected_answer_framework": "Use iteration or slicing to reverse the string and handle edge cases like empty input.",
+"follow_up_questions": [
+{
+"text": "Can you do it in-place?",
+"difficulty": 2,
+"topic": "algorithms"
+},
+{
+"text": "What is the time complexity?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Fails to implement basic logic."
+},
+{
+"question_text": "Write a function to find the maximum element in an array.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 1,
+"is_fundamental": false,
+"expected_answer_framework": "Iterate through elements, track the maximum, and explain O(n) complexity.",
+"follow_up_questions": [
+{
+"text": "What if the array is empty?",
+"difficulty": 2,
+"topic": "algorithms"
+},
+{
+"text": "Can you solve it using recursion?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Incorrect or inefficient logic."
+},
+{
+"question_text": "Explain normalization in databases.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Explain reducing redundancy, normal forms, and improving consistency of data.",
+"follow_up_questions": [
+{
+"text": "What is 3NF?",
+"difficulty": 2,
+"topic": "databases"
+},
+{
+"text": "When would you denormalize?",
+"difficulty": 3,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Does not understand purpose of normalization."
+},
+{
+"question_text": "Explain ACID properties in databases.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Define atomicity, consistency, isolation, durability with examples of transactions.",
+"follow_up_questions": [
+{
+"text": "What is isolation level?",
+"difficulty": 4,
+"topic": "databases"
+},
+{
+"text": "Explain CAP theorem.",
+"difficulty": 4,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Cannot explain transaction guarantees."
+},
+{
+"question_text": "Write a function to implement binary search.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Implement binary search correctly with O(log n) complexity and handle boundaries.",
+"follow_up_questions": [
+{
+"text": "What if the array is unsorted?",
+"difficulty": 3,
+"topic": "algorithms"
+},
+{
+"text": "Recursive vs iterative approach?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses linear search instead."
+},
+{
+"question_text": "Design a URL shortener system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss generating short IDs, database schema, collision handling, scalability, and redirection.",
+"follow_up_questions": [
+{
+"text": "How do you avoid collisions?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "How would you scale reads?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Misses core design components."
+},
+{
+"question_text": "Explain caching strategies in backend systems.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss cache-aside, write-through, write-back, eviction policies, and trade-offs.",
+"follow_up_questions": [
+{
+"text": "What is cache invalidation?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "What is TTL?",
+"difficulty": 3,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Only states caching improves performance."
+},
+{
+"question_text": "Explain REST API design principles.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain statelessness, resource naming, HTTP methods, and status codes.",
+"follow_up_questions": [
+{
+"text": "What is idempotency?",
+"difficulty": 3,
+"topic": "api-design"
+},
+{
+"text": "How do you version APIs?",
+"difficulty": 3,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot explain REST constraints."
+},
+{
+"question_text": "Write a function to detect duplicates in an array.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Use a hash set to detect duplicates in O(n) time and explain trade-offs.",
+"follow_up_questions": [
+{
+"text": "Can you solve it without extra space?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "What is the time complexity?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses inefficient nested loops."
+},
+{
+"question_text": "Explain rate limiting in APIs.",
+"type": "voice",
+"topic": "api-design",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain token bucket, leaky bucket, and protecting services from abuse.",
+"follow_up_questions": [
+{
+"text": "How do you implement distributed rate limiting?",
+"difficulty": 4,
+"topic": "api-design"
+},
+{
+"text": "How do you handle bursts?",
+"difficulty": 3,
+"topic": "api-design"
+}
+],
+"red_flag_answers": "Cannot name any strategy."
+},
+{
+"question_text": "Explain database sharding.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Explain horizontal partitioning, shard keys, scaling benefits, and challenges.",
+"follow_up_questions": [
+{
+"text": "How do you choose a shard key?",
+"difficulty": 4,
+"topic": "databases"
+},
+{
+"text": "How do you rebalance shards?",
+"difficulty": 4,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Confuses sharding with replication."
+},
+{
+"question_text": "Write a function to merge two sorted arrays.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Use two-pointer technique to merge arrays in O(n) time.",
+"follow_up_questions": [
+{
+"text": "Can you do it in-place?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "What edge cases should be handled?",
+"difficulty": 2,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Inefficient merging logic."
+},
+{
+"question_text": "Explain deadlocks in concurrent systems.",
+"type": "voice",
+"topic": "concurrency",
+"difficulty": 3,
+"is_fundamental": false,
+"expected_answer_framework": "Define deadlock, list necessary conditions, and explain prevention or avoidance techniques.",
+"follow_up_questions": [
+{
+"text": "What are the four conditions of deadlock?",
+"difficulty": 3,
+"topic": "concurrency"
+},
+{
+"text": "How can you prevent deadlocks?",
+"difficulty": 4,
+"topic": "concurrency"
+}
+],
+"red_flag_answers": "Cannot define deadlock properly."
+},
+{
+"question_text": "Design a distributed cache system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss partitioning, replication, eviction policies, and consistency trade-offs.",
+"follow_up_questions": [
+{
+"text": "How do you maintain consistency?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "How do you handle failures?",
+"difficulty": 5,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Ignores distributed challenges."
+},
+{
+"question_text": "Design a message queue system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 5,
+"is_fundamental": false,
+"expected_answer_framework": "Explain producers, consumers, durability, ordering, and scaling mechanisms.",
+"follow_up_questions": [
+{
+"text": "How do you ensure exactly-once delivery?",
+"difficulty": 5,
+"topic": "system-design"
+},
+{
+"text": "How do you partition messages?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Misses key queue concepts."
+},
+{
+"question_text": "Explain consistency models in distributed systems.",
+"type": "voice",
+"topic": "databases",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Explain strong, eventual consistency and trade-offs with examples.",
+"follow_up_questions": [
+{
+"text": "What is linearizability?",
+"difficulty": 5,
+"topic": "databases"
+},
+{
+"text": "How does CAP theorem relate?",
+"difficulty": 4,
+"topic": "databases"
+}
+],
+"red_flag_answers": "Cannot differentiate models."
+},
+{
+"question_text": "Write a function to find the longest substring without repeating characters.",
+"type": "code",
+"topic": "algorithms",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Use sliding window technique with O(n) complexity and hash map.",
+"follow_up_questions": [
+{
+"text": "How can you optimize space?",
+"difficulty": 4,
+"topic": "algorithms"
+},
+{
+"text": "What edge cases should be handled?",
+"difficulty": 3,
+"topic": "algorithms"
+}
+],
+"red_flag_answers": "Uses brute force solution."
+},
+{
+"question_text": "Design a real-time chat system.",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 4,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss WebSockets, scaling, persistence, message ordering, and delivery guarantees.",
+"follow_up_questions": [
+{
+"text": "How do you handle offline users?",
+"difficulty": 4,
+"topic": "system-design"
+},
+{
+"text": "How do you ensure message ordering?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Focuses only on frontend."
+},
+{
+"question_text": "How would you design a payment processing system?",
+"type": "voice",
+"topic": "system-design",
+"difficulty": 5,
+"is_fundamental": false,
+"expected_answer_framework": "Discuss transactions, idempotency, retries, security, and auditing.",
+"follow_up_questions": [
+{
+"text": "How do you handle failures?",
+"difficulty": 5,
+"topic": "system-design"
+},
+{
+"text": "How do you prevent duplicate transactions?",
+"difficulty": 4,
+"topic": "system-design"
+}
+],
+"red_flag_answers": "Ignores consistency or security concerns."
+},
+{
+"question_text": "Describe a challenging backend problem you solved.",
+"type": "voice",
+"topic": "general-behavior",
+"difficulty": 2,
+"is_fundamental": false,
+"expected_answer_framework": "Use STAR method to explain problem, solution, and impact with measurable outcomes.",
+"follow_up_questions": [
+{
+"text": "What did you learn?",
+"difficulty": 2,
+"topic": "general-behavior"
+},
+{
+"text": "What would you do differently?",
+"difficulty": 3,
+"topic": "general-behavior"
+}
+],
+"red_flag_answers": "No concrete example."
+}
+]
+
+]

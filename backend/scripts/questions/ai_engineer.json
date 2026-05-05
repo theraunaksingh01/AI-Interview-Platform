@@ -1,0 +1,677 @@
+[
+  {
+    "question_text": "What is the difference between a generative model and a discriminative model? Give one real-world example of each.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Discriminative models learn the boundary between classes P(y|x) — e.g. a spam classifier. Generative models learn the underlying data distribution P(x|y) or P(x) and can synthesize new samples — e.g. a diffusion model generating images. Strong answers explain why generative models are harder to train but more flexible, and connect this to modern LLMs as generative models trained via next-token prediction.",
+    "follow_up_questions": [
+      {"text": "Why are most modern LLMs trained as generative models rather than discriminative ones?", "difficulty": 2, "topic": "general-behavior"},
+      {"text": "What is a variational autoencoder and how does it combine generative and discriminative components?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate confuses the two or says generative models are simply 'better' without explaining the distribution modeling difference or trade-offs."
+  },
+  {
+    "question_text": "What is the softmax function? Why is it used as the final layer in classification models?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Softmax converts a vector of raw logits into a probability distribution that sums to 1 by exponentiating each value and normalizing by the sum. It is used because it maps arbitrary real values to interpretable probabilities and its gradient flows cleanly for cross-entropy loss training. Strong answers mention temperature scaling (dividing logits before softmax to control sharpness) and numerical stability tricks like subtracting the max logit to prevent overflow.",
+    "follow_up_questions": [
+      {"text": "What happens to the softmax output when you divide all logits by a very small temperature like 0.01?", "difficulty": 2, "topic": "general-behavior"},
+      {"text": "Why is the combination of softmax and cross-entropy loss computationally more stable than computing them separately?", "difficulty": 3, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate says softmax 'normalizes values between 0 and 1' without explaining the exponentiation step or why that makes it different from simple min-max normalization."
+  },
+  {
+    "question_text": "What is the purpose of a train/validation/test split in machine learning? What goes wrong if you evaluate on the training set?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": true,
+    "expected_answer_framework": "Training set is used to fit model weights, validation set guides hyperparameter tuning and early stopping, and test set provides a final unbiased performance estimate on unseen data. Evaluating on training data gives an optimistically biased estimate because the model has already fit its noise. Strong answers mention data leakage, the concept of distribution shift between splits, and why the test set must never influence any training decision.",
+    "follow_up_questions": [
+      {"text": "What is k-fold cross-validation and when would you prefer it over a fixed validation split?", "difficulty": 2, "topic": "general-behavior"},
+      {"text": "What is temporal leakage and how does it differ from standard data leakage?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says validation and test sets are interchangeable or cannot explain why using the test set for model selection invalidates it as an unbiased estimator."
+  },
+  {
+    "question_text": "What is an embedding model versus a generative language model? When would you use each?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 1,
+    "is_fundamental": false,
+    "expected_answer_framework": "Embedding models encode text into fixed-length dense vectors capturing semantic meaning — used for similarity search, clustering, and retrieval. Generative models produce new token sequences autoregressively — used for Q&A, summarization, and code generation. Strong answers explain that embedding models are typically encoder-only or bi-encoder architectures, are much cheaper to run, and are the right choice when you need to compare or index large corpora rather than generate text.",
+    "follow_up_questions": [
+      {"text": "Can you use a generative LLM to produce embeddings? What are the trade-offs?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What is the MTEB benchmark and why does it matter for choosing an embedding model?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says embedding models are just smaller generative models or cannot explain why a generative model is the wrong tool for semantic similarity search at scale."
+  },
+  {
+    "question_text": "What is cross-entropy loss? Why is it the standard loss function for classification and language modeling tasks?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 2,
+    "is_fundamental": true,
+    "expected_answer_framework": "Cross-entropy measures the dissimilarity between the predicted probability distribution and the true distribution, penalizing confident wrong predictions heavily via the log term. For classification, it equals -log(p_correct_class). For language modeling, it is the average negative log-likelihood over all tokens — minimizing it is equivalent to maximizing the probability the model assigns to the training corpus. Strong answers connect perplexity (exp of average cross-entropy) to language model evaluation and explain the gradient vanishing problem with MSE loss for probabilities.",
+    "follow_up_questions": [
+      {"text": "What is label smoothing and how does it modify the cross-entropy loss?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What is the relationship between perplexity and bits-per-character in language model evaluation?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says cross-entropy is used because it is 'easy to compute' without explaining the probabilistic interpretation or why log penalizes confident wrong predictions more severely than MSE."
+  },
+  {
+    "question_text": "What is semantic search and how does it differ from keyword-based search like BM25?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "Keyword search matches exact terms and their variants using inverted indexes — fast but fails on synonyms, paraphrases, and conceptual matches. Semantic search embeds queries and documents into a shared vector space where proximity reflects meaning, enabling retrieval of conceptually related results even with no lexical overlap. Strong answers discuss the trade-offs: BM25 excels at precise term matching (names, codes, rare words) while semantic search handles natural language queries better, and explain why hybrid search combining both often outperforms either alone.",
+    "follow_up_questions": [
+      {"text": "What is hybrid search and how do you combine BM25 and dense retrieval scores?", "difficulty": 3, "topic": "databases"},
+      {"text": "When would BM25 outperform a semantic search system?", "difficulty": 3, "topic": "databases"}
+    ],
+    "red_flag_answers": "Candidate says semantic search is simply 'smarter' than keyword search with no discussion of cases where BM25 outperforms it or the computational cost difference."
+  },
+  {
+    "question_text": "What is the context window of an LLM and what are the practical engineering implications of hitting its limit?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "The context window is the maximum number of tokens an LLM can process in a single forward pass, including system prompt, conversation history, retrieved documents, and generated output. Practical implications: cost and latency scale with token count, content exceeding the window is simply truncated causing silent information loss, and long contexts degrade attention quality. Strong answers cover mitigation strategies: summarization of history, sliding window memory, RAG instead of stuffing, and chunking strategies for long documents.",
+    "follow_up_questions": [
+      {"text": "How would you design a multi-turn conversation system that gracefully handles context window overflow?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is the difference between context window and the effective context an LLM can reliably attend to?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate only says 'use a model with a bigger context window' with no awareness of cost implications, attention degradation, or architectural mitigations."
+  },
+  {
+    "question_text": "What is an API gateway and why is it important for ML model serving infrastructure?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "An API gateway is the single entry point for client requests, handling cross-cutting concerns: authentication, rate limiting, request routing to the correct model version, response caching, observability, and load balancing. For ML serving, it additionally enables A/B traffic splitting between model versions, canary deployments, and cost tracking per tenant or feature. Strong answers mention that without a gateway, these concerns bleed into every individual model service, creating inconsistency and operational burden.",
+    "follow_up_questions": [
+      {"text": "How would you implement gradual traffic migration from model v1 to model v2 using an API gateway?", "difficulty": 3, "topic": "api-design"},
+      {"text": "What is the difference between an API gateway and a service mesh in a microservices context?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate describes an API gateway as just a proxy that forwards requests with no mention of its role in rate limiting, auth, observability, or ML-specific concerns like A/B routing."
+  },
+  {
+    "question_text": "Write a function that takes a list of text documents and returns their TF-IDF matrix as a 2D array. Implement TF-IDF from scratch without using sklearn.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 2,
+    "is_fundamental": false,
+    "expected_answer_framework": "TF: count of term t in doc d divided by total terms in doc d. IDF: log((1 + N) / (1 + df_t)) + 1 where N is total documents and df_t is documents containing term t (smooth IDF). TF-IDF = TF * IDF. Candidate should build a vocabulary from all documents, produce a sparse-friendly 2D array of shape (n_docs, vocab_size). Strong candidates normalize each row to unit L2 norm (as sklearn does), handle unseen terms gracefully, and discuss why IDF smoothing prevents division by zero.",
+    "follow_up_questions": [
+      {"text": "Why does sklearn apply L2 normalization to TF-IDF vectors by default and what does it enable?", "difficulty": 3, "topic": "algorithms"},
+      {"text": "What are the limitations of TF-IDF that word embeddings address?", "difficulty": 2, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate implements raw term frequency without the inverse document frequency component, or uses a naive IDF formula without smoothing that breaks on terms appearing in every document."
+  },
+  {
+    "question_text": "Explain the encoder-decoder architecture. How does it differ from a decoder-only architecture like GPT?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": true,
+    "expected_answer_framework": "Encoder-decoder (T5, BART): the encoder processes the full input with bidirectional attention producing rich contextual representations; the decoder autoregressively generates output attending to encoder states via cross-attention. Ideal for seq2seq tasks (translation, summarization) where input and output differ. Decoder-only (GPT, LLaMA): single stack with causal (unidirectional) attention trained on next-token prediction — simpler, scales better for generalist language modeling, and dominates modern LLMs. Strong answers explain why decoder-only models can do seq2seq via instruction prompting, and discuss BERT as encoder-only.",
+    "follow_up_questions": [
+      {"text": "Why have decoder-only architectures largely displaced encoder-decoder models for general-purpose LLMs?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "What is cross-attention in an encoder-decoder model and how does it differ from self-attention?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate cannot distinguish causal masking in decoders from bidirectional attention in encoders, or says encoder-decoder models are simply 'older and worse' without explaining the architectural trade-offs."
+  },
+  {
+    "question_text": "What is model distillation? How would you distill a large LLM into a smaller one for a latency-constrained production use case?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Distillation trains a smaller student model to mimic a larger teacher by training on soft probability distributions (teacher logits) rather than hard labels, transferring the teacher's learned knowledge more efficiently than training from scratch. For LLM distillation: generate a large synthetic dataset using the teacher model on diverse prompts, train the student on teacher-generated outputs (sequence-level KD) or token-level logit matching. Strong answers discuss task-specific vs general distillation, the importance of on-policy data generation, and evaluation on both quality (MMLU, task-specific benchmarks) and latency/cost.",
+    "follow_up_questions": [
+      {"text": "What is the difference between knowledge distillation and model pruning as compression techniques?", "difficulty": 3, "topic": "system-design"},
+      {"text": "How does DistilBERT differ architecturally from BERT and what training objective was used?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate describes distillation as just fine-tuning a small model on a small dataset with no mention of soft targets, teacher logits, or why training on teacher outputs outperforms training on ground truth alone."
+  },
+  {
+    "question_text": "Design a system to detect and prevent prompt injection attacks in a production LLM application that processes user-uploaded documents.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should identify indirect prompt injection (malicious instructions embedded in user documents that hijack the LLM's behavior) as the primary risk. Defense layers: input sanitization (detect instruction-like patterns in documents before embedding), privilege separation (document processing agent has no access to sensitive actions), structured output parsing (constrain LLM responses to a schema, breaking free-form instruction following), canary tokens in system prompts to detect exfiltration, and an LLM-based guardrail classifier scanning both inputs and outputs. Should discuss defense-in-depth rather than any single silver bullet.",
+    "follow_up_questions": [
+      {"text": "Why is input sanitization alone insufficient to prevent indirect prompt injection?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How would you use structured outputs to reduce the attack surface for prompt injection?", "difficulty": 4, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate proposes only a keyword blocklist for suspicious phrases with no understanding that adversarial prompt injections can be encoded to evade string matching."
+  },
+  {
+    "question_text": "What is embedding drift and why is it a serious operational problem for RAG systems in production?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Embedding drift occurs when the embedding model is updated, changing the vector space such that existing stored embeddings are no longer comparable to new query embeddings from the updated model. In a RAG system, this causes silent retrieval degradation — the cosine similarity computations become meaningless across model versions. Mitigations: versioned embedding namespaces in the vector store, always re-embed the full corpus after model updates, blue-green embedding deployment with canary traffic testing, and monitoring retrieval quality metrics (recall@K on a labeled test set) as an operational SLO.",
+    "follow_up_questions": [
+      {"text": "How would you implement a zero-downtime re-embedding of 50 million documents when upgrading your embedding model?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What monitoring signals would tell you that embedding drift is degrading your RAG pipeline's quality?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate is unaware that embedding models can change or says you can incrementally add new embeddings from a new model to the same index without re-embedding existing documents."
+  },
+  {
+    "question_text": "Write a function that implements a simple sliding window chunker for a token stream. Given a list of tokens, produce overlapping windows of size chunk_size with step stride. Then write a function to reconstruct the original sequence from overlapping chunk predictions by averaging logits in overlap regions.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Chunker: yield tokens[i:i+chunk_size] for i in range(0, len(tokens)-chunk_size+1, stride). Reconstruction: create an output array of shape (n_tokens, n_classes) initialized to zero and a count array; for each chunk at position i, add logits to output[i:i+chunk_size] and increment counts; divide by counts to average overlapping predictions. Strong candidates handle the edge case where the last chunk extends beyond the sequence, discuss why averaging overlapping logits outperforms using non-overlapping chunks, and note this pattern is used in NER and token classification tasks.",
+    "follow_up_questions": [
+      {"text": "What is the effect of stride=1 versus stride=chunk_size on inference cost and prediction quality?", "difficulty": 3, "topic": "algorithms"},
+      {"text": "How would you use this pattern for document-level sentiment analysis when the document exceeds the model's context window?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate implements chunking without overlap or cannot write the reconstruction function that averages logits over overlapping regions, missing the key quality benefit of the sliding window approach."
+  },
+  {
+    "question_text": "What is the difference between online learning and batch learning? When would you use each for a recommendation system?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Batch learning trains on a fixed historical dataset — computationally efficient, reproducible, but requires periodic retraining to incorporate new data, causing model staleness. Online learning updates model weights incrementally with each new example — keeps the model current but risks instability from noisy updates and requires careful learning rate scheduling. For recommendations: online learning is valuable for capturing rapidly shifting user preferences and cold-start adaptation, while batch training is preferred for large collaborative filtering models where stability and global optima matter. Strong answers mention micro-batch learning as a practical middle ground.",
+    "follow_up_questions": [
+      {"text": "What is concept drift and how does it motivate online or frequent batch retraining?", "difficulty": 3, "topic": "system-design"},
+      {"text": "What safeguards would you add to prevent a bad batch of training data from corrupting an online learning model?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says online learning is always better because it uses fresher data with no discussion of training instability, catastrophic forgetting, or the engineering complexity of real-time feature pipelines."
+  },
+  {
+    "question_text": "What is a knowledge graph and how can it be combined with LLMs to reduce hallucination in fact-sensitive applications?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "A knowledge graph stores entities and their relationships as structured triples (subject, predicate, object), enabling precise, auditable fact retrieval unlike unstructured vector search. GraphRAG combines KG traversal with LLM generation: extract entities from the query, traverse the KG for relevant subgraphs, serialize the subgraph into context, and ground the LLM's answer in retrieved facts. This reduces hallucination on relational and multi-hop reasoning tasks where flat document retrieval fails. Strong answers discuss KG construction challenges (NER, entity resolution), SPARQL vs graph traversal, and when KGs outperform pure vector RAG.",
+    "follow_up_questions": [
+      {"text": "What is GraphRAG and how does Microsoft's implementation differ from naive KG retrieval?", "difficulty": 4, "topic": "system-design"},
+      {"text": "How would you construct a knowledge graph automatically from a large unstructured document corpus using an LLM?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate confuses a knowledge graph with a relational database or cannot explain how structured graph traversal provides complementary information to dense vector retrieval."
+  },
+  {
+    "question_text": "Explain the concept of function calling / tool use in LLMs. How does it work under the hood and what are the failure modes?",
+    "type": "voice",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Tool use allows LLMs to output structured JSON matching a predefined function schema instead of natural language, which the host application then executes and feeds results back to the model. Under the hood, the model is trained to recognize tool-calling context and generate well-formed JSON — it does not actually call functions. Failure modes: hallucinating tool names or parameter values not in schema, incorrect argument types, calling tools when not needed, and tool result misinterpretation. Strong answers discuss parallel tool calls, multi-step agentic tool chains, input validation on tool outputs before re-injecting to model, and JSON schema validation to catch malformed calls.",
+    "follow_up_questions": [
+      {"text": "How would you design a tool schema to minimize the chance of an LLM providing incorrect parameter values?", "difficulty": 4, "topic": "api-design"},
+      {"text": "What is the difference between tool calling and ReAct-style prompting for agentic tasks?", "difficulty": 3, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says the LLM literally executes code when using tool calling, confusing the orchestration layer with the model's structured output capability."
+  },
+  {
+    "question_text": "What is data augmentation in the context of training ML models? Describe three augmentation strategies applicable to text data.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Data augmentation artificially expands training data to improve model generalization and robustness, especially for low-resource settings. Text augmentation strategies: back-translation (translate to another language and back, producing natural paraphrases), synonym substitution with WordNet or embedding-based replacements, LLM-based paraphrase generation (prompt GPT to rewrite with preserved meaning), random deletion/swap/insertion of tokens (EDA), and mixup in embedding space. Strong answers discuss which augmentations preserve label semantics and which can corrupt them for certain tasks like NER.",
+    "follow_up_questions": [
+      {"text": "What is EDA (Easy Data Augmentation) and what are its limitations?", "difficulty": 3, "topic": "general-behavior"},
+      {"text": "How would you validate that your augmented data is not hurting model performance on the original distribution?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate can only describe image augmentation techniques like flipping and cropping with no knowledge of text-specific augmentation strategies."
+  },
+  {
+    "question_text": "Write a function that implements a simple agent loop: given a list of tools (each with a name, description, and callable), a system prompt, and a user query, run a ReAct-style loop that calls the Anthropic API, parses tool calls, executes them, and feeds results back until the model produces a final answer.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement a while loop with a max_iterations guard: call the API with conversation history, check if response contains a tool_use block, extract tool name and input, look up and call the matching tool function, append both the assistant's tool_use message and a tool_result user message to history, and repeat. Exit when a text-only response is returned or max iterations hit. Strong candidates handle tool not found errors gracefully, append results with the correct content block format, and include a timeout/max_steps to prevent infinite loops.",
+    "follow_up_questions": [
+      {"text": "How would you add structured logging to trace every tool call and LLM response for debugging and cost tracking?", "difficulty": 3, "topic": "api-design"},
+      {"text": "What happens if the LLM calls the same tool with the same arguments three times in a row? How do you detect and break this loop?", "difficulty": 4, "topic": "api-design"}
+    ],
+    "red_flag_answers": "Candidate appends tool results as a new user message without preserving the assistant's tool_use block, breaking the conversation format and causing API errors."
+  },
+  {
+    "question_text": "What is FAISS? How does it compare to purpose-built vector databases like Pinecone or Weaviate for production AI systems?",
+    "type": "voice",
+    "topic": "databases",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "FAISS is Facebook AI Similarity Search — a C++ library for efficient ANN search with GPU acceleration. It is a library, not a service: no persistence by default, no metadata filtering, no horizontal scaling, and no API server. Purpose-built vector databases add: persistent storage, real-time CRUD, metadata filtering with hybrid search, multi-tenancy, replication, and managed infrastructure. FAISS is appropriate for offline research, single-machine experimentation, or custom serving where you control the full stack. Production systems with frequent updates, metadata-filtered queries, or multi-user access warrant a vector database. Strong answers mention pgvector as a lightweight production option for teams already on PostgreSQL.",
+    "follow_up_questions": [
+      {"text": "What is the difference between IVFFlat and HNSW indexes in FAISS and when would you choose each?", "difficulty": 4, "topic": "databases"},
+      {"text": "How would you shard a FAISS index across multiple machines to handle 1 billion vectors?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says FAISS and Pinecone are equivalent alternatives differing only in price, missing that FAISS is an in-process library with no persistence, replication, or metadata filtering capabilities."
+  },
+  {
+    "question_text": "Design a system to continuously monitor a deployed LLM application for quality degradation, hallucinations, and toxic outputs in real time at 50,000 requests per day.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should cover: online sampling strategy (log 100% of metadata, sample 5-10% of full inputs/outputs for quality evaluation due to cost), an LLM-as-judge pipeline for automated faithfulness, toxicity, and relevance scoring on the sample, real-time dashboards tracking metric distributions, threshold-based alerting (e.g. faithfulness score drops below 0.85 for 1000 consecutive samples), topic drift detection on query embeddings, and a human review queue for flagged samples. Should discuss feedback loops from user signals (thumbs up/down), and canary deployment evaluation before full rollout.",
+    "follow_up_questions": [
+      {"text": "How would you design an LLM judge to score factual faithfulness at scale without using ground truth?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What statistical test would you use to detect that a new model version is performing significantly worse than the incumbent?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate proposes only logging all outputs and manually reviewing them, with no automated scoring pipeline or alerting mechanism that can operate at 50K daily requests."
+  },
+  {
+    "question_text": "Write a function that implements greedy decoding and beam search decoding from scratch given a language model's next-token logit function. Compare their outputs on a test sequence.",
+    "type": "code",
+    "topic": "algorithms",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Greedy: at each step, take argmax of logits, append to sequence, feed back until EOS or max_length — O(L) steps. Beam search: maintain top-B partial sequences by cumulative log-probability, expand each by all vocabulary tokens, keep top-B survivors at each step — O(L * B * V) but produces higher-quality sequences. Strong candidates implement beam search with a min-heap for efficiency, handle EOS termination per beam correctly, apply length normalization (divide by length^alpha to avoid short-sequence bias), and demonstrate with a toy model that beam search finds higher probability completions than greedy.",
+    "follow_up_questions": [
+      {"text": "Why does beam search sometimes produce more repetitive outputs than sampling-based decoding?", "difficulty": 4, "topic": "algorithms"},
+      {"text": "What is diverse beam search and what problem does it address?", "difficulty": 5, "topic": "algorithms"}
+    ],
+    "red_flag_answers": "Candidate implements greedy decoding correctly but cannot implement beam search, or implements beam search without log-probabilities and uses raw probabilities causing numerical underflow."
+  },
+  {
+    "question_text": "What is the PageRank algorithm and how can graph-based ranking be applied to improve retrieval in a RAG system?",
+    "type": "voice",
+    "topic": "algorithms",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "PageRank assigns importance scores to nodes in a directed graph based on the number and quality of incoming edges, with damping factor d modeling random jumps. In RAG, document chunks can be modeled as a graph where edges represent semantic similarity above a threshold — running PageRank identifies central, authoritative chunks. Microsoft's GraphRAG builds community summaries from entity graphs before retrieval. Strong answers also mention HITS algorithm (hub-authority), how graph centrality complements dense vector similarity for finding globally important vs locally relevant chunks, and the computational cost of graph construction at scale.",
+    "follow_up_questions": [
+      {"text": "How would you construct a chunk similarity graph efficiently for a corpus of 100,000 documents?", "difficulty": 5, "topic": "algorithms"},
+      {"text": "What is the difference between local and global retrieval in GraphRAG?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate cannot describe the PageRank iteration formula or says graph-based retrieval is just 'drawing connections between documents' with no understanding of the ranking algorithm."
+  },
+  {
+    "question_text": "Design a multi-agent pipeline where a planner agent decomposes a complex research task and delegates to specialized subagents (web searcher, document analyst, code executor). How do you coordinate, handle failures, and synthesize results?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should describe: planner decomposition strategy (DAG of tasks vs sequential chain), agent communication protocol (shared state vs message passing), specialized agent capabilities and tool access, orchestration layer that manages execution order (parallel where independent), timeout and retry policies per subagent, partial failure handling (can the planner proceed with incomplete results?), result aggregation with confidence-weighted synthesis, and a final critic agent checking coherence. Should discuss observability — tracing every agent call with parent-child span relationships for debugging.",
+    "follow_up_questions": [
+      {"text": "How do you prevent the planner from generating a decomposition plan that cycles back to a previously completed subtask?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What is the difference between a hierarchical agent architecture and a flat tool-calling agent?", "difficulty": 3, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate proposes a sequential chain of agents with no parallelism, no failure handling, and no aggregation strategy, essentially describing a simple pipeline rather than a multi-agent system."
+  },
+  {
+    "question_text": "Write a function that implements a token bucket rate limiter for LLM API calls. It should support per-user token budgets (tokens per minute), track both request count and token usage, and block or return an error when budgets are exceeded.",
+    "type": "code",
+    "topic": "concurrency",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement a TokenBucket class with per-user state: max_tokens, current_tokens, refill_rate, and last_refill_time. On each request, compute elapsed time, refill tokens (min(max, current + elapsed * rate)), then check if request_tokens <= current_tokens — if yes deduct and allow, if no reject with retry_after estimate. Should use threading.Lock for thread-safe state updates. Strong candidates handle both request-level rate limiting (max N requests per minute) and token-level budgeting separately, support atomic check-and-deduct to prevent TOCTOU races, and discuss using Redis for distributed multi-instance deployments.",
+    "follow_up_questions": [
+      {"text": "How would you handle a scenario where the LLM API returns the actual token count only after the response, not before?", "difficulty": 5, "topic": "api-design"},
+      {"text": "What is the difference between a token bucket and a leaky bucket and which better handles burst traffic for LLM workloads?", "difficulty": 4, "topic": "concurrency"}
+    ],
+    "red_flag_answers": "Candidate implements rate limiting using a simple counter reset every minute with no token refill mechanism, failing to handle requests that arrive just after a minute boundary and missing the smooth rate-limiting property."
+  },
+  {
+    "question_text": "What is contrastive learning? How is it used to train embedding models like CLIP or sentence-transformers?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Contrastive learning trains a model to pull similar pairs closer and push dissimilar pairs apart in embedding space. CLIP uses InfoNCE loss on (image, caption) pairs — in a batch of N pairs, maximize cosine similarity of matched pairs while minimizing it for all N²-N mismatched pairs. Sentence-transformers use multiple negatives ranking loss on (query, positive) pairs, treating other batch items as hard negatives. Strong answers explain why large batch sizes are critical (more negatives per step), discuss in-batch negatives vs curated hard negatives (mined from nearest neighbors that aren't true matches), and connect to downstream improvements in retrieval recall.",
+    "follow_up_questions": [
+      {"text": "What is the InfoNCE loss and why does a lower temperature produce sharper similarity distributions?", "difficulty": 5, "topic": "general-behavior"},
+      {"text": "What are hard negatives in contrastive training and how do you mine them?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate describes contrastive learning as 'just comparing pairs' with no mention of the loss function, the role of negatives, or why batch size critically affects training quality."
+  },
+  {
+    "question_text": "What is the difference between LLM inference throughput and latency? How do batching strategies affect each and what is the trade-off for interactive vs batch processing use cases?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Throughput is tokens generated per second across all requests; latency is time to first token and time to complete one request. Larger batches improve GPU utilization and throughput but increase per-request latency (queuing time). Static batching waits to fill a batch before starting — poor latency. Continuous batching (vLLM's iteration-level scheduling) adds new requests mid-generation, maximizing GPU utilization while minimizing latency per request. Interactive use cases (chatbots) need low TTFT and streaming — small dynamic batches. Batch processing (summarization pipelines) maximizes throughput with large static batches where latency is irrelevant.",
+    "follow_up_questions": [
+      {"text": "What is time-to-first-token (TTFT) and why does it matter differently for streaming vs non-streaming API users?", "difficulty": 3, "topic": "system-design"},
+      {"text": "What is PagedAttention in vLLM and what memory problem does it solve?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate conflates throughput and latency or says 'larger batches are always better' with no awareness of the queuing latency impact on interactive applications."
+  },
+  {
+    "question_text": "Write a function that implements a simple semantic cache for LLM API calls. Given a query, check if a semantically similar query has been answered before (using cosine similarity above a threshold), return the cached answer if so, otherwise call the LLM and cache the result.",
+    "type": "code",
+    "topic": "databases",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement a SemanticCache class with an in-memory list or dict of (embedding, answer) pairs. On lookup: embed the query, compute cosine similarity against all cached embeddings, return the answer of the most similar entry if max similarity exceeds threshold (e.g. 0.95), else call LLM, cache the new (embedding, answer) pair, and return. Strong candidates pre-normalize embeddings at insertion for O(1) cosine via dot product, discuss threshold tuning (too low causes wrong cache hits, too high defeats purpose), implement an LRU eviction policy, and note that a production version would replace the list with a vector index.",
+    "follow_up_questions": [
+      {"text": "How would you handle cache invalidation when the underlying knowledge base is updated?", "difficulty": 4, "topic": "databases"},
+      {"text": "What are the risks of setting the similarity threshold too low and how would you detect cache quality degradation in production?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate implements exact string matching instead of semantic similarity, missing the entire point of semantic caching and failing to handle paraphrased queries."
+  },
+  {
+    "question_text": "What is PagedAttention and how does vLLM use it to dramatically increase LLM serving throughput?",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Traditional LLM serving pre-allocates a contiguous KV cache block for each request's maximum sequence length, wasting GPU memory on unused future tokens (up to 60-80% waste). PagedAttention partitions the KV cache into fixed-size blocks (pages) allocated on demand, similar to OS virtual memory paging. This eliminates internal and external fragmentation, enabling the same GPU to host 2-5x more concurrent requests, dramatically increasing throughput. vLLM's block manager maps logical KV positions to physical blocks, supports copy-on-write for parallel sampling, and enables fine-grained memory sharing across sequences in beam search.",
+    "follow_up_questions": [
+      {"text": "How does vLLM's continuous batching scheduler interact with PagedAttention to minimize GPU memory waste?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What is the trade-off of using very small page sizes versus very large page sizes in PagedAttention?", "difficulty": 5, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate says PagedAttention is just 'efficient memory management' without explaining KV cache fragmentation, the on-demand block allocation mechanism, or the GPU utilization improvement it enables."
+  },
+  {
+    "question_text": "Design an evaluation framework for a multi-turn conversational AI assistant that handles customer support. The system must evaluate coherence, task completion, safety, and response quality at scale.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should define metrics at multiple levels: turn-level (relevance, safety, tone, instruction following), conversation-level (coherence across turns, task completion rate, average turns to resolution), and aggregate (CSAT correlation, escalation rate, hallucination rate). Evaluation pipeline: curate a golden dataset of multi-turn conversations with human-labeled outcomes, implement LLM-as-judge prompts for each metric dimension, run automated evals on every model change with regression gates, and maintain a human review queue for low-confidence judge scores. Should discuss inter-rater reliability for human evaluations and calibrating LLM judges against human labels.",
+    "follow_up_questions": [
+      {"text": "How do you detect when an LLM judge itself is biased toward longer or more confident-sounding answers?", "difficulty": 5, "topic": "system-design"},
+      {"text": "What is the Alpaca Eval framework and what are its limitations for evaluating safety-critical applications?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate proposes only BLEU/ROUGE scores for conversational evaluation with no understanding that reference-free LLM judges are necessary for open-ended multi-turn dialogue assessment."
+  },
+  {
+    "question_text": "What is the alignment problem in LLMs? Explain the difference between capability alignment, value alignment, and why current RLHF-based alignment may be brittle.",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Capability alignment ensures the model can do what we ask; value alignment ensures its objectives match human values. RLHF achieves surface-level value alignment by training against human preference labels but is brittle: reward models are trained on limited data and can be gamed (reward hacking), human raters disagree on values across cultures, and the model may learn to appear aligned rather than be aligned (sycophancy). Deeper issues: Goodhart's Law (optimizing the proxy measure destroys its value as a proxy), specification gaming, and the difficulty of fully specifying human values in a reward function. Strong answers reference scalable oversight, debate, and interpretability research as more fundamental approaches.",
+    "follow_up_questions": [
+      {"text": "What is sycophancy in LLMs, how does RLHF cause it, and how would you mitigate it?", "difficulty": 5, "topic": "general-behavior"},
+      {"text": "What is the difference between inner and outer alignment in AI safety?", "difficulty": 5, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate says alignment is solved by RLHF or content filters with no understanding that reward hacking, sycophancy, and Goodhart's Law represent fundamental rather than engineering challenges."
+  },
+  {
+    "question_text": "Tell me about the most technically complex AI system you have built or contributed to. What were the hardest engineering decisions and what would you change?",
+    "type": "voice",
+    "topic": "general-behavior",
+    "difficulty": 3,
+    "is_fundamental": false,
+    "expected_answer_framework": "Strong answer demonstrates end-to-end ownership: problem framing, architecture decisions with explicit trade-offs considered, specific technical challenges encountered (not vague), and a thoughtful retrospective on what could be improved. The candidate should reveal depth of understanding by explaining why certain choices were made, not just what was built. Bonus for discussing observability, failure modes discovered in production, and how the system evolved over time.",
+    "follow_up_questions": [
+      {"text": "What monitoring did you implement and what was the first production incident that monitoring helped you catch?", "difficulty": 3, "topic": "system-design"},
+      {"text": "If you had to rebuild this system from scratch today, which component would you architect most differently and why?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate describes a standard tutorial project (MNIST classifier, basic chatbot) as their most complex work, or cannot articulate any specific engineering trade-offs they personally made."
+  },
+  {
+    "question_text": "How do you approach cost optimization for a production LLM application that is spending $50,000 per month on API calls? Walk me through your investigation and optimization strategy.",
+    "type": "voice",
+    "topic": "system-design",
+    "difficulty": 4,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should describe a systematic approach: first instrument to understand cost distribution (which features, which prompt lengths, input vs output token ratio). Optimization levers in order of impact: semantic caching (avoid redundant calls entirely), model routing (use a cheaper/smaller model for simpler queries, expensive model only for complex ones), prompt compression (remove redundant context, use shorter system prompts), output length control (set max_tokens, instruct the model to be concise), batching async workloads, and negotiating committed use discounts. Should discuss quality regression testing after each optimization to ensure cost savings don't degrade user experience.",
+    "follow_up_questions": [
+      {"text": "How would you implement a router that classifies incoming queries as 'simple' or 'complex' to route to different models?", "difficulty": 4, "topic": "system-design"},
+      {"text": "What is prompt compression and what libraries or techniques support it?", "difficulty": 4, "topic": "system-design"}
+    ],
+    "red_flag_answers": "Candidate only suggests switching to a cheaper model across the board with no systematic investigation of cost drivers or awareness of quality-cost trade-offs that require query-level routing."
+  },
+  {
+    "question_text": "Write a function that implements a simple evaluation harness for a RAG pipeline. Given a list of (question, ground_truth_answer, retrieved_chunks) tuples, compute faithfulness score (does the answer come from the chunks?) and answer relevancy score (does the answer address the question?) using LLM-as-judge calls.",
+    "type": "code",
+    "topic": "api-design",
+    "difficulty": 5,
+    "is_fundamental": false,
+    "expected_answer_framework": "Candidate should implement two LLM judge functions: faithfulness judge prompts the model to check each claim in the answer against retrieved chunks and return a 0-1 score; relevancy judge prompts the model to assess if the answer addresses the question. Main harness iterates over tuples, calls both judges concurrently (asyncio.gather or ThreadPoolExecutor), averages scores, and returns a dict of per-sample and aggregate metrics. Strong candidates use structured output (JSON schema) for judge responses to enable reliable parsing, include a critique field in the judge prompt to improve scoring accuracy, batch API calls for efficiency, and handle judge API failures gracefully without crashing the full eval.",
+    "follow_up_questions": [
+      {"text": "How would you validate that your LLM judge is well-calibrated against human annotations?", "difficulty": 5, "topic": "api-design"},
+      {"text": "What prompt design patterns make an LLM judge more reliable and less prone to position or verbosity bias?", "difficulty": 4, "topic": "general-behavior"}
+    ],
+    "red_flag_answers": "Candidate uses simple string matching or keyword overlap to compute faithfulness instead of semantic LLM-based evaluation, missing the core point of the exercise."
+  },  
+  {
+  "question_text": "Explain the difference between supervised and unsupervised learning.",
+  "type": "voice",
+  "topic": "algorithms",
+  "difficulty": 1,
+  "is_fundamental": true,
+  "expected_answer_framework": "A good answer explains labeled vs unlabeled data, typical tasks like classification vs clustering, and includes examples.",
+  "follow_up_questions": [
+  {
+  "text": "What is semi-supervised learning?",
+  "difficulty": 2,
+  "topic": "algorithms"
+  },
+  {
+  "text": "Give a real-world use case of unsupervised learning.",
+  "difficulty": 2,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Confuses definitions or cannot provide examples."
+  },
+  {
+  "question_text": "What is overfitting and how can you prevent it?",
+  "type": "voice",
+  "topic": "algorithms",
+  "difficulty": 2,
+  "is_fundamental": true,
+  "expected_answer_framework": "Define overfitting, explain generalization gap, and mention techniques like regularization, dropout, and cross-validation.",
+  "follow_up_questions": [
+  {
+  "text": "Explain L1 vs L2 regularization.",
+  "difficulty": 3,
+  "topic": "algorithms"
+  },
+  {
+  "text": "What is early stopping?",
+  "difficulty": 2,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Only gives vague definition without mitigation strategies."
+  },
+  {
+  "question_text": "Write a function to reverse a string.",
+  "type": "code",
+  "topic": "algorithms",
+  "difficulty": 1,
+  "is_fundamental": false,
+  "expected_answer_framework": "Should demonstrate iteration or slicing and handle edge cases like empty strings.",
+  "follow_up_questions": [
+  {
+  "text": "Can you do it in-place?",
+  "difficulty": 2,
+  "topic": "algorithms"
+  },
+  {
+  "text": "What is the time complexity?",
+  "difficulty": 2,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Overcomplicates or cannot write basic logic."
+  },
+  {
+  "question_text": "Write a function to find the maximum element in an array.",
+  "type": "code",
+  "topic": "algorithms",
+  "difficulty": 1,
+  "is_fundamental": false,
+  "expected_answer_framework": "Iterate through array, track max value, and explain O(n) complexity.",
+  "follow_up_questions": [
+  {
+  "text": "What if array is empty?",
+  "difficulty": 2,
+  "topic": "algorithms"
+  },
+  {
+  "text": "Can you do it using recursion?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Incorrect or inefficient implementation."
+  },
+  {
+  "question_text": "Explain gradient descent.",
+  "type": "voice",
+  "topic": "algorithms",
+  "difficulty": 3,
+  "is_fundamental": false,
+  "expected_answer_framework": "Explain optimization process, learning rate, convergence, and variants like SGD.",
+  "follow_up_questions": [
+  {
+  "text": "What is learning rate decay?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  },
+  {
+  "text": "What is Adam optimizer?",
+  "difficulty": 4,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Cannot explain optimization basics."
+  },
+  {
+  "question_text": "Write code to implement binary search.",
+  "type": "code",
+  "topic": "algorithms",
+  "difficulty": 3,
+  "is_fundamental": false,
+  "expected_answer_framework": "Correct implementation with O(log n) complexity and boundary checks.",
+  "follow_up_questions": [
+  {
+  "text": "What if array is unsorted?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  },
+  {
+  "text": "Recursive vs iterative?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Uses linear search instead."
+  },
+  {
+  "question_text": "Design a scalable ML inference system.",
+  "type": "voice",
+  "topic": "system-design",
+  "difficulty": 3,
+  "is_fundamental": false,
+  "expected_answer_framework": "Discuss model serving, load balancing, batching, caching, and latency optimization.",
+  "follow_up_questions": [
+  {
+  "text": "How would you handle model versioning?",
+  "difficulty": 3,
+  "topic": "system-design"
+  },
+  {
+  "text": "How to reduce inference latency?",
+  "difficulty": 4,
+  "topic": "system-design"
+  }
+  ],
+  "red_flag_answers": "Focuses only on training, not serving."
+  },
+  {
+  "question_text": "Explain ACID properties.",
+  "type": "voice",
+  "topic": "databases",
+  "difficulty": 3,
+  "is_fundamental": false,
+  "expected_answer_framework": "Explain atomicity, consistency, isolation, durability with examples.",
+  "follow_up_questions": [
+  {
+  "text": "What is isolation level?",
+  "difficulty": 4,
+  "topic": "databases"
+  },
+  {
+  "text": "Explain CAP theorem.",
+  "difficulty": 4,
+  "topic": "databases"
+  }
+  ],
+  "red_flag_answers": "Cannot explain each property clearly."
+  },
+  {
+  "question_text": "Write a function to check if a number is prime.",
+  "type": "code",
+  "topic": "algorithms",
+  "difficulty": 3,
+  "is_fundamental": false,
+  "expected_answer_framework": "Use efficient approach up to sqrt(n) and handle edge cases.",
+  "follow_up_questions": [
+  {
+  "text": "Can you optimize further?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  },
+  {
+  "text": "What is time complexity?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Uses brute force without optimization."
+  },
+  {
+  "question_text": "Design a recommendation system.",
+  "type": "voice",
+  "topic": "system-design",
+  "difficulty": 4,
+  "is_fundamental": false,
+  "expected_answer_framework": "Discuss collaborative filtering, content-based filtering, scalability, and evaluation.",
+  "follow_up_questions": [
+  {
+  "text": "What is the cold start problem?",
+  "difficulty": 4,
+  "topic": "system-design"
+  },
+  {
+  "text": "How do you evaluate recommendations?",
+  "difficulty": 4,
+  "topic": "system-design"
+  }
+  ],
+  "red_flag_answers": "Only mentions ML without system design aspects."
+  },
+  {
+  "question_text": "Write code to find the longest substring without repeating characters.",
+  "type": "code",
+  "topic": "algorithms",
+  "difficulty": 4,
+  "is_fundamental": false,
+  "expected_answer_framework": "Use sliding window technique with O(n) complexity.",
+  "follow_up_questions": [
+  {
+  "text": "Can you optimize space?",
+  "difficulty": 4,
+  "topic": "algorithms"
+  },
+  {
+  "text": "What edge cases should be considered?",
+  "difficulty": 3,
+  "topic": "algorithms"
+  }
+  ],
+  "red_flag_answers": "Uses brute force without justification."
+  }
+]
+  
+  

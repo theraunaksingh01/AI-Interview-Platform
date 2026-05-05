@@ -160,7 +160,7 @@ def _score_delta(current: Any, previous: Any) -> Optional[float]:
 def check_mock_limit(user_id: Optional[int], db: Session) -> dict[str, Any]:
     if not user_id:
         # Guest users are not allowed in Phase 2e.
-        raise HTTPException(status_code=403, detail="signup_required")
+        return {"allowed": True, "plan": "guest"}
 
     user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
