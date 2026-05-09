@@ -1,12 +1,11 @@
-// frontend/src/components/HeroSection.tsx
+// frontend/src/app/components/HeroSection.tsx
 "use client";
 
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Menu, X } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import { ChevronRight } from "lucide-react";
 import AnimatedGroup from "@/app/components/ui/animated-group";
-import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 const transitionVariants = {
   item: {
@@ -20,413 +19,298 @@ const transitionVariants = {
   },
 };
 
-/** << Add logos here when you have them. Leave [] to hide the section completely. */
-const logos: { src: string; alt: string }[] = [
-  // Example:
-  // { src: "https://svgl.app/library/github.svg", alt: "GitHub" },
-  // { src: "https://svgl.app/library/notion.svg", alt: "Notion" },
-];
+const logos: { src: string; alt: string }[] = [];
+
+const FloatingCard = ({
+  className,
+  rotate,
+  delay = 0,
+  children,
+}: {
+  className?: string;
+  rotate: string;
+  delay?: number;
+  children: React.ReactNode;
+}) => (
+  <motion.div
+    className={`absolute hidden lg:block pointer-events-none bg-white border border-gray-200 rounded-xl shadow-md p-3 ${className ?? ""}`}
+    style={{ rotate }}
+    animate={{ y: [0, -8, 0] }}
+    transition={{
+      duration: 3.5 + delay,
+      repeat: Infinity,
+      ease: "easeInOut",
+      delay,
+    }}
+  >
+    {children}
+  </motion.div>
+);
 
 export function HeroSection() {
   return (
-    <>
-      <HeroHeader />
+    <main className="overflow-hidden" style={{ background: "#FFFDF0" }}>
 
-      <main className="overflow-hidden">
-        {/* background radial glows (desktop only) */}
-        <div
-          aria-hidden
-          className="z-2 absolute inset-0 pointer-events-none isolate opacity-50 contain-strict hidden lg:block"
-        >
-          <div className="w-560 h-1280 -translate-y-[350px] absolute left-0 top-0 -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(0,0%,85%,.08)_0,hsla(0,0%,55%,.02)_50%,hsla(0,0%,45%,0)_80%)]" />
-          <div className="h-1280 absolute left-0 top-0 w-56 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.06)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)] [translate:5%_-50%]" />
-          <div className="h-1280 -translate-y-[350px] absolute left-0 top-0 w-56 -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.04)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)]" />
-        </div>
+      {/* ── HERO ── */}
+      <section className="relative">
+        <div className="relative pt-32 pb-0 text-center">
 
-        <section>
-          <div className="relative pt-24 md:pt-36">
-            {/* hero background image — now visible in light mode (subtle) */}
-            <AnimatedGroup
-              variants={{
-                container: { visible: { transition: { delayChildren: 1 } } },
-                item: {
-                  hidden: { opacity: 0, y: 20 },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    transition: { type: "spring", bounce: 0.3, duration: 2 },
-                  },
-                },
+          {/* Floating decorative cards */}
+          <FloatingCard
+            className="left-[6%] top-[38%] w-32"
+            rotate="-8deg"
+            delay={0}
+          >
+            <div className="space-y-1.5 mb-2">
+              <div className="h-1.5 w-full bg-gray-200 rounded" />
+              <div className="h-1.5 w-4/5 bg-gray-200 rounded" />
+              <div className="h-1.5 w-3/4 bg-yellow-300 rounded" />
+            </div>
+            <p className="text-[10px] text-gray-300 font-medium">
+              Interview Score
+            </p>
+          </FloatingCard>
+
+          <FloatingCard
+            className="right-[6%] top-[38%] w-28"
+            rotate="6deg"
+            delay={0.5}
+          >
+            <div className="space-y-1.5 mb-2">
+              <div className="h-1.5 w-full bg-gray-200 rounded" />
+              <div className="h-1.5 w-3/4 bg-gray-200 rounded" />
+              <div className="h-1.5 w-1/2 bg-gray-200 rounded" />
+            </div>
+            <p className="text-[10px] text-gray-300 font-medium">
+              AI Feedback
+            </p>
+          </FloatingCard>
+
+          <FloatingCard
+            className="left-[4%] top-[58%] w-36"
+            rotate="-4deg"
+            delay={1}
+          >
+            <div className="space-y-1.5 mb-3">
+              <div className="h-1.5 w-full bg-gray-200 rounded" />
+              <div className="h-1.5 w-4/5 bg-gray-200 rounded" />
+            </div>
+            <span className="inline-block bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded">
+              ✓ Passed
+            </span>
+          </FloatingCard>
+
+          <FloatingCard
+            className="right-[5%] top-[55%] w-28"
+            rotate="5deg"
+            delay={1.5}
+          >
+            <div className="space-y-1.5 mb-2">
+              <div className="h-1.5 w-full bg-gray-200 rounded" />
+              <div className="h-1.5 w-2/3 bg-indigo-200 rounded" />
+              <div className="h-1.5 w-3/4 bg-gray-200 rounded" />
+            </div>
+            <p className="text-[10px] text-gray-300 font-medium">
+              Report Ready
+            </p>
+          </FloatingCard>
+
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-1.5 shadow-sm mb-8"
+          >
+            <span className="w-4 h-4 rounded-sm bg-yellow-400 flex items-center justify-center text-[10px] font-black text-yellow-900">
+              ✦
+            </span>
+            <span className="text-sm font-semibold text-gray-600">
+              Next-Gen AI Technology
+            </span>
+          </motion.div>
+
+          {/* Heading */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mx-auto max-w-3xl px-2"
+            style={{
+              fontSize: "clamp(40px, 6vw, 68px)",
+              fontWeight: 900,
+              letterSpacing: "-2px",
+              lineHeight: 1.3,
+              color: "#111111",
+            }}
+          >
+            AI Interviewer get your
+            <br />
+            dream top{" "}
+            <span
+              style={{
+                background: "#FFD600",
+                color: "#111111",
+                padding: "2px 12px",
+                borderRadius: "6px",
+                fontStyle: "italic",
+                display: "inline",
               }}
-              className="absolute inset-0 -z-20"
             >
-              <img
-                src="https://ik.imagekit.io/lrigu76hy/tailark/night-background.jpg?updatedAt=1745733451120"
-                alt="background"
-                className="absolute inset-x-0 top-56 -z-20 lg:top-32 block opacity-[0.12] dark:opacity-100"
-                width={3276}
-                height={4095}
-              />
-            </AnimatedGroup>
+              talent.
+            </span>
+          </motion.h1>
 
-            {/* soft horizon gradient */}
-            <div
-              aria-hidden
-              className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--background)_75%)]"
-            />
+          {/* Subtext */}
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+            className="mx-auto mt-6 max-w-xl px-6"
+            style={{
+              fontSize: "17px",
+              color: "#666666",
+              lineHeight: 1.65,
+            }}
+          >
+            Configure custom interview questions and get comprehensive
+            performance analysis on every candidate. Evaluate everyone
+            fairly while focusing your time on top talent.
+          </motion.p>
 
-            {/* copy */}
-            <div className="mx-auto max-w-7xl px-6">
-              <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
-                <AnimatedGroup variants={transitionVariants}>
-                  <Link
-                    href="#link"
-                    className="hover:bg-background dark:hover:border-t-border bg-muted group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 dark:border-t-white/5 dark:shadow-zinc-950"
-                  >
-                    <span className="text-foreground text-sm">
-                      Introducing Support for Companies
-                    </span>
-                    <span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700" />
+          {/* Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="mt-8 flex items-center justify-center gap-3 flex-wrap px-6"
+          >
+            <Link href="/mock">
+              <button
+                style={{
+                  background: "#111111",
+                  color: "white",
+                  fontWeight: 700,
+                  fontSize: "14px",
+                  padding: "12px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Practice For Free Try Now!
+              </button>
+            </Link>
+            <Link href="#how-it-works">
+              <button
+                style={{
+                  background: "white",
+                  color: "#111111",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  padding: "11px 24px",
+                  borderRadius: "8px",
+                  border: "1.5px solid #ddd",
+                  cursor: "pointer",
+                }}
+              >
+                How Top Talent
+              </button>
+            </Link>
+          </motion.div>
 
-                    <div className="bg-background group-hover:bg-muted size-6 overflow-hidden rounded-full duration-500">
-                      <div className="flex w-12 -translate-x-1/2 duration-500 ease-in-out group-hover:translate-x-0">
-                        <span className="flex size-6">
-                          <ArrowRight className="m-auto size-3" />
-                        </span>
-                        <span className="flex size-6">
-                          <ArrowRight className="m-auto size-3" />
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-
-                  <h1 className="mt-8 max-w-4xl mx-auto text-balance text-6xl md:text-7xl lg:mt-16 xl:text-[5.25rem]">
-                    Smarter Interviews for Modern Workplaces
-                  </h1>
-                  <p className="mx-auto mt-8 max-w-2xl text-balance text-lg">
-                    Build a high-performing team with AI-driven interviews that analyze skills,
-                     communication, and potential. Streamline your workflow and hire with confidence.
-                  </p>
-                </AnimatedGroup>
-
-                {/* CTAs */}
-                <AnimatedGroup
-                  variants={{
-                    container: {
-                      visible: {
-                        transition: { staggerChildren: 0.05, delayChildren: 0.75 },
-                      },
-                    },
-                    ...transitionVariants,
-                  }}
-                  className="mt-12 flex flex-col items-center justify-center gap-2 md:flex-row"
+          {/* Trusted by */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.65 }}
+            className="mt-6 flex items-center justify-center gap-4 flex-wrap px-6 pb-2"
+          >
+            <span style={{ fontSize: "12px", color: "#999", fontWeight: 500 }}>
+              Trusted by Students:
+            </span>
+            {["IIT Bombay", "VIT", "BITS Pilani", "DTU", "Amity"].map(
+              (name) => (
+                <span
+                  key={name}
+                  style={{ fontSize: "13px", fontWeight: 700, color: "#ccc" }}
                 >
-                  <div
-                    key={1}
-                    className="bg-foreground/10 rounded-[14px] border p-0.5"
-                  >
-                    <Button asChild size="lg" className="rounded-xl px-5 text-base">
-                      <Link href="#link">
-                        <span className="text-nowrap">Start Building</span>
-                      </Link>
-                    </Button>
-                  </div>
-                  <Button
-                    key={2}
-                    asChild
-                    size="lg"
-                    variant="ghost"
-                    className="h-10.5 rounded-xl px-5"
-                  >
-                    <Link href="#link">
-                      <span className="text-nowrap">Request a demo</span>
-                    </Link>
-                  </Button>
-                </AnimatedGroup>
+                  {name}
+                </span>
+              )
+            )}
+          </motion.div>
+
+          {/* Product screenshot — unchanged from original */}
+          <AnimatedGroup
+            variants={{
+              container: {
+                visible: {
+                  transition: { staggerChildren: 0.05, delayChildren: 0.75 },
+                },
+              },
+              ...transitionVariants,
+            }}
+          >
+            <div className="relative -mr-56 mt-12 overflow-hidden px-2 sm:mr-0 sm:mt-12 md:mt-16">
+              <div
+                aria-hidden
+                className="absolute inset-0 z-10 from-transparent from-35%"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, transparent 35%, #FFFDF0)",
+                }}
+              />
+              <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1 ring-background bg-background inset-shadow-2xs">
+                <img
+                  className="aspect-15/8 relative hidden rounded-2xl dark:block bg-background"
+                  src="https://tailark.com//_next/image?url=%2Fmail2.png&w=3840&q=75"
+                  alt="app screen"
+                  width={2700}
+                  height={1440}
+                />
+                <img
+                  className="z-2 aspect-15/8 relative rounded-2xl border border-border/25 dark:hidden"
+                  src="https://tailark.com/_next/image?url=%2Fmail2-light.png&w=3840&q=75"
+                  alt="app screen"
+                  width={2700}
+                  height={1440}
+                />
               </div>
             </div>
+          </AnimatedGroup>
+        </div>
+      </section>
 
-            {/* product image */}
-            <AnimatedGroup
-              variants={{
-                container: {
-                  visible: {
-                    transition: { staggerChildren: 0.05, delayChildren: 0.75 },
-                  },
-                },
-                ...transitionVariants,
-              }}
-            >
-              <div className="relative -mr-56 mt-8 overflow-hidden px-2 sm:mr-0 sm:mt-12 md:mt-20">
-                <div
-                  aria-hidden
-                  className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%"
+      {/* Logos strip */}
+      {logos.length > 0 && (
+        <section
+          className="pb-16 pt-16 md:pb-32"
+          style={{ background: "#FFFDF0" }}
+        >
+          <div className="group relative m-auto max-w-5xl px-6">
+            <div className="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
+              <Link
+                href="/"
+                className="block text-sm duration-150 hover:opacity-75"
+              >
+                <span>Meet Our Students</span>
+                <ChevronRight className="ml-1 inline-block size-3" />
+              </Link>
+            </div>
+            <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
+              {logos.map((l) => (
+                <img
+                  key={l.alt}
+                  src={l.src}
+                  alt={l.alt}
+                  className="h-9 w-auto object-contain opacity-70"
                 />
-                <div className="inset-shadow-2xs ring-background dark:inset-shadow-white/20 bg-background relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1">
-                  <img
-                    className="bg-background aspect-15/8 relative hidden rounded-2xl dark:block"
-                    src="https://tailark.com//_next/image?url=%2Fmail2.png&w=3840&q=75"
-                    alt="app screen"
-                    width={2700}
-                    height={1440}
-                  />
-                  <img
-                    className="z-2 border-border/25 aspect-15/8 relative rounded-2xl border dark:hidden"
-                    src="https://tailark.com/_next/image?url=%2Fmail2-light.png&w=3840&q=75"
-                    alt="app screen"
-                    width={2700}
-                    height={1440}
-                  />
-                </div>
-              </div>
-            </AnimatedGroup>
+              ))}
+            </div>
           </div>
         </section>
-
-        {/* Logos strip — only renders if you provided logos above */}
-        {logos.length > 0 && (
-          <section className="bg-background pb-16 pt-16 md:pb-32">
-            <div className="group relative m-auto max-w-5xl px-6">
-              <div className="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
-                <Link
-                  href="/"
-                  className="block text-sm duration-150 hover:opacity-75"
-                >
-                  <span>Meet Our Customers</span>
-                  <ChevronRight className="ml-1 inline-block size-3" />
-                </Link>
-              </div>
-
-              <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
-                {logos.map((l) => (
-                  <img
-                    key={l.alt}
-                    src={l.src}
-                    alt={l.alt}
-                    className="h-9 w-auto object-contain opacity-70"
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-      </main>
-    </>
+      )}
+    </main>
   );
 }
-
-const menuItems = [
-  { name: "Features", href: "#link" },
-  { name: "Solution", href: "#link" },
-  { name: "Pricing", href: "#link" },
-  { name: "About", href: "#link" },
-];
-
-const HeroHeader = () => {
-  const [menuState, setMenuState] = React.useState(false);
-  const [isScrolled, setIsScrolled] = React.useState(false);
-
-  React.useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // lock body scroll while mobile menu open
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const original = document.body.style.overflow;
-    if (menuState) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = original || "";
-    }
-    return () => {
-      document.body.style.overflow = original || "";
-    };
-  }, [menuState]);
-
-  return (
-    <header>
-      <nav
-        data-state={menuState ? "active" : undefined}
-        className="fixed z-30 w-full px-2 top-0 left-0"
-      >
-        <div
-          className={cn(
-            "mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12",
-            isScrolled &&
-              "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5"
-          )}
-        >
-          <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
-            <div className="flex w-full justify-between lg:w-auto">
-              <Link href="/" aria-label="home" className="flex items-center space-x-2">
-                <Logo />
-              </Link>
-
-              {/* Hamburger button */}
-              <button
-                onClick={() => setMenuState((s) => !s)}
-                aria-expanded={menuState}
-                aria-label={menuState ? "Close Menu" : "Open Menu"}
-                className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
-              >
-                <span className={cn("block", menuState ? "hidden" : "block")}>
-                  <Menu className="m-auto size-6" />
-                </span>
-                <span
-                  className={cn(
-                    "absolute inset-0 m-auto size-6",
-                    menuState ? "block" : "hidden"
-                  )}
-                >
-                  <X className="m-auto size-6" />
-                </span>
-              </button>
-            </div>
-
-            {/* Center nav (desktop) */}
-            <div className="absolute inset-0 m-auto hidden size-fit lg:block">
-              <ul className="flex gap-8 text-sm">
-                {menuItems.map((item, index) => (
-                  <li key={index}>
-                    <Link
-                      href={item.href}
-                      className="text-muted-foreground hover:text-accent-foreground block duration-150"
-                    >
-                      <span>{item.name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Right-side buttons */}
-            <div className="bg-background mb-6 hidden w-full flex-wrap items-center justify-end rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent">
-              <div className="hidden lg:flex lg:items-center lg:gap-4">
-                {!isScrolled ? (
-                  <>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/login">
-                        <span>Login</span>
-                      </Link>
-                    </Button>
-                    <Button asChild size="sm">
-                      <Link href="/signup">
-                        <span>Sign Up</span>
-                      </Link>
-                    </Button>
-                  </>
-                ) : (
-                  <Button asChild size="sm">
-                    <Link href="/login">
-                      <span>Get Started</span>
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {menuState && (
-          <div className="lg:hidden">
-            {/* Overlay */}
-            <div
-              onClick={() => setMenuState(false)}
-              className="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm transition-opacity"
-            />
-            {/* Panel */}
-            <div className="fixed inset-x-4 top-20 z-30 rounded-2xl border bg-background p-6 shadow-xl animate-slide-in">
-              <div className="space-y-6">
-                <ul className="space-y-4 text-base">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setMenuState(false)}
-                        className="block text-lg font-medium"
-                      >
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="flex flex-col gap-3">
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setMenuState(false)}
-                  >
-                    <Link href="/login">
-                      <span>Login</span>
-                    </Link>
-                  </Button>
-
-                  <Button asChild size="sm" onClick={() => setMenuState(false)}>
-                    <Link href="/signup">
-                      <span>Sign Up</span>
-                    </Link>
-                  </Button>
-
-                  <Button asChild size="sm" onClick={() => setMenuState(false)}>
-                    <Link href="/login">
-                      <span>Get Started</span>
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* small keyframes for mobile panel animation */}
-      <style jsx>{`
-        @keyframes slideIn {
-          from {
-            transform: translateY(-8px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        .animate-slide-in {
-          animation: slideIn 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
-        }
-      `}</style>
-    </header>
-  );
-};
-
-const Logo = ({ className }: { className?: string }) => {
-  return (
-    <svg
-      viewBox="0 0 78 18"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={cn("h-5 w-auto", className)}
-    >
-      {/* your paths here */}
-      <defs>
-        <linearGradient
-          id="logo-gradient"
-          x1="10"
-          y1="0"
-          x2="10"
-          y2="20"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#9B99FE" />
-          <stop offset="1" stopColor="#2BC8B7" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-};

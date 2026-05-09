@@ -1,54 +1,97 @@
-// frontend/src/components/ui/stats.tsx
+// frontend/src/app/components/ui/stats.tsx
+"use client";
 
-type Stat = { value: string; label: string }
+import { motion } from "framer-motion";
 
 interface StatsSectionProps {
-  stats?: Stat[]   // we will render ONLY the first 2
-  blurb?: string
-  id?: string
+  id?: string;
 }
 
-const DEFAULT_STATS: Stat[] = [
-  { value: "90+", label: "Integrations" },
-  { value: "56%", label: "Productivity Boost" },
-]
+const stats = [
+  { value: "2,400+", label: "Active Students" },
+  { value: "18K+", label: "Sessions Completed" },
+  { value: "4.9x", label: "Avg. Score Improvement" },
+  { value: "24 min", label: "Avg. Session Time" },
+];
 
-const DEFAULT_BLURB =
-  "Our platform continues to grow with hiring teams and developers. AI-assisted interviews standardize questions, automate scoring, and cut review time — helping you make faster, fairer, and more confident hiring decisions."
-
-export default function StatsSection({
-  stats = DEFAULT_STATS,
-  blurb = DEFAULT_BLURB,
-  id,
-}: StatsSectionProps) {
-  const two = stats.slice(0, 2) // <<< ensure exactly two columns on the left
-
+export default function StatsSection({ id }: StatsSectionProps) {
   return (
-    <section id={id} className=" full-bleed py-14 md:py-18">
-      <div className="mx-auto max-w-7xl px-6">
-        <h2 className="sr-only">Product stats</h2>
+    <section
+      id={id}
+      className="py-16 px-6"
+      style={{ background: "#FFFDF0" }}
+    >
+      <div className="max-w-3xl mx-auto">
 
-        {/* One row: col1=stat, col2=stat, col3-4=blurb */}
-        <div className="grid items-center gap-8 md:gap-10 md:grid-cols-4">
-          {two.map((s, i) => (
-            <div key={i} className="space-y-1 md:text-center">
-              <div className="text-foreground text-3xl md:text-4xl font-bold tracking-tight">
-                {s.value}
-              </div>
-              <p className="text-muted-foreground text-base">
-                {s.label}
-              </p>
-            </div>
-          ))}
+        {/* Top text */}
+        <div className="text-center mb-8">
+          <p
+            className="mb-3"
+            style={{ fontSize: "15px", color: "#555" }}
+          >
+            Loved by{" "}
+            <strong style={{ color: "#111", fontWeight: 700 }}>
+              2,400+ students
+            </strong>{" "}
+            across India
+          </p>
 
-          {/* Right side paragraph spans 2 columns on md+ */}
-          <div className="col-span-2 border-t pt-5 md:col-span-2 md:border-t-0 md:border-l md:pl-10">
-            <p className="text-muted-foreground text-lg md:text-xl leading-relaxed">
-              {blurb}
-            </p>
+          {/* Stars */}
+          <div
+            className="flex items-center justify-center gap-2"
+            style={{ fontSize: "14px", color: "#555" }}
+          >
+            <span style={{ color: "#FFD600", fontSize: "18px", letterSpacing: "2px" }}>
+              ★★★★★
+            </span>
+            <span style={{ fontWeight: 700, color: "#111" }}>4.9/5</span>
+            <span style={{ color: "#999" }}>from 380+ reviews</span>
           </div>
         </div>
+
+        {/* Stats bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="grid grid-cols-2 md:grid-cols-4"
+          style={{
+            background: "white",
+            borderRadius: "16px",
+            border: "1px solid #E8E8E0",
+            overflow: "hidden",
+          }}
+        >
+          {stats.map((stat, i) => (
+            <div
+              key={stat.label}
+              className="flex flex-col items-start justify-center px-8 py-7"
+              style={{
+                borderRight:
+                  i < stats.length - 1 ? "1px solid #F0F0EB" : "none",
+              }}
+            >
+              <div
+                className="font-black leading-none"
+                style={{
+                  fontSize: "clamp(28px, 4vw, 40px)",
+                  letterSpacing: "-1px",
+                  color: "#111111",
+                }}
+              >
+                {stat.value}
+              </div>
+              <div
+                className="mt-2"
+                style={{ fontSize: "13px", color: "#999" }}
+              >
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </motion.div>
       </div>
     </section>
-  )
+  );
 }

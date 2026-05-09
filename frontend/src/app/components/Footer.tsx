@@ -1,182 +1,206 @@
 "use client";
 
+import React, { useState } from "react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { Github, Linkedin, Youtube, Twitter, Instagram } from "lucide-react";
+import { Github, Linkedin, Twitter, Instagram } from "lucide-react";
 
-type FooterLink = { label: string; href: string };
+export function FooterHero() {
+  const [email, setEmail] = useState("");
 
-interface FooterHeroProps {
-  className?: string;
-  brandWord?: string; // Giant word at the bottom
-  leftMenu?: FooterLink[]; // Left vertical menu
-  company?: FooterLink[];
-  resources?: FooterLink[];
-  account?: FooterLink[];
-  socials?: { icon: React.ReactNode; href: string; label: string }[];
-  legal?: FooterLink[];
-}
-
-export function FooterHero({
-  className,
-  brandWord = "AI INTERVIEW",
-  leftMenu = [
-    { label: "Features", href: "#features" },
-    { label: "Solution", href: "#solution" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "About", href: "#about" },
-  ],
-  company = [
-    { label: "About", href: "#" },
-    { label: "Blog", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Partnerships", href: "#" },
-  ],
-  resources = [
-    { label: "Customer Support", href: "#" },
-    { label: "Service", href: "#" },
-    { label: "Corporate Sales", href: "#" },
-    { label: "Financing", href: "#" },
-  ],
-  account = [
-    { label: "Log in", href: "#" },
-    { label: "Orders", href: "#" },
-  ],
-  socials = [
-    { icon: <Linkedin className="size-4" />, href: "#", label: "LinkedIn" },
-    { icon: <Github className="size-4" />, href: "#", label: "GitHub" },
-    { icon: <Twitter className="size-4" />, href: "#", label: "Twitter/X" },
-    { icon: <Instagram className="size-4" />, href: "#", label: "Instagram" },
-    { icon: <Youtube className="size-4" />, href: "#", label: "YouTube" },
-  ],
-  legal = [
-    { label: "Media Inquiries", href: "#" },
-    { label: "Terms", href: "#" },
-    { label: "Privacy", href: "#" },
-    { label: "Supplier Terms", href: "#" },
-  ],
-}: FooterHeroProps) {
   return (
     <footer
-      className={cn(
-        // NOTE: overflow-visible is required so the big word can sit slightly outside and still be visible
-        "full-bleed relative overflow-visible border-t bg-white text-foreground",
-        className
-      )}
+      className="relative overflow-hidden"
+      style={{ background: "#111111" }}
     >
-      {/* Subtle texture (behind everything) */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 opacity-[0.03]"
-        style={{
-          backgroundImage:
-            "repeating-radial-gradient(#000 0 1px, transparent 2px 40px)",
-          backgroundSize: "22px 22px",
-        }}
-      />
+      {/* Main footer content */}
+      <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
 
-      {/* Content (on top of brand word) */}
-      <div className="relative z-20 mx-auto max-w-7xl px-6 pt-16 pb-44">
-        <div className="grid grid-cols-1 gap-x-10 gap-y-14 md:grid-cols-12">
-          {/* Left vertical menu */}
-          <nav className="md:col-span-3">
-            <ul className="space-y-4">
-              {leftMenu.map((l) => (
-                <li key={l.label}>
-                  <Link
-                    href={l.href}
-                    className="text-xl font-medium text-neutral-600 hover:text-black"
-                  >
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+        {/* Top row — logo + newsletter */}
+        <div
+          className="flex flex-col md:flex-row items-start justify-between gap-8 pb-12"
+          style={{ borderBottom: "1px solid #222222" }}
+        >
+          {/* Logo */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span
+                className="text-2xl font-black tracking-tight"
+                style={{ color: "white" }}
+              >
+                <span
+                  style={{
+                    background: "#FFD600",
+                    color: "#111",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  Qu
+                </span>{" "}
+                <span style={{ color: "white" }}>ed</span>
+              </span>
+            </div>
+            <p style={{ fontSize: "13px", color: "#555", maxWidth: "220px", lineHeight: 1.6 }}>
+              AI-powered mock interviews built for India's engineering students.
+            </p>
+          </div>
 
-          {/* Link columns */}
-          <div className="md:col-span-9">
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-3">
-              <div>
-                <h3 className="mb-3 font-semibold tracking-wide">Company</h3>
-                <ul className="space-y-2 text-sm text-neutral-600">
-                  {company.map((l) => (
-                    <li key={l.label}>
-                      <Link href={l.href} className="hover:text-black">
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="mb-3 font-semibold tracking-wide">Resources</h3>
-                <ul className="space-y-2 text-sm text-neutral-600">
-                  {resources.map((l) => (
-                    <li key={l.label}>
-                      <Link href={l.href} className="hover:text-black">
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="mb-3 font-semibold tracking-wide">Account</h3>
-                <ul className="space-y-2 text-sm text-neutral-600">
-                  {account.map((l) => (
-                    <li key={l.label}>
-                      <Link href={l.href} className="hover:text-black">
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          {/* Newsletter */}
+          <div>
+            <p
+              className="font-semibold mb-3"
+              style={{ fontSize: "13px", color: "#888" }}
+            >
+              Sign up to our News letter
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  background: "#1a1a1a",
+                  border: "1px solid #333",
+                  borderRadius: "6px",
+                  padding: "9px 14px",
+                  fontSize: "13px",
+                  color: "white",
+                  outline: "none",
+                  width: "220px",
+                }}
+              />
+              <button
+                style={{
+                  background: "#FFD600",
+                  color: "#111",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  padding: "9px 18px",
+                  borderRadius: "6px",
+                  border: "none",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Submit
+              </button>
             </div>
 
-            {/* Social + legal */}
-            <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-3">
-                {socials.map((s) => (
-                  <Link
-                    key={s.label}
-                    href={s.href}
-                    aria-label={s.label}
-                    className="inline-flex items-center justify-center rounded-full border p-2 text-neutral-600 transition hover:border-black hover:text-black"
-                  >
-                    {s.icon}
-                  </Link>
-                ))}
-              </div>
+            {/* Social icons */}
+            <div className="flex items-center gap-3 mt-4">
+              {[
+                { icon: <Linkedin size={14} />, href: "#", label: "LinkedIn" },
+                { icon: <Github size={14} />, href: "#", label: "GitHub" },
+                { icon: <Twitter size={14} />, href: "#", label: "Twitter" },
+                { icon: <Instagram size={14} />, href: "#", label: "Instagram" },
+              ].map((s) => (
+                <Link
+                  key={s.label}
+                  href={s.href}
+                  aria-label={s.label}
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    border: "1px solid #333",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#666",
+                  }}
+                  className="hover:border-gray-500 hover:text-white transition-colors"
+                >
+                  {s.icon}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
 
-              <div className="mx-3 hidden h-4 w-px bg-neutral-200 sm:block" />
-
-              <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-neutral-600">
-                {legal.map((l) => (
-                  <li key={l.label}>
-                    <Link href={l.href} className="hover:text-black">
-                      {l.label}
+        {/* Link columns */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-12"
+          style={{ borderBottom: "1px solid #222222" }}
+        >
+          {[
+            {
+              title: "Categories",
+              links: ["Mock Interview", "Company Prep", "Skill Passport", "Pricing"],
+            },
+            {
+              title: "Quick Links",
+              links: ["Home", "About", "Blog", "Contact"],
+            },
+            {
+              title: "Features",
+              links: ["Real-time coaching", "AI scoring", "Voice interview", "Progress tracking"],
+            },
+            {
+              title: "Company",
+              links: ["About us", "Careers", "Privacy Policy", "Terms of Service"],
+            },
+          ].map((col) => (
+            <div key={col.title}>
+              <h4
+                className="font-bold mb-4"
+                style={{ fontSize: "13px", color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" }}
+              >
+                {col.title}
+              </h4>
+              <ul className="space-y-3">
+                {col.links.map((link) => (
+                  <li key={link}>
+                    <Link
+                      href="#"
+                      style={{ fontSize: "13px", color: "#555" }}
+                      className="hover:text-white transition-colors"
+                    >
+                      {link}
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
+          ))}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8">
+          <p style={{ fontSize: "12px", color: "#444" }}>
+            © 2026 Qued. Built for India's engineering students.
+          </p>
+          <div className="flex gap-6">
+            {["Media Inquiries", "Terms", "Privacy"].map((l) => (
+              <Link
+                key={l}
+                href="#"
+                style={{ fontSize: "12px", color: "#444" }}
+                className="hover:text-white transition-colors"
+              >
+                {l}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Giant brand word (between texture and content) */}
+      {/* Giant QUED text at bottom — exactly like Skillora */}
       <div
-  aria-hidden
-  className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-[45%] flex justify-center z-0"
->
-  <span className="block select-none font-black leading-none tracking-tighter text-[26vw] md:text-[20vw] text-neutral-200/70">
-    {brandWord}
-  </span>
-</div>
+        aria-hidden
+        className="pointer-events-none flex justify-center overflow-hidden"
+        style={{ marginTop: "-16px" }}
+      >
+        <span
+          className="select-none font-black leading-none tracking-tighter"
+          style={{
+            fontSize: "clamp(80px, 20vw, 220px)",
+            color: "rgba(255,255,255,0.04)",
+            letterSpacing: "-4px",
+          }}
+        >
+          QUED
+        </span>
+      </div>
     </footer>
   );
 }

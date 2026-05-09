@@ -1,160 +1,310 @@
 "use client";
 
 import * as React from "react";
-import {
-  ClipboardCheck,
-  FileScan,
-  PlayCircle,
-  BrainCircuit,
-  BarChart3,
-} from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+
+const cards = [
+  {
+    id: 1,
+    span: "md:col-span-7",
+    height: "h-[280px]",
+    bg: "#FFF9E6",
+    border: "#FFD600",
+    tag: "QUESTION BANK",
+    tagBg: "#FFD600",
+    tagColor: "#7A6000",
+    title: "Company-specific prep",
+    desc: "Questions from TCS NQT pattern, Amazon Leadership Principles, Microsoft problem-solving rounds — not generic lists.",
+    visual: (
+      <div className="flex flex-wrap gap-2 mt-4">
+        {[
+          { name: "TCS", bg: "#DBEAFE", color: "#1D4ED8" },
+          { name: "Amazon", bg: "#FEF3C7", color: "#92400E" },
+          { name: "Microsoft", bg: "#CFFAFE", color: "#0E7490" },
+          { name: "Infosys", bg: "#D1FAE5", color: "#065F46" },
+          { name: "Wipro", bg: "#EDE9FE", color: "#5B21B6" },
+          { name: "Startup", bg: "#FCE7F3", color: "#9D174D" },
+        ].map((c) => (
+          <span
+            key={c.name}
+            style={{ background: c.bg, color: c.color }}
+            className="text-xs font-bold px-3 py-1.5 rounded-full"
+          >
+            {c.name}
+          </span>
+        ))}
+      </div>
+    ),
+  },
+  {
+    id: 2,
+    span: "md:col-span-5",
+    height: "h-[280px]",
+    bg: "#F0FDF4",
+    border: "#86EFAC",
+    tag: "LIVE",
+    tagBg: "#DCFCE7",
+    tagColor: "#166534",
+    title: "Real-time coaching",
+    desc: "WPM, filler words, and silence gaps tracked live while you speak — not after.",
+    visual: (
+      <div
+        className="mt-4 rounded-xl p-3 flex justify-between items-center"
+        style={{ background: "white", border: "1px solid #E8E8E0" }}
+      >
+        {[
+          { val: "127", label: "WPM", color: "#10B981" },
+          { val: "2", label: "Fillers", color: "#F59E0B" },
+          { val: "✓", label: "Pace", color: "#6366F1" },
+        ].map((s) => (
+          <div key={s.label} className="text-center">
+            <div
+              className="text-xl font-black"
+              style={{ color: s.color }}
+            >
+              {s.val}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    id: 3,
+    span: "md:col-span-4",
+    height: "h-[260px]",
+    bg: "#FFF1F2",
+    border: "#FECDD3",
+    tag: "FEEDBACK",
+    tagBg: "#FFE4E6",
+    tagColor: "#9F1239",
+    title: "One specific fix",
+    desc: "Not a score — one actionable thing to improve before your actual interview.",
+    visual: (
+      <div
+        className="mt-4 rounded-xl p-3"
+        style={{
+          background: "#FFFBEB",
+          border: "1px solid #FDE68A",
+        }}
+      >
+        <div
+          className="text-xs font-black mb-1"
+          style={{ color: "#92400E" }}
+        >
+          ⚡ FIX THIS FIRST
+        </div>
+        <div className="text-xs leading-relaxed" style={{ color: "#78350F" }}>
+          "Add one specific project example to Q3."
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 4,
+    span: "md:col-span-4",
+    height: "h-[260px]",
+    bg: "#F5F3FF",
+    border: "#DDD6FE",
+    tag: "COMING SOON",
+    tagBg: "#EDE9FE",
+    tagColor: "#5B21B6",
+    title: "Multi-agent panel",
+    desc: "3 AI interviewers simultaneously — technical, HR, and hiring manager.",
+    visual: (
+      <div className="flex items-center gap-2 mt-4">
+        {[
+          { initial: "T", bg: "#6366F1", label: "Technical" },
+          { initial: "H", bg: "#14B8A6", label: "HR" },
+          { initial: "M", bg: "#F59E0B", label: "Manager" },
+        ].map((av) => (
+          <div key={av.label} className="text-center">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm mb-1"
+              style={{ background: av.bg }}
+            >
+              {av.initial}
+            </div>
+            <div className="text-[10px] text-gray-400">{av.label}</div>
+          </div>
+        ))}
+        <div className="ml-2 text-xs text-gray-400 leading-relaxed">
+          Simulates a real<br />panel interview
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 5,
+    span: "md:col-span-4",
+    height: "h-[260px]",
+    bg: "#111111",
+    border: "#333333",
+    tag: "ASR",
+    tagBg: "#222222",
+    tagColor: "#888888",
+    title: "Voice + Text",
+    desc: "Answer by voice or type. Whisper ASR transcribes in under 2 seconds.",
+    dark: true,
+    visual: (
+      <div className="flex items-end gap-1 mt-4 h-10">
+        {[8, 20, 32, 24, 40, 28, 36, 16, 28, 20, 32, 12].map((h, i) => (
+          <div
+            key={i}
+            style={{
+              width: "6px",
+              height: `${h}px`,
+              background: "#6366F1",
+              borderRadius: "3px",
+              opacity: 0.6 + (i % 3) * 0.2,
+            }}
+          />
+        ))}
+      </div>
+    ),
+  },
+];
 
 export function ProcessBento() {
   return (
-    <section className="full-bleed relative py-14">
-      {/* Top row: heading left, copy right */}
-      <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-          {/* LEFT SIDE */}
-          <div className="space-y-3">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Our process
+    <section
+      className="py-20 px-6"
+      style={{ background: "#FFFDF0" }}
+    >
+      <div className="max-w-6xl mx-auto">
+
+        {/* Header */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-end mb-12">
+          <div>
+            <span
+              className="text-xs font-bold tracking-widest uppercase mb-3 block"
+              style={{ color: "#999" }}
+            >
+              Everything you need
             </span>
-            <h2 className="text-4xl font-bold tracking-tight md:text-5xl">
-              Smarter hiring with <span className="text-indigo-500">AI Insights</span>
+            <h2
+              className="font-black leading-tight"
+              style={{
+                fontSize: "clamp(32px, 4vw, 48px)",
+                letterSpacing: "-1.5px",
+                color: "#111111",
+              }}
+            >
+              Everything to crack
+              your{" "}
+              <span
+                style={{
+                  background: "#FFD600",
+                  padding: "2px 10px",
+                  borderRadius: "6px",
+                  fontStyle: "italic",
+                }}
+              >
+                interview
+              </span>
             </h2>
-            <div className="flex gap-8 pt-2 text-sm text-muted-foreground">
+            <div className="flex gap-8 mt-6">
               <div>
-                <div className="font-semibold text-foreground">+500 roles</div>
-                created
+                <div
+                  className="font-black text-xl"
+                  style={{ color: "#111" }}
+                >
+                  160+
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  curated questions
+                </div>
               </div>
               <div>
-                <div className="font-semibold text-foreground">Trusted by</div>
-                100+ teams
+                <div
+                  className="font-black text-xl"
+                  style={{ color: "#111" }}
+                >
+                  7 companies
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  specific prep
+                </div>
               </div>
             </div>
           </div>
-        
-          {/* RIGHT SIDE */}
-          <div className="flex items-center">
-            <p className="text-muted-foreground max-w-xl">
-              Our platform combines AI, analytics, and evidence-based design to
-              supercharge your interview process—from role definition to final
-              scoring.
-            </p>
-          </div>
+          <p
+            className="leading-relaxed"
+            style={{
+              fontSize: "16px",
+              color: "#666",
+              lineHeight: 1.7,
+              maxWidth: "420px",
+            }}
+          >
+            Built specifically for Indian engineering students
+            preparing for placements. Practice the right way —
+            personalised, specific, and actionable.
+          </p>
         </div>
-      </div>
-        
 
-      {/* Bento grid (5 cards, like your reference) */}
-      <div className="mx-auto mt-8 max-w-7xl px-4 md:px-6">
-        {/* 12-col grid gives us clean spans with no leftover gaps */}
+        {/* Bento grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* 1) Large feature (spans 7) */}
-          <Tile
-            className="md:col-span-7 h-[260px]"
-            bg="bg-indigo-50"
-            icon={ClipboardCheck}
-            title="Create a role"
-            desc="Define scope, skills, and seniority. Get calibrated competencies instantly."
-            linkText="Explore →"
-          />
+          {cards.map((card, i) => (
+            <motion.article
+              key={card.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className={cn(
+                "relative overflow-hidden rounded-2xl p-6 flex flex-col",
+                card.span,
+                card.height
+              )}
+              style={{
+                background: card.bg,
+                border: `1px solid ${card.border}`,
+              }}
+            >
+              {/* Tag */}
+              <span
+                className="inline-block text-[10px] font-black tracking-widest rounded-full px-2.5 py-1 w-fit mb-3"
+                style={{
+                  background: card.tagBg,
+                  color: card.tagColor,
+                }}
+              >
+                {card.tag}
+              </span>
 
-          {/* 2) Large feature (spans 5) */}
-          <Tile
-            className="md:col-span-5 h-[260px]"
-            bg="bg-emerald-50"
-            icon={BarChart3}
-            title="Scoring & analytics"
-            desc="Spot trends, strengths, and gaps across interviews at a glance."
-            linkText="See dashboard →"
-          />
+              {/* Title */}
+              <h3
+                className="font-black leading-tight"
+                style={{
+                  fontSize: "18px",
+                  letterSpacing: "-0.3px",
+                  color: card.dark ? "white" : "#111111",
+                }}
+              >
+                {card.title}
+              </h3>
 
-          {/* Row 2: three equal cards (4+4+4) */}
-          <Tile
-            className="md:col-span-4 h-[220px]"
-            bg="bg-sky-50"
-            icon={FileScan}
-            title="Question banks"
-            desc="Reusable prompts with structured rubrics for coding, design, and behavioral."
-            linkText="Browse →"
-          />
-          <Tile
-            className="md:col-span-4 h-[220px]"
-            bg="bg-amber-50"
-            icon={PlayCircle}
-            title="Run interviews"
-            desc="Guided flows with timers, notes, and consistent scoring."
-            linkText="Start →"
-          />
-          <Tile
-            className="md:col-span-4 h-[220px]"
-            bg="bg-fuchsia-50"
-            icon={BrainCircuit}
-            title="Live AI feedback"
-            desc="Contextual hints and scoring suggestions while candidates answer."
-            linkText="Try it →"
-          />
+              {/* Desc */}
+              <p
+                className="mt-2 text-sm leading-relaxed"
+                style={{
+                  color: card.dark ? "#888" : "#666",
+                  lineHeight: 1.6,
+                }}
+              >
+                {card.desc}
+              </p>
+
+              {/* Visual */}
+              {card.visual}
+            </motion.article>
+          ))}
         </div>
       </div>
     </section>
-  );
-}
-
-/* ——— Card ——— */
-function Tile({
-  className,
-  bg,
-  icon: Icon,
-  title,
-  desc,
-  linkText,
-}: {
-  className?: string;
-  bg?: string;
-  icon: React.ElementType;
-  title: string;
-  desc: string;
-  linkText?: string;
-}) {
-  return (
-    <article
-      className={cn(
-        "group relative overflow-hidden rounded-2xl border bg-card",
-        "transition-all duration-300 ease-out",
-        "hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-indigo-500/20",
-        bg,
-        className
-      )}
-    >
-      {/* subtle inner gradient glow on hover */}
-      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <div className="absolute -inset-24 rounded-[60px] bg-gradient-to-br from-white/0 via-white/30 to-white/0 blur-2xl" />
-      </div>
-
-      <div className="relative z-10 h-full p-6 md:p-7 flex flex-col">
-        <div className="mb-3 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm">
-            <Icon className="text-indigo-600" size={20} />
-          </div>
-          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-        </div>
-
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {desc}
-        </p>
-
-        {linkText && (
-          <button
-            className="mt-auto inline-flex w-fit items-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
-            type="button"
-          >
-            {linkText}
-          </button>
-        )}
-      </div>
-    </article>
   );
 }

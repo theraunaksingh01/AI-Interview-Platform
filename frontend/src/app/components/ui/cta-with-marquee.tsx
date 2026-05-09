@@ -38,7 +38,7 @@ export default function CtaVideoLeft() {
                   href="#roles"
                   className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
                 >
-                  Create a role
+                  Get Started
                 </Link>
                 <Link
                   href="#videos"
