@@ -87,8 +87,8 @@ export default function MockSessionPage() {
             }
           }
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "Network error");
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Network error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -142,7 +142,6 @@ export default function MockSessionPage() {
               whatImproved: null,
               stillNeedsWork: null,
               idealAnswer: null,
-              questionText: data.question_text || null,
             });
           }
           return;
@@ -166,7 +165,6 @@ export default function MockSessionPage() {
     return () => window.removeEventListener("mock:answer:submitted", handleAnswerSubmitted as EventListener);
   }, []);
 
-  // ── Handle retry submission ──
   async function handleRetry(transcript: string) {
     if (!retryState) return;
 
@@ -191,7 +189,6 @@ export default function MockSessionPage() {
       const data = await resp.json();
 
       if (data.can_retry) {
-        // Update retry state for another attempt
         setRetryState({
           show: true,
           questionId: retryState.questionId,
@@ -206,7 +203,6 @@ export default function MockSessionPage() {
           idealAnswer: data.ideal_answer_example || null,
         });
       } else {
-        // Max attempts or score good enough — dismiss
         setRetryState(null);
       }
     } catch (err) {

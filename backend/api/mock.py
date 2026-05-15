@@ -19,6 +19,8 @@ from db.session import SessionLocal
 from db.session import get_db
 from services.llm_provider import gemini_chat
 from services.question_generator import generate_mock_questions
+from tasks.score_interview import aggregate_interview_scores
+from tasks.generate_coaching_report import generate_coaching_report
 import logging
 import anthropic
 
@@ -324,6 +326,12 @@ Transcript: {full_transcript[:3000]}"""
         except Exception:
             db.rollback()
         db.close()
+
+    try:
+        generate_coaching_report.delay(str(session_id))
+        log.info("[MOCK] Enqueued generate_coaching_report for session %s", session_id)
+    except Exception as e:
+        log.warning("[MOCK] Could not enqueue generate_coaching_report: %s", e)
 
 
 @router.post("/session/start")
@@ -706,6 +714,15 @@ def get_mock_report(
         .first()
     )
 
+    coaching_report = getattr(session, "coaching_report", None)
+    if isinstance(coaching_report, str):
+        try:
+            coaching_report = json.loads(coaching_report)
+        except Exception:
+            coaching_report = None
+    questions_data = coaching_report.get("questions", []) if isinstance(coaching_report, dict) else []
+    coaching_pending = len(questions_data) == 0
+
     return {
         "session": {
             "id": str(session.id),
@@ -715,6 +732,9 @@ def get_mock_report(
             "completed_at": session.completed_at,
             "overall_score": _safe_float(session.overall_score),
             "communication_score": _safe_float(session.communication_score),
+            "specific_fix": getattr(session, "specific_fix", None),
+            "coaching_pattern": coaching_report.get("pattern") if isinstance(coaching_report, dict) else None,
+            "delivery_note": coaching_report.get("delivery_note") if isinstance(coaching_report, dict) else None,
         },
         "report": {
             "avg_wpm": _safe_float(report.avg_wpm) if report else None,
@@ -728,6 +748,8 @@ def get_mock_report(
         }
         if report
         else None,
+        "questions": questions_data,
+        "coaching_pending": coaching_pending,
         "report_pending": report is None,
         "locked": False,
     }
