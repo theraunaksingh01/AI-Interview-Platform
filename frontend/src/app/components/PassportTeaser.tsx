@@ -1,374 +1,263 @@
-"use client";
+import Image from "next/image";
 
-import React from "react";
-import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
-
-const skills = [
-  { label: "Technical", pct: 78, color: "#6366F1" },
-  { label: "Communication", pct: 85, color: "#14B8A6" },
-  { label: "Consistency", pct: 71, color: "#A78BFA" },
-];
-
-export function PassportTeaser() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true });
-
+export default function SkillPassport() {
   return (
-    <section
-      className="py-28 px-6 overflow-hidden"
-      style={{
-        background: "linear-gradient(to bottom, #FFFDF0, #EEF2FF)",
-      }}
-    >
-      <div className="max-w-6xl mx-auto">
+    <section className="skill-passport-section">
+      {/* Heading */}
+      <div className="heading-wrapper">
+        <h2 className="heading">
+          Take a look at my{" "}
+          <span className="heading-highlight">Skill Passport</span>
+        </h2>
+      </div>
 
-        {/* Header */}
-        <div className="text-center mb-20">
-          <span
-            className="inline-block text-xs font-bold tracking-widest uppercase mb-4 px-4 py-1.5 rounded-full"
-            style={{
-              background: "#EEF2FF",
-              color: "#6366F1",
-              border: "1px solid #C7D2FE",
-            }}
-          >
-            SKILL PASSPORT
-          </span>
-          <h2
-            className="font-black leading-tight"
-            style={{
-              fontSize: "clamp(32px, 5vw, 52px)",
-              letterSpacing: "-1.5px",
-              color: "#111111",
-            }}
-          >
-            Every session builds
-            <br />
-            your verified profile
-          </h2>
-          <p
-            className="mt-4 mx-auto"
-            style={{
-              fontSize: "16px",
-              color: "#666",
-              maxWidth: "440px",
-              lineHeight: 1.7,
-            }}
-          >
-            Track improvement over time. Share proof
-            of preparation — not just claims.
-          </p>
-        </div>
-
-        {/* Main visual */}
-        <div
-          ref={ref}
-          className="relative flex justify-center items-center"
-          style={{ minHeight: "420px" }}
-        >
-
-          {/* Floating card — left */}
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            animate={inView ? { opacity: 1, x: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="absolute hidden lg:block"
-            style={{ left: "2%", top: "10%" }}
-          >
-            <div
-              style={{
-                background: "white",
-                border: "1px solid #E8E8E0",
-                borderRadius: "16px",
-                padding: "18px 20px",
-                width: "170px",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-              }}
+      {/* Card */}
+      <div className="card">
+        {/* Left: Text content */}
+        <div className="card-left">
+          <div className="brand">
+            {/* logo mark */}
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 22 22"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              <p style={{ fontSize: "11px", color: "#999", marginBottom: "8px" }}>
-                📈 Improvement
-              </p>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "#111" }}>
-                Technical
-              </p>
-              <p style={{ fontSize: "22px", fontWeight: 900, color: "#6366F1" }}>
-                45 → 78
-              </p>
-              <p style={{ fontSize: "11px", color: "#999" }}>in 4 weeks</p>
-            </div>
-          </motion.div>
-
-          {/* Floating card — top right */}
-          <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={inView ? { opacity: 1, x: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="absolute hidden lg:block"
-            style={{ right: "2%", top: "5%" }}
-          >
-            <div
-              style={{
-                background: "#6366F1",
-                borderRadius: "16px",
-                padding: "18px 20px",
-                width: "160px",
-                boxShadow: "0 4px 24px rgba(99,102,241,0.3)",
-              }}
-            >
-              <p style={{ fontSize: "11px", color: "#C7D2FE", marginBottom: "8px" }}>
-                Sessions this week
-              </p>
-              <p style={{ fontSize: "40px", fontWeight: 900, color: "white", lineHeight: 1 }}>
-                7
-              </p>
-              <p style={{ fontSize: "11px", color: "#A5B4FC", marginTop: "4px" }}>
-                ↑ 3 from last week
-              </p>
-            </div>
-          </motion.div>
-
-          {/* Floating card — bottom right */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="absolute hidden lg:block"
-            style={{ right: "3%", bottom: "5%" }}
-          >
-            <div
-              style={{
-                background: "white",
-                border: "1px solid #E8E8E0",
-                borderRadius: "16px",
-                padding: "16px 18px",
-                width: "158px",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-              }}
-            >
-              <p style={{ fontSize: "11px", color: "#999", marginBottom: "10px" }}>
-                🏢 Practiced for
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {["TCS", "Amazon", "Microsoft"].map((c) => (
-                  <span
-                    key={c}
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      background: "#EEF2FF",
-                      color: "#6366F1",
-                      borderRadius: "20px",
-                      padding: "3px 10px",
-                      display: "inline-block",
-                      width: "fit-content",
-                    }}
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Passport card — center */}
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
-            transition={{ duration: 0.7, ease: "easeOut" }}
-            style={{
-              background: "#111111",
-              borderRadius: "28px",
-              padding: "36px",
-              width: "340px",
-              position: "relative",
-              zIndex: 10,
-              boxShadow: "0 32px 64px rgba(0,0,0,0.2)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            {/* Subtle gradient overlay */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "28px",
-                background:
-                  "radial-gradient(circle at 30% 20%, rgba(99,102,241,0.15) 0%, transparent 60%)",
-                pointerEvents: "none",
-              }}
-            />
-
-            {/* Top row */}
-            <div
-              className="flex justify-between items-center"
-              style={{ marginBottom: "24px" }}
-            >
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: "1px",
-                  color: "#6366F1",
-                }}
-              >
-                ◆ QUED PASSPORT
-              </span>
-              <div
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  background: "#6366F1",
-                  animation: "pulse 2s infinite",
-                }}
+              <circle cx="11" cy="11" r="11" fill="#6C63FF" />
+              <path
+                d="M6 11 L11 6 L16 11 L11 16 Z"
+                fill="white"
+                opacity="0.9"
               />
-            </div>
+            </svg>
+            <span className="brand-name">QUED</span>
+          </div>
 
-            {/* Name */}
-            <p style={{ fontSize: "26px", fontWeight: 900, color: "white", letterSpacing: "-0.5px" }}>
-              Raunak Singh
-            </p>
-            <p style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}>
-              Backend Engineer · Final Year
-            </p>
+          <span className="badge">Raunak Singh</span>
 
-            {/* Divider */}
-            <div
-              style={{
-                borderTop: "1px solid rgba(255,255,255,0.08)",
-                margin: "20px 0",
-              }}
-            />
+          <h3 className="card-title">Your Skill Verification</h3>
 
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3" style={{ marginBottom: "20px" }}>
-              {[
-                { val: "24", label: "Sessions" },
-                { val: "84", label: "Best score" },
-                { val: "🔥 12", label: "Day streak" },
-              ].map((s) => (
-                <div key={s.label}>
-                  <p style={{ fontSize: "20px", fontWeight: 900, color: "white" }}>
-                    {s.val}
-                  </p>
-                  <p style={{ fontSize: "11px", color: "#555", marginTop: "2px" }}>
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <p className="card-desc">
+            A comprehensive report detailing your performance across key skill dimensions, cheat risk analysis,
+            and personalized coaching tips to help you improve and succeed in your interviews.  
+          </p>
 
-            {/* Skill bars */}
-            <div className="space-y-3">
-              {skills.map((s, i) => (
-                <div key={s.label}>
-                  <div
-                    className="flex justify-between"
-                    style={{ marginBottom: "6px" }}
-                  >
-                    <span style={{ fontSize: "12px", color: "#888" }}>
-                      {s.label}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "white", fontWeight: 700 }}>
-                      {s.pct}%
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      background: "rgba(255,255,255,0.08)",
-                      borderRadius: "4px",
-                      height: "6px",
-                    }}
-                  >
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={inView ? { width: `${s.pct}%` } : {}}
-                      transition={{ duration: 1, delay: 0.8 + i * 0.15 }}
-                      style={{
-                        background: s.color,
-                        height: "6px",
-                        borderRadius: "4px",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Bottom */}
-            <div
-              className="flex justify-between items-center"
-              style={{
-                marginTop: "24px",
-                paddingTop: "20px",
-                borderTop: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <span style={{ fontSize: "11px", color: "#444", fontFamily: "monospace" }}>
-                qued.in/passport/raunak-singh
-              </span>
-              <button
-                style={{
-                  background: "#6366F1",
-                  color: "white",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  padding: "6px 16px",
-                  borderRadius: "20px",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Share
-              </button>
-            </div>
-          </motion.div>
+          <a href="#" className="card-link">
+            Coming Soon <span className="arrow">→</span>
+          </a>
         </div>
 
-        {/* 3 feature points */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20 text-center">
-          {[
-            {
-              icon: "📊",
-              title: "Track growth",
-              desc: "See Technical, Communication, and Structure improving session by session.",
-            },
-            {
-              icon: "✓",
-              title: "Verified practice",
-              desc: "Not self-reported — AI evaluated sessions with real scores.",
-            },
-            {
-              icon: "🔗",
-              title: "Share your profile",
-              desc: "Coming soon: recruiters can view your passport and skip screening.",
-            },
-          ].map((p) => (
-            <div key={p.title}>
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl"
-                style={{ background: "#EEF2FF" }}
+        {/* Right: Image placeholder */}
+        <div className="card-right">
+          <div className="image-placeholder">
+            {/*
+              Replace the content below with your <Image> once you have the asset:
+              <Image src="/your-image.png" alt="Skill visual" fill style={{ objectFit: "cover" }} />
+            */}
+            <div className="placeholder-inner">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 48 48"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                {p.icon}
-              </div>
-              <h3
-                style={{
-                  fontSize: "15px",
-                  fontWeight: 700,
-                  color: "#111",
-                  marginBottom: "8px",
-                }}
-              >
-                {p.title}
-              </h3>
-              <p style={{ fontSize: "13px", color: "#888", lineHeight: 1.7 }}>
-                {p.desc}
-              </p>
+                <rect
+                  x="4"
+                  y="8"
+                  width="40"
+                  height="32"
+                  rx="3"
+                  stroke="#aaa"
+                  strokeWidth="2"
+                />
+                <circle cx="15" cy="19" r="4" stroke="#aaa" strokeWidth="2" />
+                <path
+                  d="M4 32 L14 22 L22 30 L30 22 L44 34"
+                  stroke="#aaa"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <p className="placeholder-text">Your image goes here</p>
             </div>
-          ))}
+          </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .skill-passport-section {
+          font-family: "Georgia", serif;
+          padding: 60px 24px;
+          max-width: 960px;
+          margin: 0 auto;
+        }
+
+        /* ── Heading ── */
+        .heading-wrapper {
+          text-align: center;
+          margin-bottom: 40px;
+        }
+
+        .heading {
+          font-size: clamp(1.8rem, 4vw, 2.6rem);
+          font-weight: 800;
+          color: #111;
+          line-height: 1.25;
+          font-family: "Arial Black", "Arial", sans-serif;
+          letter-spacing: -0.5px;
+        }
+
+        .heading-highlight {
+          background-color: #f5c518;
+          padding: 2px 10px;
+          border-radius: 3px;
+          display: inline-block;
+          color: #111;
+        }
+
+        /* ── Card ── */
+        .card {
+          display: flex;
+          border: 2px solid #111;
+          border-radius: 16px;
+          overflow: hidden;
+          min-height: 320px;
+        }
+
+        /* ── Left ── */
+        .card-left {
+          flex: 1;
+          padding: 40px 44px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          background: #fff;
+          min-width: 0;
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .brand-name {
+          font-size: 1rem;
+          font-weight: 600;
+          color: #111;
+          font-family: "Arial", sans-serif;
+        }
+
+        .badge {
+          display: inline-block;
+          background: #111;
+          color: #fff;
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 4px 12px;
+          border-radius: 999px;
+          letter-spacing: 0.3px;
+          width: fit-content;
+          font-family: "Arial", sans-serif;
+        }
+
+        .card-title {
+          font-size: 1.35rem;
+          font-weight: 800;
+          color: #111;
+          line-height: 1.3;
+          margin: 0;
+          font-family: "Arial Black", "Arial", sans-serif;
+        }
+
+        .card-desc {
+          font-size: 0.88rem;
+          color: #555;
+          line-height: 1.65;
+          margin: 0;
+          font-family: "Arial", sans-serif;
+        }
+
+        .card-link {
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: #111;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: auto;
+          font-family: "Arial", sans-serif;
+          border-bottom: 2px solid #111;
+          padding-bottom: 1px;
+          width: fit-content;
+          transition: opacity 0.2s;
+        }
+
+        .card-link:hover {
+          opacity: 0.6;
+        }
+
+        .arrow {
+          font-size: 1rem;
+        }
+
+        /* ── Right ── */
+        .card-right {
+          flex: 1;
+          min-width: 0;
+          position: relative;
+          background: #f0eeec;
+          border-left: 2px solid #111;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .image-placeholder {
+          width: 100%;
+          height: 100%;
+          min-height: 260px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+
+        .placeholder-inner {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          opacity: 0.5;
+        }
+
+        .placeholder-text {
+          font-size: 0.8rem;
+          color: #777;
+          font-family: "Arial", sans-serif;
+          margin: 0;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+          .card {
+            flex-direction: column;
+          }
+
+          .card-right {
+            border-left: none;
+            border-top: 2px solid #111;
+            min-height: 200px;
+          }
+
+          .card-left {
+            padding: 28px 24px;
+          }
+        }
+      `}</style>
     </section>
   );
 }

@@ -19,7 +19,10 @@ from db.session import SessionLocal
 from db.session import get_db
 from services.llm_provider import gemini_chat
 from services.question_generator import generate_mock_questions
+import logging
+import anthropic
 
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mock", tags=["mock"])
 
@@ -58,6 +61,20 @@ class MockCompleteRequest(BaseModel):
     total_filler_words: Optional[int] = None
     total_silence_gaps: Optional[int] = None
     full_transcript: Optional[str] = None
+
+
+class MockRetryRequest(BaseModel):
+    session_id: str
+    question_id: int
+    previous_answer_id: int
+    transcript: str
+    attempt_number: int = Field(ge=2, le=3)
+
+
+class FlagFeedbackRequest(BaseModel):
+    answer_id: int
+    flag_reason: str = ""
+    flagged_text: str = ""
 
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -396,36 +413,146 @@ def start_mock_session(
         ).mappings().first()
 
     # Mock-only question generation (no JD/resume). This does not affect company flow.
-    mock_questions = generate_mock_questions(
-        role_target=payload.role_target,
-        seniority=payload.seniority,
-        focus_area=(payload.focus_area or "mixed"),
-        count=6,
+    # ── QB-5: Load questions from bank ───────────────────────
+    from services.question_bank import get_questions_for_session
+
+    # Map seniority to difficulty range
+    difficulty_map = {
+        "beginner": "beginner",
+        "intermediate": "intermediate", 
+        "advanced": "advanced",
+    }
+    difficulty = difficulty_map.get(
+        str(payload.seniority or "").lower(), 
+        "intermediate"
     )
 
-    for q in mock_questions:
-        raw_type = str(q.get("type") or "behavioral").lower()
-        ws_type = "code" if raw_type == "dsa" else "voice"
-        difficulty = str(q.get("difficulty") or "medium").lower()
+    # Map company_type to company tag
+    company_tag = None
+    company_map = {
+        "tcs": "tcs", "infosys": "infosys",
+        "wipro": "wipro", "amazon": "amazon",
+        "microsoft": "microsoft", "startup": "startup",
+    }
+    if payload.company_type:
+        company_tag = company_map.get(
+            str(payload.company_type).lower()
+        )
+
+    # Get candidate email for dedup
+    candidate_email = None
+    if user_id:
+        user_row = db.execute(
+            text("SELECT email FROM users WHERE id = :uid"),
+            {"uid": user_id}
+        ).mappings().first()
+        if user_row:
+            candidate_email = user_row["email"]
+
+    # Total and code question counts
+    total_count = payload.duration_mins // 3 if payload.duration_mins else 8
+    total_count = max(5, min(total_count, 11))
+    code_count = 2 if (payload.focus_area or "mixed") in ("dsa", "mixed") else 0
+
+    # Map frontend role values to bank role_tags
+    role_map = {
+        "Software Engineer": "Backend Engineer",
+        "Backend Engineer": "Backend Engineer", 
+        "Frontend Engineer": "Frontend Engineer",
+        "Full Stack Engineer": "Full Stack Engineer",
+        "Data Engineer": "Data Engineer",
+        "System Design Engineer": "Backend Engineer",
+        "AI Engineer": "AI Engineer",
+    }
+    mapped_role = role_map.get(payload.role_target, payload.role_target)
+    # Fetch from bank
+    bank_questions = get_questions_for_session(
+        db=db,
+        role=mapped_role,
+        difficulty=difficulty,
+        company=company_tag,
+        count=total_count,
+        code_count=code_count,
+        candidate_email=candidate_email,
+        session_type="single",
+    )
+
+    # Fallback to Gemini stub if bank empty
+    if not bank_questions:
+        log.warning(
+            "QB empty for role=%s difficulty=%s company=%s — "
+            "falling back to generate_mock_questions",
+            payload.role_target, difficulty, company_tag
+        )
+        bank_questions = [
+            {
+                "question_text": q.get("text", ""),
+                "type": "voice" if str(q.get("type","")).lower() != "dsa" else "code",
+                "difficulty": 3,
+                "topic": "general",
+                "question_bank_id": None,
+                "source": "fallback",
+            }
+            for q in generate_mock_questions(
+                role_target=payload.role_target,
+                seniority=payload.seniority,
+                focus_area=(payload.focus_area or "mixed"),
+                count=total_count,
+            )
+        ]
+
+    # Insert questions into interview_questions
+    for pos, q in enumerate(bank_questions):
+        ws_type = "code" if q.get("type") == "code" else "voice"
         time_limit = 600 if ws_type == "code" else 120
+        qtext = str(q.get("question_text") or q.get("text") or "").strip()
+        if not qtext:
+            continue
         db.execute(
             text(
                 """
                 INSERT INTO interview_questions
-                  (interview_id, question_text, type, time_limit_seconds, description, sample_cases, source)
-                VALUES (:iid, :qt, :tp, :tl, :desc, CAST(:sc AS jsonb), :src)
+                  (interview_id, question_text, type, 
+                   time_limit_seconds, description, 
+                   sample_cases, source, topic, difficulty,
+                   question_bank_id, position)
+                VALUES 
+                  (:iid, :qt, :tp, :tl, :desc,
+                   CAST(:sc AS jsonb), :src, :topic, :diff,
+                   :qbid, :pos)
                 """
             ),
             {
                 "iid": str(interview_row["id"]),
-                "qt": str(q.get("text") or "").strip(),
+                "qt": qtext,
                 "tp": ws_type,
                 "tl": time_limit,
-                "desc": "",
+                "desc": q.get("expected_answer_framework") or "",
                 "sc": "[]",
-                "src": f"mock:{raw_type}:{difficulty}",
+                "src": q.get("source") or "bank",
+                "topic": q.get("topic") or "general",
+                "diff": q.get("difficulty") or 3,
+                "qbid": q.get("id"),
+                "pos": pos,
             },
         )
+
+    # Update mock_session with question count and company
+    db.execute(
+        text(
+            """
+            UPDATE mock_sessions 
+            SET question_count = :qc,
+                target_company = :company
+            WHERE id = :sid
+            """
+        ),
+        {
+            "qc": len(bank_questions),
+            "company": company_tag,
+            "sid": str(mock_row["id"]),
+        }
+    )
 
     db.commit()
 
@@ -721,4 +848,349 @@ def get_dashboard(user_id: str, db: Session = Depends(get_db)):
         "streak": streak,
         "total_sessions": len(sessions),
         "milestones": milestones[-5:],
+    }
+
+
+@router.post("/retry")
+def submit_retry_answer(
+    payload: MockRetryRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
+):
+    """Student retries the same question after feedback. Scores the new attempt and records improvement."""
+    # 1. Fetch previous answer and question context
+    prev = db.execute(
+        text(
+            """
+        SELECT ia.*, iq.question_text, iq.interview_id,
+               q.coaching_tips, q.ideal_answer_example,
+               q.expected_answer_framework, q.star_required,
+               q.id as question_bank_id
+        FROM interview_answers ia
+        JOIN interview_questions iq ON iq.id = ia.interview_question_id
+        LEFT JOIN questions q ON q.id = iq.question_bank_id
+        WHERE ia.id = :aid
+        """
+        ),
+        {"aid": payload.previous_answer_id},
+    ).mappings().first()
+
+    if not prev:
+        raise HTTPException(status_code=404, detail="Previous answer not found")
+
+    # 2. Check attempt limit
+    if payload.attempt_number > 3:
+        raise HTTPException(status_code=400, detail="Maximum 3 attempts per question")
+
+    # 3. Score the new attempt using Claude via anthropic
+    scoring_prompt = f"""
+You are coaching a student preparing for a job interview.
+
+Question: {prev['question_text']}
+
+This is attempt {payload.attempt_number} of 3.
+
+Previous answer (attempt {payload.attempt_number - 1}):
+"{prev.get('transcript', '')}"
+
+Previous score: {prev.get('overall_score', 0)}/100
+
+New answer (attempt {payload.attempt_number}):
+"{payload.transcript}"
+
+Evaluate the new answer on:
+1. Technical accuracy (0-100)
+2. Communication clarity (0-100)
+3. Completeness (0-100)
+4. STAR framework compliance (0-100) if behavioral
+
+Also:
+- What specifically improved from the previous attempt?
+- What still needs work?
+- One specific fix for the next attempt (if attempt < 3)
+- Overall score (weighted: technical 60%, communication 30%, completeness 10%)
+
+Respond ONLY in valid JSON:
+{{
+  "technical": <int>,
+  "communication": <int>,
+  "completeness": <int>,
+  "star_compliance": <int or null>,
+  "overall": <float>,
+  "what_improved": "<specific improvement>",
+  "still_needs_work": "<what remains weak>",
+  "specific_fix": "<one actionable thing for next attempt>",
+  "coaching_note": "<encouraging but honest 1-2 sentences>"
+}}
+"""
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    scores = None
+    if api_key:
+        try:
+            client = anthropic.Anthropic(api_key=api_key)
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=800,
+                messages=[{"role": "user", "content": scoring_prompt}],
+            )
+            text_payload = ""
+            for block in getattr(response, "content", []):
+                if getattr(block, "type", "") == "text":
+                    text_payload += getattr(block, "text", "")
+
+            raw = text_payload.strip()
+            if raw.startswith("``"):
+                parts = raw.split("``")
+                if len(parts) >= 2:
+                    raw = parts[1]
+            scores = json.loads(raw)
+        except Exception as e:
+            log.warning("[MOCK.RETRY] Claude scoring failed: %s", e)
+
+    if not scores:
+        scores = {
+            "technical": 50,
+            "communication": 50,
+            "completeness": 50,
+            "star_compliance": None,
+            "overall": 50.0,
+            "what_improved": "Unable to assess improvement",
+            "still_needs_work": "Keep practicing",
+            "specific_fix": "Focus on giving specific examples",
+            "coaching_note": "Good effort, keep going.",
+        }
+
+    prev_score = float(prev.get("overall_score") or 0)
+    new_score = float(scores.get("overall") or 0)
+    improvement = round(new_score - prev_score, 2)
+
+    new_answer = db.execute(
+        text(
+            """
+        INSERT INTO interview_answers (
+            interview_question_id,
+            transcript,
+            overall_score,
+            ai_feedback,
+            attempt_number,
+            parent_answer_id,
+            retry_feedback,
+            improvement_from_previous,
+            specific_fix,
+            star_compliance,
+            feedback_confidence,
+            is_followup
+        ) VALUES (
+            :qid, :transcript, :overall,
+            CAST(:feedback AS jsonb),
+            :attempt, :parent_id,
+            :retry_feedback, :improvement,
+            :specific_fix, :star,
+            'high', false
+        ) RETURNING id
+        """
+        ),
+        {
+            "qid": payload.question_id,
+            "transcript": payload.transcript,
+            "overall": new_score,
+            "feedback": json.dumps(scores),
+            "attempt": payload.attempt_number,
+            "parent_id": payload.previous_answer_id,
+            "retry_feedback": scores.get("what_improved", ""),
+            "improvement": improvement,
+            "specific_fix": scores.get("specific_fix", ""),
+            "star": scores.get("star_compliance"),
+        },
+    ).mappings().first()
+
+    db.execute(
+        text(
+            """
+        INSERT INTO session_attempts (
+            interview_question_id,
+            interview_answer_id,
+            attempt_number,
+            transcript,
+            score,
+            specific_feedback,
+            improvement_delta
+        ) VALUES (
+            :qid, :aid, :attempt,
+            :transcript, :score,
+            :feedback, :delta
+        )
+        """
+        ),
+        {
+            "qid": payload.question_id,
+            "aid": new_answer["id"],
+            "attempt": payload.attempt_number,
+            "transcript": payload.transcript,
+            "score": new_score,
+            "feedback": scores.get("specific_fix", ""),
+            "delta": improvement,
+        },
+    )
+
+    db.execute(
+        text(
+            """
+        UPDATE mock_sessions ms
+        SET total_retries = COALESCE(total_retries, 0) + 1
+        FROM interviews i
+        JOIN interview_questions iq ON iq.interview_id = i.id
+        WHERE iq.id = :qid
+        AND i.mock_session_id = ms.id
+        """
+        ),
+        {"qid": payload.question_id},
+    )
+
+    db.commit()
+
+    can_retry = payload.attempt_number < 3 and new_score < 70
+
+    return {
+        "answer_id": new_answer["id"],
+        "attempt_number": payload.attempt_number,
+        "scores": {
+            "technical": scores.get("technical"),
+            "communication": scores.get("communication"),
+            "completeness": scores.get("completeness"),
+            "overall": new_score,
+        },
+        "improvement": improvement,
+        "what_improved": scores.get("what_improved"),
+        "still_needs_work": scores.get("still_needs_work"),
+        "specific_fix": scores.get("specific_fix"),
+        "coaching_note": scores.get("coaching_note"),
+        "can_retry": can_retry,
+        "show_ideal_answer": payload.attempt_number >= 3,
+        "ideal_answer_example": prev.get("ideal_answer_example") if payload.attempt_number >= 3 else None,
+    }
+
+
+@router.post("/flag-feedback")
+def flag_feedback(
+    payload: FlagFeedbackRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
+):
+    user_id = getattr(current_user, "id", None)
+
+    db.execute(
+        text(
+            """
+        INSERT INTO coaching_feedback_flags
+            (answer_id, user_id, flag_reason, flagged_text)
+        VALUES (:aid, :uid, :reason, :text)
+        """
+        ),
+        {"aid": payload.answer_id, "uid": user_id, "reason": payload.flag_reason, "text": payload.flagged_text},
+    )
+
+    db.execute(
+        text(
+            """
+        UPDATE interview_answers
+        SET feedback_flag_count = COALESCE(feedback_flag_count, 0) + 1,
+            feedback_flagged = CASE
+                WHEN COALESCE(feedback_flag_count, 0) + 1 >= 3 THEN true
+                ELSE feedback_flagged
+            END
+        WHERE id = :aid
+        """
+        ),
+        {"aid": payload.answer_id},
+    )
+
+    db.commit()
+    return {"ok": True, "message": "Feedback flagged for review"}
+
+
+@router.get("/retry-context/{question_id}")
+def get_retry_context(
+    question_id: int,
+    db: Session = Depends(get_db),
+):
+    # Get question info
+    question = db.execute(text("""
+        SELECT 
+            iq.question_text,
+            iq.question_bank_id,
+            q.coaching_tips,
+            q.expected_answer_framework,
+            q.star_required
+        FROM interview_questions iq
+        LEFT JOIN questions q ON q.id = iq.question_bank_id
+        WHERE iq.id = :qid
+    """), {"qid": question_id}).mappings().first()
+
+    if not question:
+        raise HTTPException(404, "Question not found")
+
+    # Get latest answer score directly from interview_answers
+    latest_score_row = db.execute(text("""
+        SELECT 
+            s.overall_score,
+            s.ai_feedback,
+            s.question_id,
+            s.created_at
+        FROM interview_scores s
+        WHERE s.question_id = :qid
+        ORDER BY s.created_at DESC
+        LIMIT 1
+    """), {"qid": question_id}).mappings().first()
+
+    # Also check interview_answers for retry attempts
+    latest_answer = db.execute(text("""
+        SELECT 
+            ia.id,
+            ia.overall_score,
+            ia.specific_fix,
+            ia.attempt_number
+        FROM interview_answers ia
+        WHERE ia.interview_question_id = :qid
+          AND ia.overall_score IS NOT NULL
+        ORDER BY ia.created_at DESC
+        LIMIT 1
+    """), {"qid": question_id}).mappings().first()
+
+    latest_score = None
+    specific_fix = None
+    attempt_count = 0
+
+    # Prefer interview_answers (retry attempts) over interview_scores
+    if latest_answer and latest_answer["overall_score"] is not None:
+        latest_score = float(latest_answer["overall_score"])
+        specific_fix = latest_answer.get("specific_fix")
+        attempt_count = latest_answer.get("attempt_number") or 1
+    elif latest_score_row and latest_score_row["overall_score"] is not None:
+        latest_score = float(latest_score_row["overall_score"])
+        # Extract specific_fix from ai_feedback JSONB if available
+        try:
+            feedback = latest_score_row["ai_feedback"]
+            if isinstance(feedback, str):
+                import json
+                feedback = json.loads(feedback)
+            if isinstance(feedback, dict):
+                weaknesses = feedback.get("weaknesses", [])
+                if weaknesses:
+                    specific_fix = weaknesses[0] if isinstance(weaknesses, list) else str(weaknesses)
+        except Exception:
+            specific_fix = None
+        attempt_count = 1
+        
+    return {
+        "question_text": question["question_text"],
+        "attempt_count": attempt_count,
+        "latest_score": latest_score,
+        "specific_fix": specific_fix,
+        "coaching_tips": question["coaching_tips"],
+        "expected_framework": question["expected_answer_framework"],
+        "star_required": question["star_required"],
+        "attempts_summary": [],
+        "can_retry": attempt_count < 3,
     }

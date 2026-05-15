@@ -759,6 +759,21 @@ export function InterviewRoom({
 
     captureCoachingForCompletedAnswer();
 
+    if (isMockMode) {
+      // Dispatch submission event for retry loop
+      const submittedQuestionId = qid;
+      if (submittedQuestionId) {
+        window.dispatchEvent(
+          new CustomEvent("mock:answer:submitted", {
+            detail: {
+              questionId: submittedQuestionId,
+              answerId: null,
+            },
+          })
+        );
+      }
+    }
+
     setAnswerConfidence(null);
     setLiveTranscript("");
     resetAnswer();
@@ -875,6 +890,17 @@ export function InterviewRoom({
     );
 
     captureCoachingForCompletedAnswer();
+
+    if (isMockMode) {
+      window.dispatchEvent(
+        new CustomEvent("mock:answer:submitted", {
+          detail: {
+            questionId: qid,
+            answerId: null,
+          },
+        })
+      );
+    }
 
     setCandidateSpeaking(false);
     setAgentStatus("idle");
