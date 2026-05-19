@@ -312,6 +312,26 @@ Transcript: {full_transcript[:3000]}"""
                     top_strengths=top_strengths,
                 )
             )
+            
+            # Sync overall_score from interviews → mock_sessions
+        try:
+            db.execute(
+                text("""
+                    UPDATE mock_sessions ms
+                    SET overall_score = (
+                        SELECT i.overall_score
+                        FROM interviews i
+                        WHERE i.mock_session_id = ms.id
+                        ORDER BY i.created_at DESC
+                        LIMIT 1
+                    )
+                    WHERE ms.id = CAST(:sid AS uuid)
+                      AND ms.overall_score IS NULL
+                """),
+                {"sid": session_id},
+            )
+        except Exception as e:
+            log.warning("[MOCK] Failed to sync overall_score: %s", e)
 
         db.commit()
     except Exception:
@@ -863,12 +883,87 @@ def get_dashboard(user_id: str, db: Session = Depends(get_db)):
         for s in sessions
     ]
 
+    all_scores = [_safe_float(s.overall_score) for s in sessions if _safe_float(s.overall_score) is not None]
+    best_score = max(all_scores) if all_scores else None
+    avg_score = round(sum(all_scores) / len(all_scores), 2) if all_scores else None
+    first_score = _safe_float(sessions[0].overall_score) if sessions else None
+    latest_score = _safe_float(sessions[-1].overall_score) if sessions else None
+    improvement = round(latest_score - first_score, 2) if (first_score is not None and latest_score is not None) else None
+ 
+    # --- question_count + total_retries per session via SQL ---
+    session_ids_str = [str(s.id) for s in sessions]
+    qcount_rows = db.execute(
+        text("""
+            SELECT i.mock_session_id::text AS sid, COUNT(iq.id) AS qcount
+            FROM interviews i
+            JOIN interview_questions iq ON iq.interview_id = i.id
+            WHERE i.mock_session_id = ANY(CAST(:ids AS uuid[]))
+            GROUP BY i.mock_session_id
+        """),
+        {"ids": session_ids_str},
+    ).mappings().all()
+    qcount_map = {r["sid"]: int(r["qcount"]) for r in qcount_rows}
+ 
+    retry_rows = db.execute(
+        text("""
+            SELECT i.mock_session_id::text AS sid, COUNT(ia.id) AS retries
+            FROM interviews i
+            JOIN interview_questions iq ON iq.interview_id = i.id
+            JOIN interview_answers ia ON ia.interview_question_id = iq.id
+            WHERE i.mock_session_id = ANY(CAST(:ids AS uuid[]))
+              AND ia.attempt_number > 1
+            GROUP BY i.mock_session_id
+        """),
+        {"ids": session_ids_str},
+    ).mappings().all()
+    retry_map = {r["sid"]: int(r["retries"]) for r in retry_rows}
+ 
+    # --- weak_spots from user_progress if table exists ---
+    weak_spots = None
+    try:
+        wp_row = db.execute(
+            text("""
+                SELECT weak_areas FROM user_progress
+                WHERE user_id = :uid
+                ORDER BY updated_at DESC LIMIT 1
+            """),
+            {"uid": user_id_int},
+        ).mappings().first()
+        if wp_row:
+            weak_spots = wp_row["weak_areas"]
+    except Exception:
+        weak_spots = None
+ 
+    sessions_payload = [
+        {
+            "id": str(s.id),
+            "role_target": s.role_target,
+            "seniority": s.seniority,
+            "company_type": s.company_type,
+            "focus_area": s.focus_area,
+            "overall_score": _safe_float(s.overall_score),
+            "dsa_score": _safe_float(s.dsa_score),
+            "system_design_score": _safe_float(s.system_design_score),
+            "behavioral_score": _safe_float(s.behavioral_score),
+            "communication_score": _safe_float(s.communication_score),
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            "report_available": str(s.id) in report_ids,
+            "question_count": qcount_map.get(str(s.id), 0),
+            "total_retries": retry_map.get(str(s.id), 0),
+        }
+        for s in sessions
+    ]
+ 
     return {
         "sessions": sessions_payload,
         "latest_scores": latest_scores,
         "deltas": deltas,
         "streak": streak,
         "total_sessions": len(sessions),
+        "best_score": best_score,
+        "avg_score": avg_score,
+        "improvement": improvement,
+        "weak_spots": weak_spots,
         "milestones": milestones[-5:],
     }
 
