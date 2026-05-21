@@ -233,8 +233,21 @@ export function useCoaching(options: UseCoachingOptions = {}) {
     transcriptRef.current = normalizeWhitespace(fullTranscript || "");
 
     const totalWords = countWords(transcriptRef.current);
-    const elapsedMinutes = (Date.now() - answerStartMsRef.current) / 60000;
-    const wpm = elapsedMinutes > 0.1 ? Math.round(totalWords / elapsedMinutes) : 0;
+    // Use word-based speaking time instead of wall clock time
+    // Assume average word takes ~0.4s to speak, giving a floor for speaking duration
+    const minSpeakingSeconds = totalWords * 0.4;
+    const elapsedSeconds = (Date.now() - answerStartMsRef.current) / 1000;
+    // Speaking time = min of elapsed time and word-based estimate, but at least word-based
+    const speakingSeconds = Math.max(minSpeakingSeconds, Math.min(elapsedSeconds * 0.7, elapsedSeconds));
+    const speakingMinutes = speakingSeconds / 60;
+
+    // Only calculate WPM if we have enough words and time
+    const rawWpm = totalWords > 5 && speakingMinutes > 0
+      ? Math.round(totalWords / speakingMinutes)
+      : 0;
+
+    // Sanity check — show nothing if obviously wrong
+    const wpm = rawWpm >= 30 && rawWpm <= 300 ? rawWpm : 0;
 
     setState((prev) => ({
       ...prev,

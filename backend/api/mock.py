@@ -199,7 +199,7 @@ def check_mock_limit(user_id: Optional[int], db: Session) -> dict[str, Any]:
         .count()
     )
 
-    if used_count >= 1:
+    if used_count >= 3:
         raise HTTPException(status_code=403, detail="limit_reached")
 
     return {"allowed": True, "plan": "free"}
@@ -713,20 +713,6 @@ def get_mock_report(
     session = db.query(MockSession).filter(MockSession.id == session_uuid).first()
     if not session:
         raise HTTPException(status_code=404, detail="Mock session not found")
-
-    if current_user and str(session.user_id) == str(current_user.id):
-        user = db.query(User).filter(User.id == current_user.id).first()
-        if user and str(getattr(user, "plan", "free") or "free").lower() == "free":
-            return {
-                "session": {
-                    "id": str(session.id),
-                    "role_target": session.role_target,
-                },
-                "report": None,
-                "report_pending": False,
-                "locked": True,
-                "lock_reason": "upgrade_required",
-            }
 
     report = (
         db.query(CommunicationReport)

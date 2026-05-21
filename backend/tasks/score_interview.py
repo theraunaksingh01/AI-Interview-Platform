@@ -69,7 +69,19 @@ SYSTEM_PROMPT = (
     "Return ONLY valid JSON matching the exact schema requested. No markdown, no backticks."
 )
 
-VOICE_USER_PROMPT = """Evaluate this candidate's spoken answer to an interview question.
+VOICE_USER_PROMPT = """SCORING CALIBRATION:
+You are evaluating a final-year Indian engineering student at campus placement level, not a senior engineer.
+Score guide:
+- Incoherent/completely off-topic: 0-20
+- Mentioned the concept but wrong: 20-40
+- Partial understanding, some accuracy: 40-55
+- Correct definition, no example: 55-70
+- Correct with example, missing depth: 70-82
+- Complete with example and trade-offs: 83-92
+- Exceptional beyond campus level: 92-100
+A genuine attempt at the right concept should never score below 40. Reserve sub-20 scores for responses that are completely incoherent or entirely off-topic.
+
+Evaluate this candidate's spoken answer to an interview question.
 
 Job Role: {role_title} ({role_level})
 Job Description Context: {jd_excerpt}
@@ -111,7 +123,19 @@ Return JSON:
   "red_flags": ["string", ...]
 }}"""
 
-CODE_USER_PROMPT = """Evaluate this candidate's code submission.
+CODE_USER_PROMPT = """SCORING CALIBRATION:
+You are evaluating a final-year Indian engineering student at campus placement level, not a senior engineer.
+Score guide:
+- Incoherent/completely off-topic: 0-20
+- Mentioned the concept but wrong: 20-40
+- Partial understanding, some accuracy: 40-55
+- Correct definition, no example: 55-70
+- Correct with example, missing depth: 70-82
+- Complete with example and trade-offs: 83-92
+- Exceptional beyond campus level: 92-100
+A genuine attempt at the right concept should never score below 40. Reserve sub-20 scores for responses that are completely incoherent or entirely off-topic.
+
+Evaluate this candidate's code submission.
 
 Job Role: {role_title} ({role_level})
 

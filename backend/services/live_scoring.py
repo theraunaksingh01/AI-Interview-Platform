@@ -35,7 +35,19 @@ LIVE_SYSTEM_PROMPT = (
     "Score strictly using the rubric. Return ONLY valid JSON. Be concise."
 )
 
-LIVE_VOICE_PROMPT = """Score this candidate answer.
+LIVE_VOICE_PROMPT = """SCORING CALIBRATION:
+You are evaluating a final-year Indian engineering student at campus placement level, not a senior engineer.
+Score guide:
+- Incoherent/completely off-topic: 0-20
+- Mentioned the concept but wrong: 20-40
+- Partial understanding, some accuracy: 40-55
+- Correct definition, no example: 55-70
+- Correct with example, missing depth: 70-82
+- Complete with example and trade-offs: 83-92
+- Exceptional beyond campus level: 92-100
+A genuine attempt at the right concept should never score below 40. Reserve sub-20 scores for responses that are completely incoherent or entirely off-topic.
+
+Score this candidate answer.
 
 Question: {question_text}
 
@@ -54,7 +66,19 @@ Score each dimension 0-100:
 Return JSON:
 {{"technical_accuracy": <0-100>, "problem_solving": <0-100>, "communication_clarity": <0-100>, "depth_of_knowledge": <0-100>, "relevance": <0-100>, "strengths": ["..."], "weaknesses": ["..."], "summary": "...", "hiring_signal": "strong_hire|hire|maybe|no_hire", "red_flags": []}}"""
 
-LIVE_CODE_PROMPT = """Score this code submission.
+LIVE_CODE_PROMPT = """SCORING CALIBRATION:
+You are evaluating a final-year Indian engineering student at campus placement level, not a senior engineer.
+Score guide:
+- Incoherent/completely off-topic: 0-20
+- Mentioned the concept but wrong: 20-40
+- Partial understanding, some accuracy: 40-55
+- Correct definition, no example: 55-70
+- Correct with example, missing depth: 70-82
+- Complete with example and trade-offs: 83-92
+- Exceptional beyond campus level: 92-100
+A genuine attempt at the right concept should never score below 40. Reserve sub-20 scores for responses that are completely incoherent or entirely off-topic.
+
+Score this code submission.
 
 Question: {question_text}
 
