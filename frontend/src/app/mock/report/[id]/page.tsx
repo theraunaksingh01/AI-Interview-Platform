@@ -20,6 +20,7 @@ type QuestionData = {
 };
 
 type ReportResponse = {
+  plan?: "free" | "pro" | "max";
   session: {
     id: string;
     role_target: string;
@@ -107,7 +108,7 @@ function ScoreRing({ score }: { score: number | null }) {
   );
 }
 
-function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
+function QuestionCard({ q, index, userPlan }: { q: QuestionData; index: number; userPlan: string }) {
   const [expanded, setExpanded] = useState(false);
   const hasTranscript = q.transcript && q.transcript.trim().length > 0;
 
@@ -121,7 +122,7 @@ function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-start gap-3 min-w-0">
-          <span className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-[#F3F4F6] flex items-center justify-center text-xs font-bold text-[#6B7280]">
+          <span className="mt-0.5 shrink-0 w-7 h-7 rounded-full bg-[#F3F4F6] flex items-center justify-center text-xs font-bold text-[#6B7280]">
             {index + 1}
           </span>
           <div className="min-w-0">
@@ -149,7 +150,7 @@ function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           <div className={`px-3 py-1.5 rounded-lg border text-sm font-bold ${scoreBadgeStyle(q.score)}`}>
             {Math.round(q.score)}/100
           </div>
@@ -182,7 +183,7 @@ function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
                   <div className="space-y-1.5">
                     {q.weaknesses.map((w, i) => (
                       <div key={i} className="flex items-start gap-2 text-[14px] text-[#374151]">
-                        <span className="text-rose-400 mt-0.5 flex-shrink-0">→</span>
+                        <span className="text-rose-400 mt-0.5 shrink-0">→</span>
                         <span>{w}</span>
                       </div>
                     ))}
@@ -191,7 +192,7 @@ function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
               )}
 
               {/* Better answer */}
-              {q.better_answer && (
+              {q.better_answer ? (
                 <div className="rounded-xl bg-[#F0FDF4] border border-emerald-100 px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 mb-1.5">
                     What you could have said
@@ -200,6 +201,27 @@ function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
                     {q.better_answer}
                   </p>
                 </div>
+              ) : userPlan === "free" ? (
+                <div className="mt-4 p-4 bg-gray-50 border border-dashed border-gray-300 rounded-xl">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                    What you could have said
+                  </p>
+                  <div className="text-sm text-gray-300 leading-relaxed blur-sm select-none">
+                    A strong answer would define the concept clearly, provide a real example from a project, and mention one trade-off or limitation.
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-indigo-600 cursor-pointer hover:underline">
+                    Upgrade to Pro to unlock model answers →
+                  </p>
+                </div>
+              ) : null}
+
+              {userPlan === "max" && q.better_answer && (
+                <a
+                  href={`/mock?retry_question=${q.question_id}`}
+                  className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                >
+                  🎙 Practice this answer again
+                </a>
               )}
             </>
           ) : (
@@ -215,15 +237,36 @@ function QuestionCard({ q, index }: { q: QuestionData; index: number }) {
               </div>
 
               {/* Still show a model answer so they learn */}
-              {q.better_answer && (
+              {q.better_answer ? (
                 <div className="rounded-xl bg-[#F0FDF4] border border-emerald-100 px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 mb-1.5">
-                    How you could have answered this
+                    What you could have said
                   </p>
                   <p className="text-[14px] text-emerald-900 leading-relaxed">
                     {q.better_answer}
                   </p>
                 </div>
+              ) : userPlan === "free" ? (
+                <div className="mt-4 p-4 bg-gray-50 border border-dashed border-gray-300 rounded-xl">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                    What you could have said
+                  </p>
+                  <div className="text-sm text-gray-300 leading-relaxed blur-sm select-none">
+                    A strong answer would define the concept clearly, provide a real example from a project, and mention one trade-off or limitation.
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-indigo-600 cursor-pointer hover:underline">
+                    Upgrade to Pro to unlock model answers →
+                  </p>
+                </div>
+              ) : null}
+
+              {userPlan === "max" && q.better_answer && (
+                <a
+                  href={`/mock?retry_question=${q.question_id}`}
+                  className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                >
+                  🎙 Practice this answer again
+                </a>
               )}
 
               {/* If better_answer also missing (task not re-run yet) */}
@@ -344,7 +387,7 @@ export default function MockReportPage() {
   if (data?.locked) {
     return (
       <main className="min-h-screen bg-[#FAFAFA] px-6 py-16">
-        <div className="mx-auto max-w-[560px] text-center">
+        <div className="mx-auto max-w-140 text-center">
           <div className="mb-4 text-5xl">📊</div>
           <h1 className="mb-3 text-[26px] font-bold text-[#111]">Your report is ready</h1>
           <p className="mb-8 text-[15px] text-[#6B7280]">
@@ -371,7 +414,7 @@ export default function MockReportPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-[#FAFAFA] px-6 py-12">
-        <div className="mx-auto max-w-[860px]">
+        <div className="mx-auto max-w-215">
           <div className="mb-8 flex items-center gap-3">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-[#111]" />
             <span className="text-sm text-[#9CA3AF]">Generating your report…</span>
@@ -388,7 +431,7 @@ export default function MockReportPage() {
   if (error || !data || !data.session) {
     return (
       <main className="min-h-screen bg-[#FAFAFA] px-6 py-12">
-        <div className="mx-auto max-w-[860px] rounded-2xl border border-rose-200 bg-rose-50 p-8">
+        <div className="mx-auto max-w-215 rounded-2xl border border-rose-200 bg-rose-50 p-8">
           <h1 className="text-xl font-bold text-rose-700">Report unavailable</h1>
           <p className="mt-2 text-sm text-rose-600">{error || "Could not load report."}</p>
           <Link href="/mock" className="mt-6 inline-block text-sm font-medium text-[#111] underline">
@@ -400,6 +443,7 @@ export default function MockReportPage() {
   }
 
   const { session, report, questions } = data;
+  const userPlan = data.plan ?? "free";
   const displayScore = session.overall_score ?? session.communication_score ?? report?.star_avg_score ?? null;
   const sortedQuestions = [...(questions || [])].sort(
     (a, b) => (a.position ?? 99) - (b.position ?? 99)
@@ -407,7 +451,7 @@ export default function MockReportPage() {
 
   return (
     <main className="min-h-screen bg-[#FAFAFA] px-4 pb-16 pt-10 sm:px-8">
-      <div className="mx-auto max-w-[860px] space-y-6">
+      <div className="mx-auto max-w-215 space-y-6">
 
         {/* ── Header ── */}
         <div className="flex flex-wrap items-start justify-between gap-5">
@@ -507,7 +551,7 @@ export default function MockReportPage() {
           ) : sortedQuestions.length > 0 ? (
             <div className="space-y-3">
               {sortedQuestions.map((q, i) => (
-                <QuestionCard key={q.question_id} q={q} index={i} />
+                <QuestionCard key={q.question_id} q={q} index={i} userPlan={userPlan} />
               ))}
             </div>
           ) : (
@@ -528,7 +572,7 @@ export default function MockReportPage() {
                 <div className="space-y-2">
                   {report.top_strengths.map((item) => (
                     <div key={item} className="flex items-start gap-2 text-sm text-emerald-900">
-                      <span className="flex-shrink-0">✓</span>
+                      <span className="shrink-0">✓</span>
                       <span>{item}</span>
                     </div>
                   ))}
@@ -543,7 +587,7 @@ export default function MockReportPage() {
                 <div className="space-y-2">
                   {report.top_issues.map((item) => (
                     <div key={item} className="flex items-start gap-2 text-sm text-amber-900">
-                      <span className="flex-shrink-0">⚠</span>
+                      <span className="shrink-0">⚠</span>
                       <span>{item}</span>
                     </div>
                   ))}

@@ -30,6 +30,12 @@ class LoginJSON(BaseModel):
     password: str
 
 
+class RegisterPayload(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+
+
 class TokenOut(Token):  
     pass
 
@@ -88,6 +94,36 @@ def login_json(payload: LoginJSON, db: Session = Depends(deps.get_db)) -> Any:
     return _issue_access_token(user)
 
 
+@router.post("/register", response_model=Token)
+def register(payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> Any:
+    """
+    Create a new user account and return an access token.
+    """
+    # Check if email already exists
+    existing = db.query(db_models.User).filter(
+        db_models.User.email == payload.email
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists.",
+        )
+    # Create user
+    hashed = security.get_password_hash(payload.password)
+    user = db_models.User(
+        email=payload.email,
+        hashed_password=hashed,
+        full_name=payload.full_name,
+        is_active=True,
+        is_superuser=False,
+        plan="free",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return _issue_access_token(user)
+
+
 @router.get("/me", response_model=UserOut)
 def read_myself(current_user: db_models.User = Depends(deps.get_current_user)):
     """
@@ -102,6 +138,7 @@ def read_myself(current_user: db_models.User = Depends(deps.get_current_user)):
         "is_active": getattr(current_user, "is_active", True),
         "is_superuser": getattr(current_user, "is_superuser", False),
         "roles": roles,
+        "plan": getattr(current_user, "plan", "free") or "free",
     }
 
 

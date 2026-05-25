@@ -14,6 +14,7 @@ type User = {
   is_active: boolean;
   is_superuser: boolean;
   roles: string[];
+  plan?: string;
 };
 
 type AuthContextValue = {

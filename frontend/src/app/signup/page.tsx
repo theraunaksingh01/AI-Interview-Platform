@@ -9,6 +9,7 @@ export default function SignUpPage() {
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -29,15 +30,46 @@ export default function SignUpPage() {
       setMsg("Passwords do not match.");
       return;
     }
-    // Hook up to /auth/register when ready.
-    setMsg("Sign up is disabled in this demo. Use the seeded account to login.");
+    if (!email || !pw) {
+      setMsg("Email and password are required.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pw, full_name: name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data?.detail || "Registration failed. Try again.");
+        return;
+      }
+      // Auto-login after signup
+      const loginRes = await fetch(`${API_BASE}/auth/login_json`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pw }),
+      });
+      const loginData = await loginRes.json().catch(() => ({}));
+      if (loginRes.ok && loginData.access_token) {
+        localStorage.setItem("access_token", loginData.access_token);
+        localStorage.setItem("API_TOKEN", loginData.access_token);
+        window.location.href = "/mock";
+      } else {
+        setMsg("Account created! Please log in.");
+        window.location.href = "/login";
+      }
+    } catch {
+      setMsg("Network error. Please try again.");
+    }
   }
 
   return (
     <div className="min-h-screen bg-white">
       <div className="mx-auto grid min-h-screen grid-cols-1 lg:grid-cols-20">
         <section className="flex items-center bg-white px-6 py-12 sm:px-10 lg:col-span-9 lg:px-14 lg:py-16">
-          <div className="mx-auto w-full max-w-[460px]">
+          <div className="mx-auto w-full max-w-115">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6366F1] text-[18px] font-bold text-white">
               A
             </div>
@@ -127,7 +159,7 @@ export default function SignUpPage() {
         </section>
 
         <section className="hidden bg-[#F5F3FF] px-12 py-16 lg:col-span-11 lg:flex lg:flex-col lg:items-center lg:justify-center">
-          <div className="w-full max-w-[560px] text-center">
+          <div className="w-full max-w-140 text-center">
             <svg width="320" height="280" viewBox="0 0 320 280" className="mx-auto">
               <rect x="46" y="160" width="230" height="18" rx="9" fill="#E0E7FF" />
               <rect x="86" y="128" width="150" height="40" rx="8" fill="#A5B4FC" />
@@ -145,7 +177,7 @@ export default function SignUpPage() {
               <rect x="204" y="152" width="28" height="9" rx="4.5" fill="#A5B4FC" />
             </svg>
 
-            <div className="mx-auto mt-8 max-w-[480px] rounded-xl bg-white px-5 py-4 text-left shadow-[0_2px_12px_rgba(99,102,241,0.12)]">
+            <div className="mx-auto mt-8 max-w-120 rounded-xl bg-white px-5 py-4 text-left shadow-[0_2px_12px_rgba(99,102,241,0.12)]">
               <p className="text-sm text-[#374151]">{testimonials[testimonialIdx]}</p>
             </div>
             <div className="mt-3 flex justify-center gap-2">

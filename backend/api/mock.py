@@ -29,6 +29,18 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mock", tags=["mock"])
 
 
+def get_user_plan(user) -> str:
+    if not user:
+        return "free"
+    plan = str(getattr(user, "plan", "") or "").lower()
+    expires = getattr(user, "plan_expires", None)
+    if expires and expires < datetime.utcnow():
+        return "free"
+    if plan in ("pro", "max"):
+        return plan
+    return "free"
+
+
 class MockSessionStartRequest(BaseModel):
     role_target: str
     seniority: str
@@ -185,8 +197,8 @@ def check_mock_limit(user_id: Optional[int], db: Session) -> dict[str, Any]:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if str(getattr(user, "plan", "free") or "free").lower() == "pro":
-        return {"allowed": True, "plan": "pro"}
+    if get_user_plan(user) in ("pro", "max"):
+        return {"allowed": True, "plan": get_user_plan(user)}
 
     month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     used_count = (
@@ -478,9 +490,10 @@ def start_mock_session(
             candidate_email = user_row["email"]
 
     # Total and code question counts
-    total_count = payload.duration_mins // 3 if payload.duration_mins else 8
-    total_count = max(5, min(total_count, 11))
-    code_count = 2 if (payload.focus_area or "mixed") in ("dsa", "mixed") else 0
+    plan = get_user_plan(current_user)
+    question_count_map = {"free": 5, "pro": 8, "max": 11}
+    total_count = question_count_map.get(plan, 5)
+    code_count = 2 if plan in ("pro", "max") and (payload.focus_area or "mixed") in ("dsa", "mixed") else 1 if plan in ("pro", "max") else 0
 
     # Map frontend role values to bank role_tags
     role_map = {
@@ -728,8 +741,13 @@ def get_mock_report(
             coaching_report = None
     questions_data = coaching_report.get("questions", []) if isinstance(coaching_report, dict) else []
     coaching_pending = len(questions_data) == 0
+    plan = get_user_plan(current_user)
+    if plan == "free":
+        for q in questions_data:
+            q["better_answer"] = None
 
     return {
+        "plan": plan,
         "session": {
             "id": str(session.id),
             "role_target": session.role_target,

@@ -3,7 +3,7 @@
 
 import { Inter } from "next/font/google";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import { Navbar } from "./components/Navbar";
+
 import { HeroSection } from "./components/HeroSection";
 import ChallangesSection from "./components/Challenges";
 import { CompanyPrep } from "./components/CompanyPrep";
@@ -26,7 +26,7 @@ export default function Page() {
 
   return (
     <div className={`${inter.className} min-h-screen overflow-x-hidden bg-white text-slate-900`}>
-      <Navbar />
+      
       <main className="pt-20">
         {/* Hero Section */}
         <HeroSection />  

@@ -14,6 +14,7 @@ class UserOut(BaseModel):
     is_active: bool
     is_superuser: bool
     roles: List[str] = []
+    plan: str = "free"
 
     class Config:
         from_attributes = True
