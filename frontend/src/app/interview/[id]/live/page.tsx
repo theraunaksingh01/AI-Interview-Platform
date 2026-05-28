@@ -23,7 +23,6 @@ import { useCoaching, type CoachingState } from "@/hooks/useCoaching";
 import CoachingOverlay from "@/components/CoachingOverlay";
 
 const Monaco = dynamic(() => import("@monaco-editor/react"), { ssr: false });
-
 type Lang = "javascript" | "python" | "java" | "cpp";
 type SampleCase = { input: string; expected: string };
 
@@ -66,6 +65,7 @@ interface InterviewRoomProps {
   onCoachingUpdate?: (state: CoachingState) => void;
   rightPane?: ReactNode;
   renderCoachingOverlay?: boolean;
+  onMockSessionComplete?: (stats: { answeredCount: number; elapsedMs: number }) => void;
 }
 
 export function InterviewRoom({
@@ -77,6 +77,7 @@ export function InterviewRoom({
   onCoachingUpdate,
   rightPane,
   renderCoachingOverlay = true,
+  onMockSessionComplete,
 }: InterviewRoomProps) {
   const router = useRouter();
 
@@ -103,6 +104,8 @@ export function InterviewRoom({
   const currentQuestionIdRef = useRef<number | null>(null);
   const lastMockStartedQuestionRef = useRef<number | null>(null);
   const delayedStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interviewStartMsRef = useRef(Date.now());
+  const answeredCountRef = useRef(0);
 
   // ── State ─────────────────────────────────────────────────────────
   const [questionText, setQuestionText]         = useState("");
@@ -410,6 +413,15 @@ export function InterviewRoom({
                 });
               } catch {
                 // Let user continue to report page; it can show pending/error state.
+              }
+
+              onMockSessionComplete?.({
+                answeredCount: answeredCountRef.current,
+                elapsedMs: Date.now() - interviewStartMsRef.current,
+              });
+
+              if (onMockSessionComplete) {
+                return;
               }
 
               setTimeout(() => {
@@ -758,6 +770,7 @@ export function InterviewRoom({
     );
 
     captureCoachingForCompletedAnswer();
+    answeredCountRef.current += 1;
 
     if (isMockMode) {
       // Dispatch submission event for retry loop
@@ -890,6 +903,7 @@ export function InterviewRoom({
     );
 
     captureCoachingForCompletedAnswer();
+    answeredCountRef.current += 1;
 
     if (isMockMode) {
       window.dispatchEvent(

@@ -47,6 +47,24 @@ function LoaderSpinner() {
 export default function MockLandingPage() {
   const router = useRouter();
   const { user } = useAuth();
+  // Pre-fill from onboarding if first visit
+  useEffect(() => {
+    const onboardingRole = localStorage.getItem("onboarding_role");
+    const onboardingLevel = localStorage.getItem("onboarding_level");
+    if (onboardingRole && !role) {
+      setRole(onboardingRole);
+      localStorage.removeItem("onboarding_role");
+    }
+    if (onboardingLevel && !difficulty) {
+      const levelMap: Record<string, string> = {
+        beginner: "beginner",
+        intermediate: "intermediate",
+        ready: "advanced",
+      };
+      setDifficulty(levelMap[onboardingLevel] || onboardingLevel);
+      localStorage.removeItem("onboarding_level");
+    }
+  }, []);
   const userPlan = user?.plan ?? "free";
   const questionCount = PLAN_QUESTIONS[userPlan] ?? 5;
   const sessionMins = questionCount * 3;

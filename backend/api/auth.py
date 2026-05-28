@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api import deps
@@ -34,6 +35,27 @@ class RegisterPayload(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+
+
+class OnboardingPayload(BaseModel):
+    college: Optional[str] = None
+    year_of_study: Optional[str] = None
+    branch: Optional[str] = None
+    placement_goal: Optional[str] = None
+    target_roles: Optional[list] = None
+    self_level: Optional[str] = None
+
+
+class UpdateMePayload(BaseModel):
+    full_name: Optional[str] = None
+    college: Optional[str] = None
+    year_of_study: Optional[str] = None
+    branch: Optional[str] = None
+    target_companies: Optional[list[str]] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
 
 
 class TokenOut(Token):  
@@ -124,6 +146,46 @@ def register(payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> An
     return _issue_access_token(user)
 
 
+@router.post("/onboarding")
+def save_onboarding(
+    payload: OnboardingPayload,
+    current_user: db_models.User = Depends(deps.get_current_user),
+    db: Session = Depends(deps.get_db),
+) -> Any:
+    """
+    Save onboarding profile for a newly registered user.
+    Sets onboarding_done = True on completion.
+    """
+    import json
+
+    updates = {}
+    if payload.college is not None:
+        updates["college"] = payload.college[:200]
+    if payload.year_of_study is not None:
+        updates["year_of_study"] = payload.year_of_study
+    if payload.branch is not None:
+        updates["branch"] = payload.branch
+    if payload.placement_goal is not None:
+        updates["placement_goal"] = payload.placement_goal
+    if payload.target_roles is not None:
+        updates["target_roles"] = json.dumps(payload.target_roles)
+    if payload.self_level is not None:
+        updates["self_level"] = payload.self_level
+
+    updates["onboarding_done"] = True
+
+    if updates:
+        set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+        updates["uid"] = current_user.id
+        db.execute(
+            text(f"UPDATE users SET {set_clause} WHERE id = :uid"),
+            updates,
+        )
+        db.commit()
+
+    return {"ok": True, "onboarding_done": True}
+
+
 @router.get("/me", response_model=UserOut)
 def read_myself(current_user: db_models.User = Depends(deps.get_current_user)):
     """
@@ -135,11 +197,50 @@ def read_myself(current_user: db_models.User = Depends(deps.get_current_user)):
         "id": current_user.id,
         "email": current_user.email,
         "full_name": getattr(current_user, "full_name", None),
+        "college": getattr(current_user, "college", None),
+        "year_of_study": getattr(current_user, "year_of_study", None),
+        "branch": getattr(current_user, "branch", None),
         "is_active": getattr(current_user, "is_active", True),
         "is_superuser": getattr(current_user, "is_superuser", False),
         "roles": roles,
         "plan": getattr(current_user, "plan", "free") or "free",
+        "onboarding_done": getattr(current_user, "onboarding_done", False) or False,
+        "target_roles": getattr(current_user, "target_roles", []) or [],
+        "self_level": getattr(current_user, "self_level", None),
+        "placement_goal": getattr(current_user, "placement_goal", None),
+        "target_companies": getattr(current_user, "target_companies", []) or [],
+        "linkedin_url": getattr(current_user, "linkedin_url", None),
+        "github_url": getattr(current_user, "github_url", None),
     }
+
+
+@router.patch("/me", response_model=UserOut)
+def update_me(
+    payload: UpdateMePayload,
+    db: Session = Depends(deps.get_db),
+    current_user: db_models.User = Depends(deps.get_current_user),
+):
+    if payload.full_name is not None:
+        current_user.full_name = payload.full_name
+    if payload.college is not None:
+        current_user.college = payload.college
+    if payload.year_of_study is not None:
+        current_user.year_of_study = payload.year_of_study
+    if payload.branch is not None:
+        current_user.branch = payload.branch
+    if payload.target_companies is not None:
+        current_user.target_companies = payload.target_companies
+    if payload.linkedin_url is not None:
+        current_user.linkedin_url = payload.linkedin_url
+    if payload.github_url is not None:
+        current_user.github_url = payload.github_url
+    if payload.new_password:
+        if not payload.current_password or not security.verify_password(payload.current_password, current_user.hashed_password):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password incorrect")
+        current_user.hashed_password = security.get_password_hash(payload.new_password)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.get("/admin-only")
