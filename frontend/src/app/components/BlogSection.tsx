@@ -21,6 +21,7 @@ const featuredPost = {
 const posts = [
   {
     id: 1,
+    slug: "system-design-failures",
     category: "System Design",
     categoryColor: "#ede9fe",
     categoryText: "#5b21b6",
@@ -30,6 +31,7 @@ const posts = [
   },
   {
     id: 2,
+    slug: "star-method-overrated",
     category: "Behavioural",
     categoryColor: "#fef3c7",
     categoryText: "#92400e",
@@ -39,6 +41,7 @@ const posts = [
   },
   {
     id: 3,
+    slug: "mock-interview-not-working",
     category: "Mock Tips",
     categoryColor: "#fee2e2",
     categoryText: "#991b1b",
@@ -144,7 +147,7 @@ export default function BlogSection() {
                   <span className="author-role">{featuredPost.author.role}</span>
                 </div>
               </div>
-              <a href="#" className="read-link">
+              <a href="/blog/tell-me-about-yourself" className="read-link">
                 Read article →
               </a>
             </div>
@@ -154,7 +157,7 @@ export default function BlogSection() {
         {/* Three cards */}
         <div className="posts-grid">
           {posts.map((p) => (
-            <a href="#" className="post-card" key={p.id}>
+            <a href={`/blog/${p.slug}`} className="post-card" key={p.id}>
               <div className="post-image-wrap">
                 {/* Replace with <Image> when you have assets */}
                 <div className="post-image-placeholder">
@@ -180,7 +183,7 @@ export default function BlogSection() {
 
         {/* View all */}
         <div className="blog-footer">
-          <a href="#" className="view-all-btn">
+          <a href="/blog" className="view-all-btn">
             View all articles
           </a>
         </div>

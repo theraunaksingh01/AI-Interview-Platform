@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
 const PUBLIC_NAV = [
-  { name: "Features", href: "/#features" },
+  { name: "Features", href: "/features" },
   { name: "Pricing", href: "/pricing" },
-  { name: "About", href: "/#about" },
+  { name: "About", href: "/about" },
 ];
 
 const APP_NAV = [
