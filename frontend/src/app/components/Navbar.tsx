@@ -16,6 +16,7 @@ const PUBLIC_NAV = [
 
 const APP_NAV = [
   { name: "Practice", href: "/mock" },
+  { name: "Daily", href: "/daily" },
   { name: "Dashboard", href: "/mock/dashboard" },
   { name: "Pricing", href: "/pricing" },
 ];

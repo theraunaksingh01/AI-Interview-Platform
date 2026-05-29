@@ -3,6 +3,7 @@ import "./style/globals.css";
 import { ReactNode } from "react";
 import { Providers } from "./providers";
 import { NavbarWrapper } from "@/app/components/NavbarWrapper";
+import { DailyPopup } from "@/app/components/DailyPopup";
 
 export const metadata = {
   title: "AI Interview Platform",
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Providers>
           <NavbarWrapper />
           {children}
+          <DailyPopup />
         </Providers>
       </body>
     </html>

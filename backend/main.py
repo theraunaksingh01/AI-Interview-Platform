@@ -85,6 +85,7 @@ from api import rubric
 from api import candidates
 from api import interview_token
 from api import mock
+from api import daily as daily_api
 
 
 
@@ -131,6 +132,7 @@ app.include_router(rubric.router)
 app.include_router(candidates.router)
 app.include_router(interview_token.router)
 app.include_router(mock.router)
+app.include_router(daily_api.router)
 
 
 _startup_import_error = None
