@@ -79,6 +79,7 @@ CANDIDATE_MODULES = [
     "tasks.live_scoring",
     "tasks.report_pdf",
     "tasks.code_grade",   # keep here if/when you add tasks/code_grade.py
+    "tasks.generate_coaching_report",
 ]
 
 def _module_exists(modname: str) -> bool:

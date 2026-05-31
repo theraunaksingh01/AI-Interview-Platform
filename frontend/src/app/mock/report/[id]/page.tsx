@@ -450,7 +450,7 @@ export default function MockReportPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA] px-4 pb-16 pt-10 sm:px-8">
+    <main className="min-h-screen bg-[#FAFAFA] px-4 pb-16 pt-28 sm:px-8">
       <div className="mx-auto max-w-215 space-y-6">
 
         {/* ── Header ── */}

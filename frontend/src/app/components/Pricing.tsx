@@ -32,10 +32,10 @@ const plans = [
   {
     name: "Pro",
     badge: "Most Popular",
-    price: "₹149",
+    price: "₹199",
     period: "per month",
     desc: "Everything you need to crack placements.",
-    cta: "Start Pro — ₹149/mo",
+    cta: "Start Pro — ₹199/mo",
     ctaStyle: {
       background: "#111111",
       color: "white",
@@ -57,10 +57,10 @@ const plans = [
   {
     name: "Max",
     badge: null,
-    price: "₹299",
+    price: "₹499",
     period: "per month",
     desc: "For serious candidates who want every edge.",
-    cta: "Start Max — ₹299/mo",
+    cta: "Start Max — ₹499/mo",
     ctaStyle: {
       background: "white",
       color: "#111",

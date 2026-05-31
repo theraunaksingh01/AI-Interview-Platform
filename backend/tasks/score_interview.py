@@ -1174,7 +1174,16 @@ def score_question(interview_question_id: int, triggered_by: str = "system") -> 
             await asyncio.sleep(0)
             return True
 
-        asyncio.run(_call_and_process())
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(_call_and_process())
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(_call_and_process())
 
         # Update interview_answers with ai_feedback + llm_raw
         try:
@@ -1541,7 +1550,16 @@ def score_interview(interview_id: str, triggered_by: str = "system") -> Dict[str
             return True
 
         # run scoring
-        asyncio.run(_score_all())
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(_score_all())
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(_score_all())
         db.commit()
 
         # compute aggregated fallback values

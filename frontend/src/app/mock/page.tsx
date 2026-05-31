@@ -65,6 +65,18 @@ export default function MockLandingPage() {
       localStorage.removeItem("onboarding_level");
     }
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prefillRole = params.get("prefill_role");
+    const prefillDifficulty = params.get("prefill_difficulty");
+    if (prefillRole && ROLES.find(r => r.value === prefillRole)) {
+      setRole(prefillRole);
+    }
+    if (prefillDifficulty && ["beginner","intermediate","advanced"].includes(prefillDifficulty)) {
+      setDifficulty(prefillDifficulty);
+    }
+  }, []);
   const userPlan = user?.plan ?? "free";
   const questionCount = PLAN_QUESTIONS[userPlan] ?? 5;
   const sessionMins = questionCount * 3;

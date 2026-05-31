@@ -147,7 +147,15 @@ def run_live_question_scoring(
 
     # Call LLM (reuse the scoring module's _llm_json which handles provider routing)
     try:
-        fb, raw = asyncio.run(_score_llm_json(prompt))
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        fb, raw = loop.run_until_complete(_score_llm_json(prompt))
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        fb, raw = loop.run_until_complete(_score_llm_json(prompt))
     except Exception as e:
         log.exception("[LIVE_SCORING] LLM call failed (%s) — using heuristic fallback", str(e))
         return _heuristic_fallback(transcript)
