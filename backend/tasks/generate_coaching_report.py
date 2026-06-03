@@ -348,6 +348,26 @@ def generate_coaching_report(self, session_id: str) -> Dict[str, Any]:
                 "sid": str(session_uuid),
             },
         )
+
+        # Sync overall_score from interviews → mock_sessions
+        try:
+            db.execute(
+                text("""
+                    UPDATE mock_sessions ms
+                    SET overall_score = (
+                        SELECT i.overall_score
+                        FROM interviews i
+                        WHERE i.mock_session_id = ms.id
+                        ORDER BY i.created_at DESC
+                        LIMIT 1
+                    )
+                    WHERE ms.id = CAST(:sid AS uuid)
+                """),
+                {"sid": str(session_uuid)},
+            )
+        except Exception as e:
+            log.warning("[COACHING_REPORT] Failed to sync overall_score: %s", e)
+
         db.commit()
 
         log.info(
