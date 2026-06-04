@@ -135,7 +135,7 @@ export default function SettingsPage() {
       setLoadingError(null);
       try {
         const token = localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN");
-        const res = await fetch("/api/auth/me", {
+        const res = await fetch("/auth/me", {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!res.ok) {
@@ -200,7 +200,7 @@ export default function SettingsPage() {
     setSavingProfile(true);
     try {
       const token = localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN");
-      const res = await fetch("/api/auth/me", {
+      const res = await fetch("/auth/me", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -236,7 +236,7 @@ export default function SettingsPage() {
     setSavingPassword(true);
     try {
       const token = localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN");
-      const res = await fetch("/api/auth/me", {
+      const res = await fetch("/auth/me", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

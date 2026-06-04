@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useAuth } from "@/context/AuthContext";
+import { CalendarWidget } from "@/app/components/CalendarWidget";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE ||
@@ -365,25 +366,29 @@ export default function MockDashboardPage() {
   const improvement = data?.improvement ?? null;
 
   return (
-    <main className="min-h-screen bg-[#F9FAFB] px-4 pb-16 pt-10 sm:px-8">
+    <main className="min-h-screen bg-[#F9FAFB] px-4 pb-16 pt-28 sm:px-8">
       <div className="mx-auto max-w-[1100px] space-y-8">
 
         {/* ── Header ── */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] font-bold text-[#111]">
-              Progress Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-[#6B7280]">
-              Track your improvement over time
-            </p>
-          </div>
-          <div className="rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-4 py-1.5 text-sm font-medium text-[#92400E]">
-            🔥 {data?.streak || 0} day streak
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-[28px] font-bold text-[#111]">
+                Progress Dashboard
+              </h1>
+              <p className="mt-1 text-sm text-[#6B7280]">
+                Track your improvement over time
+              </p>
+            </div>
+            <div className="rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-4 py-1.5 text-sm font-medium text-[#92400E]">
+              🔥 {data?.streak || 0} day streak
+            </div>
           </div>
         </div>
 
         {/* ── Top stats bar ── */}
+        <CalendarWidget />
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
             label="Total Sessions"

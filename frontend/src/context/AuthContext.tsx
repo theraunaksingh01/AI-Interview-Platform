@@ -30,7 +30,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Public routes that don't require authentication */
-const PUBLIC_ROUTES = ["/", "/login", "/signup", "/forgot-password", "/candidate/submit", "/candidate/interview", "/mock", "/pricing", "/daily"];
+const PUBLIC_ROUTES = ["/", "/login", "/signup", "/forgot-password", "/candidate/submit", "/candidate/interview", "/mock", "/pricing", "/daily", "/calendar"];
 
 function isPublicRoute(path: string): boolean {
   return PUBLIC_ROUTES.some((r) => path === r || path.startsWith(r + "/"));

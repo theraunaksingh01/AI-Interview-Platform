@@ -18,6 +18,7 @@ const APP_NAV = [
   { name: "Practice", href: "/mock" },
   { name: "Daily", href: "/daily" },
   { name: "Dashboard", href: "/mock/dashboard" },
+  { name: "Calendar", href: "/calendar" },
   { name: "Pricing", href: "/pricing" },
 ];
 
