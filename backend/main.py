@@ -86,6 +86,7 @@ from api import candidates
 from api import interview_token
 from api import mock
 from api import calendar as calendar_api
+from api import passport as passport_api
 from api import daily as daily_api
 
 
@@ -134,6 +135,7 @@ app.include_router(candidates.router)
 app.include_router(interview_token.router)
 app.include_router(mock.router)
 app.include_router(calendar_api.router)
+app.include_router(passport_api.router)
 app.include_router(daily_api.router)
 
 
