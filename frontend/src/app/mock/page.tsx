@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { AnimatePresence, motion } from "framer-motion";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
 
@@ -40,6 +41,170 @@ const PLAN_LABEL: Record<string, string> = { free: "Free", pro: "Pro", max: "Max
 
 function LoaderSpinner() {
   return <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />;
+}
+
+function SessionLimitModal({ onClose }: { onClose: () => void }) {
+  const [selected, setSelected] = useState<"pro" | "max">("max");
+
+  const plans = {
+    pro: {
+      price: "₹199",
+      label: "Pro",
+      questions: 8,
+      features: [
+        "Unlimited sessions every month",
+        "8 questions per session",
+        "Model answers after every question",
+        "Company-specific prep questions",
+        "Full Skill Passport + progress tracking",
+      ],
+    },
+    max: {
+      price: "₹499",
+      label: "Max",
+      questions: 11,
+      features: [
+        "Unlimited sessions every month",
+        "11 questions per session",
+        "Model answers after every question",
+        "Company-specific prep questions",
+        "Full Skill Passport + progress tracking",
+        "Retry any answer on the report",
+        "Priority AI scoring",
+      ],
+    },
+  };
+
+  const current = plans[selected];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-105 overflow-hidden bg-white sm:rounded-3xl rounded-t-3xl"
+        style={{
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+      >
+
+        {/* ── Hero top ── */}
+        <div className="relative overflow-hidden px-7 pt-6 pb-4 text-center"
+          style={{ background: "linear-gradient(160deg, #FFFDF0 0%, #FFF9D6 100%)" }}>
+
+          {/* Close button */}
+          <button onClick={onClose}
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[#374151] hover:bg-white transition text-[16px] shadow-sm">
+            ×
+          </button>
+
+          {/* Central score ring */}
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl border-2 border-yellow-400 bg-white shadow-md">
+            <div className="text-center">
+              <p className="text-[22px] font-black text-[#111] leading-none">3</p>
+              <p className="text-[9px] text-[#9CA3AF] uppercase tracking-wide">/ 3 used</p>
+            </div>
+          </div>
+
+          <h2 className="text-[18px] font-black text-[#111] leading-tight mb-1" style={{ letterSpacing: "-0.5px" }}>
+            You&apos;ve used all your
+          </h2>
+          <p className="text-[18px] font-black leading-tight" style={{ letterSpacing: "-0.5px" }}>
+            <span style={{ background: "#FFD600", padding: "1px 10px", borderRadius: "6px", fontStyle: "italic" }}>
+              free sessions
+            </span>
+          </p>
+          <p className="mt-1 text-[13px] text-[#6B7280]">
+            Upgrade to keep practising — your next interview won&apos;t wait.
+          </p>
+        </div>
+
+        {/* ── Plan selector ── */}
+        <div className="px-7 pt-4">
+          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Select your plan</p>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            {(["pro", "max"] as const).map((plan) => (
+              <button
+                key={plan}
+                onClick={() => setSelected(plan)}
+                className={`relative rounded-2xl border-2 px-4 py-3 text-left transition-all ${
+                  selected === plan
+                    ? "border-[#111] bg-[#111]"
+                    : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
+                }`}
+              >
+                {plan === "max" && (
+                  <span className="absolute -top-2 left-3 rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-[#111]">
+                    BEST VALUE
+                  </span>
+                )}
+                <p className={`text-[15px] font-black mb-0.5 ${selected === plan ? "text-white" : "text-[#111]"}`}>
+                  {plans[plan].label}
+                </p>
+                <p className={`text-[18px] font-black leading-none ${selected === plan ? "text-white" : "text-[#111]"}`}>
+                  {plans[plan].price}
+                  <span className={`text-[11px] font-medium ml-1 ${selected === plan ? "text-white/50" : "text-[#9CA3AF]"}`}>
+                    /mo
+                  </span>
+                </p>
+              </button>
+            ))}
+          </div>
+
+          {/* What you get */}
+          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">What you get</p>
+          <div className="space-y-2 mb-6">
+            {current.features.map((f, i) => (
+              <motion.div
+                key={f}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-center gap-2.5"
+              >
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#111] text-[9px] font-black text-white">
+                  ✓
+                </div>
+                <p className="text-[13px] text-[#374151]">{f}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Sticky CTA ── */}
+        <div className="border-t border-[#F3F4F6] px-7 py-4 bg-white">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[13px] text-[#6B7280]">
+              {current.label} plan
+            </p>
+            <p className="text-[18px] font-black text-[#111]">
+              {current.price}
+              <span className="text-[12px] font-medium text-[#9CA3AF] ml-1">/month</span>
+            </p>
+          </div>
+          <a href="/pricing" className="block w-full">
+            <button className="w-full rounded-2xl bg-[#111] py-3.5 text-[14px] font-black text-white hover:bg-[#333] transition active:scale-[0.99]">
+              Upgrade to {current.label} →
+            </button>
+          </a>
+          <button onClick={onClose}
+            className="mt-2.5 w-full py-2 text-center text-[12px] text-[#9CA3AF] hover:text-[#111] transition">
+            Maybe next month
+          </button>
+        </div>
+
+      </motion.div>
+    </div>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -86,6 +251,7 @@ export default function MockLandingPage() {
   const [difficulty, setDifficulty] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   // Mic
   const [micStatus, setMicStatus] = useState<"idle" | "testing" | "ready" | "blocked">("idle");
@@ -143,7 +309,8 @@ export default function MockLandingPage() {
       if (res.status === 403) {
         const body = await res.json().catch(() => ({}));
         if (body?.detail === "limit_reached") {
-          setError("You've used all 3 free sessions this month. Upgrade to Pro for unlimited sessions.");
+          setShowLimitModal(true);
+          setError("");
           return;
         }
       }
@@ -347,7 +514,7 @@ export default function MockLandingPage() {
                 )}
               </button>
 
-              {error && (
+              {error && !showLimitModal && (
                 <div className="mt-3 rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-[13px] text-rose-700">
                   {error}
                   {error.includes("upgrade") && (
@@ -467,6 +634,11 @@ export default function MockLandingPage() {
 
           </div>
         </div>
+      <AnimatePresence>
+        {showLimitModal && (
+          <SessionLimitModal onClose={() => setShowLimitModal(false)} />
+        )}
+      </AnimatePresence>
       </div>
     </main>
   );
