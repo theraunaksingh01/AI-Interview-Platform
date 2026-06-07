@@ -20,7 +20,10 @@ import {
 } from "lucide-react";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
 import { useCoaching, type CoachingState } from "@/hooks/useCoaching";
+import { useInterruption } from "@/hooks/useInterruption";
 import CoachingOverlay from "@/components/CoachingOverlay";
+import { InterruptionBubble } from "@/components/InterruptionBubble";
+import { useAuth } from "@/context/AuthContext";
 
 const Monaco = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 type Lang = "javascript" | "python" | "java" | "cpp";
@@ -61,6 +64,9 @@ interface InterviewRoomProps {
   mockSessionId?: string;
   isMockMode?: boolean;
   isCompanyMode?: boolean;
+  role?: string;
+  company?: string;
+  userPlan?: "free" | "pro" | "max";
   onTranscriptChunk?: (chunk: string) => void;
   onCoachingUpdate?: (state: CoachingState) => void;
   rightPane?: ReactNode;
@@ -73,6 +79,9 @@ export function InterviewRoom({
   mockSessionId,
   isMockMode = false,
   isCompanyMode = true,
+  role,
+  company,
+  userPlan,
   onTranscriptChunk,
   onCoachingUpdate,
   rightPane,
@@ -80,6 +89,8 @@ export function InterviewRoom({
   onMockSessionComplete,
 }: InterviewRoomProps) {
   const router = useRouter();
+  const { user } = useAuth();
+  const resolvedUserPlan = userPlan ?? user?.plan ?? "free";
 
   type SessionCoachingAggregate = {
     answerCount: number;
@@ -106,6 +117,7 @@ export function InterviewRoom({
   const delayedStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interviewStartMsRef = useRef(Date.now());
   const answeredCountRef = useRef(0);
+  const answerStartMsRef = useRef(0);
 
   // ── State ─────────────────────────────────────────────────────────
   const [questionText, setQuestionText]         = useState("");
@@ -120,6 +132,7 @@ export function InterviewRoom({
   const [interruptText, setInterruptText]       = useState("");
   const [questionType, setQuestionType]         = useState<"voice" | "code">("voice");
   const [isFollowup, setIsFollowup]             = useState(false);
+  const [followupLabel, setFollowupLabel]       = useState<string | null>(null);
   const [codeAnswer, setCodeAnswer]             = useState("");
   const [currentQuestionId, setCurrentQuestionId] = useState<number | null>(null);
   const interruptedRef                          = useRef(false);
@@ -153,6 +166,20 @@ export function InterviewRoom({
     questionType,
   });
   const coachingControls = { onAudioActivity, ingestTranscriptChunk };
+
+  const {
+    activeInterruption,
+    markAnswerStart,
+    evaluate,
+    dismiss,
+    resetSession,
+  } = useInterruption({
+    questionText: questionText || "",
+    role: role || "Software Engineer",
+    company: company || "the company",
+    enabled: resolvedUserPlan === "pro" || resolvedUserPlan === "max",
+    questionId: currentQuestionId,
+  });
 
   function captureCoachingForCompletedAnswer() {
     if (!isMockMode) return;
@@ -197,6 +224,30 @@ export function InterviewRoom({
       onCoachingUpdate(coaching);
     }
   }, [coaching, isMockMode, onCoachingUpdate]);
+
+  useEffect(() => {
+    resetSession();
+  }, [interviewId, resetSession]);
+
+  useEffect(() => {
+    if (!candidateSpeaking || questionType !== "voice" || !answerStartMsRef.current) return;
+
+    evaluate({
+      transcript: coaching.fullTranscript,
+      speakingSecs: Math.floor((Date.now() - answerStartMsRef.current) / 1000),
+      silenceSecs: coaching.currentSilenceSecs,
+      wpm: coaching.wpm,
+      fillerCount: Object.values(coaching.fillerCounts).reduce((a, b) => a + b, 0),
+    });
+  }, [
+    coaching.fullTranscript,
+    coaching.currentSilenceSecs,
+    coaching.wpm,
+    coaching.fillerCounts,
+    candidateSpeaking,
+    questionType,
+    evaluate,
+  ]);
 
   function scheduleStartAnswer(delayMs = 1000) {
     if (delayedStartTimeoutRef.current) {
@@ -312,7 +363,13 @@ export function InterviewRoom({
         if (msg.question_type) {
           setQuestionType(isCodingLikeQuestionType(msg.question_type) ? "code" : "voice");
         }
-        setIsFollowup(!!msg.is_followup);
+        if (msg.is_followup) {
+          setIsFollowup(true);
+          setFollowupLabel("Follow-up question");
+        } else {
+          setIsFollowup(false);
+          setFollowupLabel(null);
+        }
 
         if (msg.type === "agent_message" && msg.question_id && isMockMode) {
           const qType = isCodingLikeQuestionType(msg.question_type) ? "code" : "voice";
@@ -348,6 +405,7 @@ export function InterviewRoom({
             delayedStartTimeoutRef.current = null;
           }
           lastMockStartedQuestionRef.current = null;
+          answerStartMsRef.current = 0;
           resetAnswer();
         }
 
@@ -574,6 +632,9 @@ export function InterviewRoom({
       candidateSpeakingRef.current = false;
       return;
     }
+
+    answerStartMsRef.current = Date.now();
+    markAnswerStart();
 
     // ── Web Speech API — primary live transcription (Chrome / Edge) ──
     const SpeechRecognition =
@@ -949,6 +1010,11 @@ export function InterviewRoom({
     <div className="flex flex-col h-screen bg-gradient-to-b from-slate-50 to-white text-gray-900">
       <audio ref={agentAudioRef} preload="auto" />
 
+      <InterruptionBubble
+        interruption={activeInterruption}
+        onDismiss={dismiss}
+      />
+
       {/* ── Top Header Bar ── */}
       <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
         {/* Left: Brand */}
@@ -1008,13 +1074,19 @@ export function InterviewRoom({
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-medium text-indigo-600">AI Interviewer</span>
-                    {isFollowup && (
-                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                        Follow-up
-                      </span>
-                    )}
                     <span className="text-[10px] text-gray-400">{statusConfig[agentStatus].label}</span>
                   </div>
+                  {isFollowup && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-1.5 rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+                        <span className="text-[11px] font-black uppercase tracking-widest text-[#92400E]">
+                          {followupLabel || "Follow-up question"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#9CA3AF]">Based on your previous answer</span>
+                    </div>
+                  )}
                   <p className="text-base text-gray-800 leading-relaxed">
                     {questionText || "Connecting to interview..."}
                   </p>

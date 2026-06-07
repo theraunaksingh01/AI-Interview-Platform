@@ -88,7 +88,7 @@ from api import mock
 from api import calendar as calendar_api
 from api import passport as passport_api
 from api import daily as daily_api
-
+from api import interruption as interruption_api
 
 
 
@@ -138,6 +138,7 @@ app.include_router(calendar_api.router)
 app.include_router(passport_api.router)
 app.include_router(daily_api.router)
 
+app.include_router(interruption_api.router)
 
 _startup_import_error = None
 

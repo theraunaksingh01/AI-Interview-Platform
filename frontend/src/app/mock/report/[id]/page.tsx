@@ -17,6 +17,7 @@ type QuestionData = {
   filler_count: number | null;
   topic: string | null;
   position: number | null;
+  is_followup?: boolean;
 };
 
 type ReportResponse = {
@@ -157,6 +158,21 @@ function QuestionCard({ q, index, userPlan }: { q: QuestionData; index: number; 
           <span className="text-[#9CA3AF] text-sm">{expanded ? "▲" : "▼"}</span>
         </div>
       </div>
+
+      {userPlan === "free" && !q.is_followup && (
+        <div className="mx-5 mb-3 rounded-xl border border-dashed border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 flex items-start gap-2">
+          <span className="text-[14px] mt-0.5">💡</span>
+          <div>
+            <p className="text-[12px] font-bold text-[#374151]">
+              A real interviewer would have probed deeper here.
+            </p>
+            <p className="text-[11px] text-[#9CA3AF] mt-0.5">
+              Unlock follow-up questions with Pro — they reveal whether you truly understand or just memorised.{" "}
+              <a href="/pricing" className="font-bold text-[#111] underline">Upgrade →</a>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Expanded content */}
       {expanded && (

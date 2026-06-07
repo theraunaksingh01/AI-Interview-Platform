@@ -73,20 +73,105 @@ async def _queue_followup_task(
     interview_id: UUID,
     question_id: int | None,
     transcript_text: str,
+    score: float = 5.0,
+    role: str = "Software Engineer",
+    company: str = "the company",
+    plan: str = "free",
 ) -> None:
-    # Follow-up generation is cancelled for submitted answers to avoid races
-    # with next-question delivery.
-    state = get_interview_state(interview_id)
-    logger.info(
-        "[followup] checking eligibility for %s, submitted=%s",
-        interview_id,
-        state.get("answer_submitted"),
+    """
+    Generate and insert a follow-up question if eligible.
+    Runs as a background asyncio task after the student submits an answer.
+    """
+    from services.followup_generator import (
+        generate_followup,
+        has_followup_for_question,
+        insert_followup_question,
+        get_session_followup_count,
+        FOLLOWUP_PLANS,
     )
+
+    # Plan gate — follow-ups only for Pro/Max
+    if plan not in FOLLOWUP_PLANS:
+        logger.info("[followup] plan=%s not eligible for follow-ups", plan)
+        return
 
     if not FOLLOWUP_ENABLED or not question_id or not transcript_text.strip():
         return
+
+    state = get_interview_state(interview_id)
     if state.get("answer_submitted", False):
         return
+
+    db = None
+    try:
+        from db.session import SessionLocal
+        db = SessionLocal()
+
+        # Check session cap
+        followup_count = get_session_followup_count(db, str(interview_id))
+        if followup_count >= 3:
+            logger.info("[followup] session cap reached (%d)", followup_count)
+            return
+
+        # Check if already has follow-up for this question
+        if has_followup_for_question(db, question_id):
+            logger.info("[followup] already has follow-up for q=%d", question_id)
+            return
+
+        # Get question text
+        q_row = db.execute(
+            text("SELECT question_text FROM interview_questions WHERE id = :qid"),
+            {"qid": question_id},
+        ).mappings().first()
+
+        if not q_row:
+            return
+
+        question_text = q_row["question_text"]
+
+        # Generate follow-up decision via Claude
+        result = generate_followup(
+            question_text=question_text,
+            transcript=transcript_text,
+            score=score,
+            role=role,
+            company=company,
+            interview_id=str(interview_id),
+            db=db,
+        )
+
+        if not result or not result.get("followup"):
+            logger.info("[followup] no follow-up warranted for q=%d", question_id)
+            return
+
+        followup_q = result.get("question", "").strip()
+        if not followup_q:
+            return
+
+        # Insert follow-up question into interview_questions
+        new_q_id = insert_followup_question(
+            db=db,
+            interview_id=str(interview_id),
+            parent_question_id=question_id,
+            followup_text=followup_q,
+        )
+
+        if new_q_id:
+            logger.info(
+                "[followup] inserted follow-up q=%d (parent=%d) for interview=%s",
+                new_q_id, question_id, interview_id,
+            )
+        else:
+            logger.warning("[followup] failed to insert follow-up for q=%d", question_id)
+
+    except Exception:
+        logger.exception("[followup] unexpected error for interview=%s", interview_id)
+    finally:
+        if db:
+            try:
+                db.close()
+            except Exception:
+                pass
 
 
 async def _send_next_or_complete(db: Session, interview_id: UUID, websocket: WebSocket) -> None:
@@ -220,7 +305,43 @@ async def interview_ws(
                 # Deliver the next question immediately; scoring/follow-up work is non-blocking.
                 await _send_next_or_complete(db, interview_id, websocket)
                 asyncio.create_task(_queue_scoring_task(turn.id))
-                asyncio.create_task(_queue_followup_task(interview_id, question_id, transcript_text))
+
+                # Get score from interview_scores if available
+                _score = 5.0
+                try:
+                    score_row = db.execute(
+                        text("""
+                            SELECT overall_score FROM interview_scores
+                            WHERE interview_id = :iid
+                            ORDER BY created_at DESC LIMIT 1
+                        """),
+                        {"iid": interview_id},
+                    ).scalar()
+                    if score_row:
+                        _score = float(score_row)
+                except Exception:
+                    pass
+
+                # Get plan from interview metadata
+                _plan = "free"
+                try:
+                    plan_row = db.execute(
+                        text("""
+                            SELECT u.plan FROM interviews i
+                            JOIN users u ON u.id = i.user_id
+                            WHERE i.id = :iid
+                        """),
+                        {"iid": interview_id},
+                    ).scalar()
+                    if plan_row:
+                        _plan = plan_row
+                except Exception:
+                    pass
+
+                asyncio.create_task(_queue_followup_task(
+                    interview_id, question_id, transcript_text,
+                    score=_score, plan=_plan,
+                ))
 
             elif msg.get("type") == "candidate_code":
                 # Handle code submission from LeetCode-style IDE
