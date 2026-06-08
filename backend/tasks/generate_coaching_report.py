@@ -178,6 +178,144 @@ def _generate_session_fix(
 
 
 # ---------------------------------------------------------------------------
+# Personal coach note (last 3 sessions)
+# ---------------------------------------------------------------------------
+
+def _generate_coach_note(
+    client: anthropic.Anthropic,
+    user_id: int,
+    current_session_id: str,
+    role_target: str,
+    current_summaries: list,
+    db,
+) -> str | None:
+    """
+    Generate a personalized coaching note by analyzing
+    the student's last 3 sessions including the current one.
+    Uses Claude Sonnet for deeper analysis.
+    Returns a 3-4 sentence coaching note or None on failure.
+    """
+    try:
+        prev_sessions = db.execute(
+            text("""
+                SELECT ms.id, ms.overall_score, ms.role_target,
+                       ms.specific_fix, ms.completed_at,
+                       ms.coaching_report
+                FROM mock_sessions ms
+                WHERE ms.user_id = :uid
+                  AND ms.status = 'completed'
+                  AND ms.overall_score IS NOT NULL
+                  AND ms.id != CAST(:sid AS uuid)
+                ORDER BY ms.completed_at DESC
+                LIMIT 2
+            """),
+            {"uid": user_id, "sid": current_session_id},
+        ).mappings().all()
+
+        total_sessions = db.execute(
+            text("""
+                SELECT COUNT(*) FROM mock_sessions
+                WHERE user_id = :uid AND status = 'completed'
+            """),
+            {"uid": user_id},
+        ).scalar() or 1
+
+        history_parts = []
+
+        for i, prev in enumerate(reversed(prev_sessions), 1):
+            score = float(prev["overall_score"] or 0)
+            fix = prev["specific_fix"] or ""
+            report = prev["coaching_report"] or {}
+            if isinstance(report, str):
+                try:
+                    report = json.loads(report)
+                except Exception:
+                    report = {}
+
+            questions = report.get("questions", []) if isinstance(report, dict) else []
+            topic_scores: dict = {}
+            for q in questions:
+                topic = q.get("topic", "general")
+                s = float(q.get("score", 0) or 0)
+                if topic not in topic_scores:
+                    topic_scores[topic] = []
+                topic_scores[topic].append(s)
+
+            topic_summary = ", ".join(
+                f"{t}: {sum(v)/len(v):.0f}" for t, v in topic_scores.items() if v
+            ) if topic_scores else "no breakdown available"
+
+            history_parts.append(
+                f"Session {i} (previous): Overall {score:.0f}/100 | Topics: {topic_summary} | Key fix: {fix[:100]}"
+            )
+
+        current_score = sum(q["score"] for q in current_summaries if q["score"]) / max(len(current_summaries), 1)
+        current_topic_scores: dict = {}
+        for q in current_summaries:
+            topic = q.get("topic", "general") or "general"
+            s = float(q.get("score", 0) or 0)
+            if topic not in current_topic_scores:
+                current_topic_scores[topic] = []
+            current_topic_scores[topic].append(s)
+
+        current_topic_summary = ", ".join(
+            f"{t}: {sum(v)/len(v):.0f}" for t, v in current_topic_scores.items() if v
+        ) if current_topic_scores else "no breakdown"
+
+        all_weaknesses = []
+        for q in current_summaries:
+            all_weaknesses.extend(q.get("weaknesses", []))
+        weakness_summary = ", ".join(set(all_weaknesses[:6])) if all_weaknesses else "none recorded"
+
+        history_parts.append(
+            f"Session {len(history_parts)+1} (current): Overall {current_score:.0f}/100 | Topics: {current_topic_summary} | Weaknesses: {weakness_summary}"
+        )
+
+        session_history = "\n".join(history_parts)
+
+        prompt = f"""You are a personal interview coach for an Indian engineering student.
+
+Student profile:
+- Role target: {role_target}
+- Total sessions completed: {total_sessions}
+
+Session history (oldest to newest):
+{session_history}
+
+Write a personal coaching note for this student. Rules:
+1. Exactly 3-4 sentences. No bullet points. No headers. Plain text only.
+2. Sentence 1: Acknowledge their progress honestly. If scores improved say so with numbers. If not, be honest but kind.
+3. Sentence 2: Identify the ONE recurring pattern that is limiting them across sessions. Be specific — name the exact topic and exact behavior, not vague advice.
+4. Sentence 3: Give ONE concrete exercise to do before their next session. Must be actionable in under 30 minutes. Reference what they actually did wrong.
+5. Sentence 4 (optional): One sentence of genuine encouragement. Only include if it feels earned — don't be sycophantic.
+
+Tone: Direct, honest, like a good senior who wants them to succeed. Not corporate, not generic.
+DO NOT say "Great job" or "Keep it up" or "You're doing amazing."
+DO reference specific topics and scores from the data above."""
+
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        note = ""
+        for block in getattr(response, "content", []):
+            if getattr(block, "type", "") == "text":
+                note += getattr(block, "text", "")
+
+        note = note.strip()
+        if not note or len(note) < 20:
+            return None
+
+        return note
+
+    except Exception as e:
+        log.warning("[COACH_AGENT] Failed to generate coach note: %s", e)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Main Celery task
 # ---------------------------------------------------------------------------
 
@@ -192,7 +330,7 @@ def generate_coaching_report(self, session_id: str) -> Dict[str, Any]:
         # 1. Load session
         session_uuid = UUID(session_id)
         session_row = db.execute(
-            text("SELECT id, role_target, overall_score FROM mock_sessions WHERE id = :sid"),
+            text("SELECT id, user_id, role_target, seniority, status FROM mock_sessions WHERE id = :sid"),
             {"sid": str(session_uuid)},
         ).mappings().first()
 
@@ -369,6 +507,26 @@ def generate_coaching_report(self, session_id: str) -> Dict[str, Any]:
             log.warning("[COACHING_REPORT] Failed to sync overall_score: %s", e)
 
         db.commit()
+
+        try:
+            user_id = session_row["user_id"]
+            coach_note = _generate_coach_note(
+                client=client,
+                user_id=user_id,
+                current_session_id=str(session_uuid),
+                role_target=session_row["role_target"] or "Software Engineer",
+                current_summaries=question_summaries,
+                db=db,
+            )
+            if coach_note:
+                db.execute(
+                    text("UPDATE mock_sessions SET coach_note = :note WHERE id = CAST(:sid AS uuid)"),
+                    {"note": coach_note, "sid": str(session_uuid)},
+                )
+                db.commit()
+                log.info("[COACH_AGENT] stored coach note for session %s", session_id)
+        except Exception as e:
+            log.warning("[COACH_AGENT] non-fatal error: %s", e)
 
         log.info(
             "[COACHING_REPORT] done for session %s — %d questions, fix: %s",

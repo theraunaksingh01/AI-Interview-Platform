@@ -31,6 +31,7 @@ type ReportResponse = {
     overall_score: number | null;
     communication_score?: number | null;
     specific_fix?: string | null;
+    coach_note?: string | null;
     coaching_pattern?: string | null;
     delivery_note?: string | null;
   };
@@ -459,6 +460,7 @@ export default function MockReportPage() {
   }
 
   const { session, report, questions } = data;
+  const coachNote = data?.session?.coach_note;
   const userPlan = data.plan ?? "free";
   const displayScore = session.overall_score ?? session.communication_score ?? report?.star_avg_score ?? null;
   const sortedQuestions = [...(questions || [])].sort(
@@ -490,6 +492,34 @@ export default function MockReportPage() {
             <p className="mt-1 text-[11px] text-[#9CA3AF]">Overall Score</p>
           </div>
         </div>
+
+        {coachNote && (
+          <div className="mb-5 rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden">
+            <div
+              className="flex items-center gap-3 px-5 py-4 border-b border-[#F3F4F6]"
+              style={{ background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)" }}
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400 text-[15px] font-black text-[#111]">
+                AI
+              </div>
+              <div>
+                <p className="text-[13px] font-black text-[#111]">Your Coach</p>
+                <p className="text-[11px] text-[#9CA3AF]">
+                  Personalized note based on your last sessions
+                </p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[14px] text-[#374151] leading-relaxed">{coachNote}</p>
+            </div>
+            <div className="border-t border-[#F9FAFB] px-5 py-3 flex items-center justify-between">
+              <p className="text-[11px] text-[#9CA3AF]">Updates after every session</p>
+              <Link href="/mock" className="text-[12px] font-bold text-[#111] hover:underline">
+                Start next session →
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ── One Specific Fix ── */}
         {session.specific_fix && (

@@ -149,6 +149,7 @@ class MockSession(Base):
     behavioral_score = Column(Numeric(4, 2), nullable=True)
     communication_score = Column(Numeric(4, 2), nullable=True)
     specific_fix = Column(Text, nullable=True)
+    coach_note = Column(Text, nullable=True)
     coaching_report = Column(JSONB, nullable=True)
     started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)

@@ -329,34 +329,135 @@ export default function MockDashboardPage() {
   // ── No sessions ───────────────────────────────────────────────────────────
   if (!hasSessions) {
     return (
-      <main className="min-h-screen bg-[#F9FAFB] px-8 py-12">
+      <main className="min-h-screen bg-[#FAFAF8] px-4 pb-16 pt-28 sm:px-8">
         <div className="mx-auto max-w-[1100px]">
-          <div className="mb-8 flex items-start justify-between gap-4">
+
+          {/* Welcome header */}
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-[28px] font-bold text-[#111]">
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">
                 Progress Dashboard
+              </p>
+              <h1 style={{ fontSize: "clamp(24px, 4vw, 34px)", fontWeight: 900, letterSpacing: "-1px", color: "#111" }}>
+                Welcome to Qued{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""} 👋
               </h1>
-              <p className="mt-1 text-sm text-[#6B7280]">
-                Track your improvement over time
+              <p className="mt-1 text-[14px] text-[#6B7280]">
+                Your dashboard fills up after your first session.
               </p>
             </div>
-            <div className="rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-4 py-1.5 text-sm font-medium text-[#92400E]">
-              🔥 0 day streak
-            </div>
-          </div>
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-10 text-center">
-            <div className="text-xl font-semibold text-[#111]">
-              No sessions yet
-            </div>
-            <p className="mt-2 text-sm text-[#6B7280]">
-              Start your first mock interview to track progress
-            </p>
-            <Link
-              href="/mock"
-              className="mt-5 inline-flex rounded-lg bg-[#111] px-4 py-2 text-sm font-medium text-white hover:bg-[#333]"
-            >
-              Start Mock Interview
+            <Link href="/mock">
+              <button className="rounded-xl bg-[#111] px-5 py-2.5 text-[13px] font-black text-white hover:bg-[#333] transition">
+                Start first session →
+              </button>
             </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
+
+            {/* Left: how it works */}
+            <div className="space-y-4">
+
+              {/* Big CTA card */}
+              <div className="rounded-3xl border border-[#E5E7EB] bg-white overflow-hidden"
+                style={{ boxShadow: "0 4px 40px rgba(0,0,0,0.06)" }}>
+                <div className="px-8 py-10"
+                  style={{ background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)" }}>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-yellow-300 bg-white px-3 py-1.5 mb-5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                    <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">Ready to start</span>
+                  </div>
+                  <h2 style={{ fontSize: "clamp(22px, 3vw, 30px)", fontWeight: 900, letterSpacing: "-1px", color: "#111", lineHeight: 1.2 }}>
+                    Your first session takes<br />
+                    <span style={{ background: "#FFD600", padding: "1px 8px", borderRadius: "5px", fontStyle: "italic" }}>
+                      15 minutes.
+                    </span>
+                  </h2>
+                  <p className="mt-3 text-[14px] text-[#6B7280] leading-relaxed max-w-md">
+                    Answer 5 questions by voice. Get live coaching while you speak. See a per-question breakdown after. Your score, weaknesses, and model answers — all in the report.
+                  </p>
+                  <Link href="/mock">
+                    <button className="mt-6 rounded-xl bg-[#111] px-7 py-3.5 text-[14px] font-black text-white hover:bg-[#333] transition">
+                      Start mock interview →
+                    </button>
+                  </Link>
+                </div>
+
+                {/* 3 steps */}
+                <div className="grid grid-cols-3 divide-x divide-[#F3F4F6] border-t border-[#F3F4F6]">
+                  {[
+                    { step: "01", icon: "🎙️", title: "Answer by voice", sub: "Speak your answers naturally" },
+                    { step: "02", icon: "📊", title: "Get scored", sub: "AI scores every answer live" },
+                    { step: "03", icon: "📄", title: "See your report", sub: "Per-question feedback + model answers" },
+                  ].map(({ step, icon, title, sub }) => (
+                    <div key={step} className="px-5 py-5">
+                      <p className="text-[22px] mb-2">{icon}</p>
+                      <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">{step}</p>
+                      <p className="text-[13px] font-bold text-[#111]">{title}</p>
+                      <p className="text-[11px] text-[#9CA3AF] mt-0.5">{sub}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* What you'll unlock */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
+                  After your first session you&apos;ll unlock
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: "📈", label: "Score trend chart", sub: "Watch improvement over time" },
+                    { icon: "🎯", label: "Per-question breakdown", sub: "What you said vs what to say" },
+                    { icon: "💡", label: "Model answers", sub: "The ideal response to each question" },
+                    { icon: "🤖", label: "Personal coach note", sub: "AI identifies your recurring patterns" },
+                  ].map(({ icon, label, sub }) => (
+                    <div key={label} className="flex items-start gap-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] p-3">
+                      <span className="text-[20px] mt-0.5">{icon}</span>
+                      <div>
+                        <p className="text-[12px] font-bold text-[#111]">{label}</p>
+                        <p className="text-[11px] text-[#9CA3AF] mt-0.5">{sub}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: calendar widget + daily question */}
+            <div className="space-y-4">
+              <CalendarWidget />
+
+              {/* Daily question nudge */}
+              <div className="rounded-2xl bg-[#111] p-5">
+                <p className="text-[14px] font-black text-white mb-1">While you&apos;re here</p>
+                <p className="text-[12px] mb-4" style={{ color: "#555" }}>
+                  Answer today&apos;s daily question — it takes 2 minutes and builds your streak.
+                </p>
+                <Link href="/daily" className="block w-full rounded-xl bg-yellow-400 py-2.5 text-center text-[13px] font-black text-[#111] hover:bg-yellow-300 transition">
+                  Today&apos;s question →
+                </Link>
+              </div>
+
+              {/* Quick stats preview */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">Your stats</p>
+                <div className="space-y-3">
+                  {[
+                    { label: "Sessions completed", value: "0", note: "Do your first session" },
+                    { label: "Best score", value: "—", note: "Unlocks after session 1" },
+                    { label: "Current streak", value: "0 days", note: "Answer daily questions" },
+                  ].map(({ label, value, note }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[13px] text-[#374151]">{label}</p>
+                        <p className="text-[10px] text-[#D1D5DB]">{note}</p>
+                      </div>
+                      <p className="text-[14px] font-black text-[#D1D5DB]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>

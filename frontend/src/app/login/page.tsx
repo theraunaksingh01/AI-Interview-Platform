@@ -16,9 +16,9 @@ function LoginForm() {
   const [err, setErr] = useState<string | null>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
 
-  const next = searchParams.get("next") || "/dashboard";
+  const next = searchParams.get("next") || "/mock/dashboard";
 
-  // If already logged in, bounce to dashboard
+  // If already logged in, bounce to mock dashboard
   useEffect(() => {
     if (token) router.replace(next);
   }, [token, router, next]);
