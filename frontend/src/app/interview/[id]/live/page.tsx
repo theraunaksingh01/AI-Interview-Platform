@@ -35,10 +35,10 @@ function isCodingLikeQuestionType(questionType?: string): boolean {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
-const WS_BASE  = process.env.NEXT_PUBLIC_WS_BASE  ?? "ws://localhost:8000";
+const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE ?? "ws://localhost:8000";
 
 const PCM_SEND_THRESHOLD = 16000; // ~1 s at 16 kHz — for confidence scoring only
-const ANSWER_TIME_LIMIT  = 120;   // 2-minute countdown
+const ANSWER_TIME_LIMIT = 120;   // 2-minute countdown
 const CODE_TIME_LIMIT_MIN = 600;  // 10-minute minimum for coding questions
 const AUDIO_ACTIVITY_RMS_THRESHOLD = 0.05;
 
@@ -101,17 +101,17 @@ export function InterviewRoom({
   };
 
   // ── Refs (never stale in effects/callbacks) ──────────────────────
-  const wsRef               = useRef<WebSocket | null>(null);
-  const mediaRecorderRef    = useRef<MediaRecorder | null>(null);
-  const audioContextRef     = useRef<AudioContext | null>(null);
-  const sampleBufferRef     = useRef<number[]>([]);
-  const recognitionRef      = useRef<any>(null);          // Web Speech instance
-  const finalTranscriptRef  = useRef("");                 // confirmed SpeechRecognition text
-  const liveTranscriptRef   = useRef("");                 // latest transcript (for periodic re-send)
+  const wsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sampleBufferRef = useRef<number[]>([]);
+  const recognitionRef = useRef<any>(null);          // Web Speech instance
+  const finalTranscriptRef = useRef("");                 // confirmed SpeechRecognition text
+  const liveTranscriptRef = useRef("");                 // latest transcript (for periodic re-send)
   const candidateSpeakingRef = useRef(false);             // mirrors state — avoids stale closure
-  const liveTextDebounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const candidateVideoRef   = useRef<HTMLVideoElement | null>(null);
-  const agentAudioRef       = useRef<HTMLAudioElement | null>(null);
+  const liveTextDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const candidateVideoRef = useRef<HTMLVideoElement | null>(null);
+  const agentAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentQuestionIdRef = useRef<number | null>(null);
   const lastMockStartedQuestionRef = useRef<number | null>(null);
   const delayedStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,35 +120,35 @@ export function InterviewRoom({
   const answerStartMsRef = useRef(0);
 
   // ── State ─────────────────────────────────────────────────────────
-  const [questionText, setQuestionText]         = useState("");
-  const [agentStatus, setAgentStatus]           = useState<"idle" | "speaking" | "listening">("idle");
+  const [questionText, setQuestionText] = useState("");
+  const [agentStatus, setAgentStatus] = useState<"idle" | "speaking" | "listening">("idle");
   const [answerConfidence, setAnswerConfidence] = useState<"low" | "medium" | "high" | null>(null);
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
-  const [liveTranscript, setLiveTranscript]     = useState("");
-  const [timeLeft, setTimeLeft]                 = useState(ANSWER_TIME_LIMIT);
-  const [interviewDone, setInterviewDone]       = useState(false);
-  const [asrWarning, setAsrWarning]             = useState("");
-  const [interrupted, setInterrupted]           = useState(false);
-  const [interruptText, setInterruptText]       = useState("");
-  const [questionType, setQuestionType]         = useState<"voice" | "code">("voice");
-  const [isFollowup, setIsFollowup]             = useState(false);
-  const [followupLabel, setFollowupLabel]       = useState<string | null>(null);
-  const [codeAnswer, setCodeAnswer]             = useState("");
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
+  const [interviewDone, setInterviewDone] = useState(false);
+  const [asrWarning, setAsrWarning] = useState("");
+  const [interrupted, setInterrupted] = useState(false);
+  const [interruptText, setInterruptText] = useState("");
+  const [questionType, setQuestionType] = useState<"voice" | "code">("voice");
+  const [isFollowup, setIsFollowup] = useState(false);
+  const [followupLabel, setFollowupLabel] = useState<string | null>(null);
+  const [codeAnswer, setCodeAnswer] = useState("");
   const [currentQuestionId, setCurrentQuestionId] = useState<number | null>(null);
-  const interruptedRef                          = useRef(false);
+  const interruptedRef = useRef(false);
 
   // ── Code IDE state ────────────────────────────────────────────────
-  const [lang, setLang]                         = useState<Lang>("python");
-  const [codeDescription, setCodeDescription]   = useState("");
-  const [sampleCases, setSampleCases]           = useState<SampleCase[]>([]);
-  const [activeCaseIdx, setActiveCaseIdx]       = useState(0);
-  const [runOutput, setRunOutput]               = useState("");
-  const [runVerdict, setRunVerdict]             = useState<"pass" | "fail" | "error" | null>(null);
-  const [runningCode, setRunningCode]           = useState(false);
-  const [executionTimeMs, setExecutionTimeMs]   = useState(0);
-  const [testResults, setTestResults]           = useState<{idx: number; pass: boolean; stdout: string; ms: number}[]>([]);
-  const [codeTab, setCodeTab]                   = useState<"cases" | "output" | "results">("cases");
-  const [codeTimerLeft, setCodeTimerLeft]       = useState(600);
+  const [lang, setLang] = useState<Lang>("python");
+  const [codeDescription, setCodeDescription] = useState("");
+  const [sampleCases, setSampleCases] = useState<SampleCase[]>([]);
+  const [activeCaseIdx, setActiveCaseIdx] = useState(0);
+  const [runOutput, setRunOutput] = useState("");
+  const [runVerdict, setRunVerdict] = useState<"pass" | "fail" | "error" | null>(null);
+  const [runningCode, setRunningCode] = useState(false);
+  const [executionTimeMs, setExecutionTimeMs] = useState(0);
+  const [testResults, setTestResults] = useState<{ idx: number; pass: boolean; stdout: string; ms: number }[]>([]);
+  const [codeTab, setCodeTab] = useState<"cases" | "output" | "results">("cases");
+  const [codeTimerLeft, setCodeTimerLeft] = useState(600);
   const [resolvedMockSessionId, setResolvedMockSessionId] = useState<string>(mockSessionId || "");
   const sessionCoachingAggregateRef = useRef<SessionCoachingAggregate>({
     answerCount: 0,
@@ -323,7 +323,7 @@ export function InterviewRoom({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question_id: qid, text }),
-      }).catch(() => {});
+      }).catch(() => { });
     }, 3000);
     return () => clearInterval(id);
   }, [candidateSpeaking, interrupted, interviewId]);
@@ -335,7 +335,7 @@ export function InterviewRoom({
       .then((stream) => {
         if (candidateVideoRef.current) candidateVideoRef.current.srcObject = stream;
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ── WebSocket ─────────────────────────────────────────────────────
@@ -643,10 +643,10 @@ export function InterviewRoom({
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
-        recognition.continuous     = true;
+        recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang           = "en-US";
-        recognitionRef.current     = recognition;
+        recognition.lang = "en-US";
+        recognitionRef.current = recognition;
 
         recognition.onresult = (event: any) => {
           onAudioActivity();
@@ -676,7 +676,7 @@ export function InterviewRoom({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ question_id: qid, text: display }),
-            }).catch(() => {});
+            }).catch(() => { });
           }, 1500);
         };
 
@@ -725,7 +725,7 @@ export function InterviewRoom({
       await fetch(`${API_BASE}/api/interview/${interviewId}/transcribe_audio`, {
         method: "POST",
         body: form,
-      }).catch(() => {});
+      }).catch(() => { });
     };
     mr.start(5000);
     mediaRecorderRef.current = mr;
@@ -736,7 +736,7 @@ export function InterviewRoom({
       audioContextRef.current = audioCtx;
       sampleBufferRef.current = [];
 
-      const source    = audioCtx.createMediaStreamSource(audioStream);
+      const source = audioCtx.createMediaStreamSource(audioStream);
       // eslint-disable-next-line deprecation/deprecation
       const processor = audioCtx.createScriptProcessor(4096, 1, 1);
 
@@ -763,7 +763,7 @@ export function InterviewRoom({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(toSend),
             }
-          ).catch(() => {});
+          ).catch(() => { });
         }
       };
 
@@ -922,7 +922,7 @@ export function InterviewRoom({
     }
     setRunningCode(true);
     setCodeTab("results");
-    const results: {idx: number; pass: boolean; stdout: string; ms: number}[] = [];
+    const results: { idx: number; pass: boolean; stdout: string; ms: number }[] = [];
     for (let i = 0; i < sampleCases.length; i++) {
       const sc = sampleCases[i];
       try {
@@ -993,14 +993,14 @@ export function InterviewRoom({
     timeLeft <= 30 ? "text-red-600" : timeLeft <= 60 ? "text-amber-600" : "text-gray-600";
 
   const confidenceBadge: Record<"low" | "medium" | "high", string> = {
-    low:    "bg-red-50 text-red-600 border-red-200",
+    low: "bg-red-50 text-red-600 border-red-200",
     medium: "bg-amber-50 text-amber-600 border-amber-200",
-    high:   "bg-emerald-50 text-emerald-600 border-emerald-200",
+    high: "bg-emerald-50 text-emerald-600 border-emerald-200",
   };
 
   const statusConfig: Record<typeof agentStatus, { label: string; dotClass: string }> = {
-    idle:      { label: "Ready", dotClass: "bg-gray-300" },
-    speaking:  { label: "AI Speaking", dotClass: "bg-indigo-500 animate-pulse" },
+    idle: { label: "Ready", dotClass: "bg-gray-300" },
+    speaking: { label: "AI Speaking", dotClass: "bg-indigo-500 animate-pulse" },
     listening: { label: "Listening", dotClass: "bg-emerald-500 animate-pulse" },
   };
 
@@ -1015,26 +1015,27 @@ export function InterviewRoom({
         onDismiss={dismiss}
       />
 
+
       {/* ── Top Header Bar ── */}
-      <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
+      <header className="flex items-center justify-between px-3 py-2 lg:px-5 lg:py-3 bg-white border-b border-gray-200 shrink-0 min-w-0">
         {/* Left: Brand */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Shield className="w-4 h-4 text-white" />
           </div>
-          <span className="text-sm font-semibold text-gray-700">AI Interview</span>
+          <span className="text-xs lg:text-sm font-semibold text-gray-700 hidden sm:block">AI Interview</span>
         </div>
 
         {/* Center: Status */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-4 py-1.5">
+        <div className="flex items-center gap-1.5 lg:gap-3">
+          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-2.5 lg:px-4 py-1.5">
             <div className={`w-2 h-2 rounded-full ${statusConfig[agentStatus].dotClass}`} />
             <span className="text-xs font-medium text-gray-600">{statusConfig[agentStatus].label}</span>
           </div>
           {candidateSpeaking && questionType === "voice" && (
             <div className={`flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 ${interrupted ? "border-amber-300" : ""}`}>
               <Clock className="w-3.5 h-3.5 text-gray-400" />
-              <span className={`text-xs font-mono font-bold ${interrupted ? "text-amber-600" : timerColor}`}>
+              <span className={`text-[11px] lg:text-xs font-mono font-bold ${interrupted ? "text-amber-600" : timerColor}`}>
                 {interrupted && <span className="text-[10px] mr-1 font-sans">PAUSED</span>}
                 {minutes}:{seconds}
               </span>
@@ -1054,7 +1055,7 @@ export function InterviewRoom({
       </header>
 
       {/* ── Main Content Area ── */}
-      <div className={`flex-1 flex min-h-0 ${isCodeView ? "" : "p-4 gap-4"}`}>
+      <div className={`flex-1 flex min-h-0 flex-col lg:flex-row ${isCodeView ? "" : "p-3 gap-3 lg:p-4 lg:gap-4"}`}>
         {/* ── Main Panel ── */}
         <div className={`flex-1 flex flex-col ${isCodeView ? "min-h-0" : "gap-4"}`}>
 
@@ -1065,10 +1066,10 @@ export function InterviewRoom({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm"
+              className="bg-white border border-gray-200 rounded-2xl p-4 lg:p-5 shadow-sm"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
+              <div className="flex items-start gap-3">
+                <div className="hidden lg:flex w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
                   <User className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
@@ -1103,7 +1104,7 @@ export function InterviewRoom({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3 }}
-                className="flex-1 bg-white border border-gray-200 rounded-2xl p-5 flex flex-col gap-4 shadow-sm"
+                className="flex-1 bg-white border border-gray-200 rounded-2xl p-4 lg:p-5 flex flex-col shadow-sm"
               >
                 {/* Recording indicator */}
                 <div className="flex items-center justify-between">
@@ -1131,7 +1132,7 @@ export function InterviewRoom({
 
                 {/* Waveform animation bars */}
                 {!interrupted && (
-                  <div className="flex items-end justify-center gap-1 h-8 opacity-60">
+                  <div className="flex items-end justify-center gap-1 h-8 opacity-70 my-2 lg:my-0">
                     {Array.from({ length: 24 }).map((_, i) => (
                       <div
                         key={i}
@@ -1159,7 +1160,7 @@ export function InterviewRoom({
                 )}
 
                 {/* Live transcript */}
-                <div className="flex-1 min-h-[3rem] bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed overflow-y-auto">
+                <div className="min-h-[3rem] max-h-[6rem] lg:flex-1 lg:max-h-none bg-gray-50 rounded-xl p-3 text-sm text-gray-700 leading-relaxed overflow-y-auto">
                   {liveTranscript ? (
                     liveTranscript
                   ) : (
@@ -1205,7 +1206,7 @@ export function InterviewRoom({
                 {!interrupted && (
                   <button
                     onClick={submitAnswer}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:shadow-lg hover:shadow-indigo-500/20 text-white rounded-xl py-3 text-sm font-semibold transition-all hover:-translate-y-0.5"
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:shadow-lg hover:shadow-indigo-500/20 text-white rounded-2xl py-4 lg:py-3 text-base lg:text-sm font-bold transition-all mt-auto"
                   >
                     <Send className="w-4 h-4" />
                     Submit Answer
@@ -1282,19 +1283,17 @@ export function InterviewRoom({
                       {sampleCases.map((sc, i) => (
                         <div
                           key={i}
-                          className={`mb-2 p-3 rounded-xl border text-xs font-mono transition-all cursor-pointer ${
-                            activeCaseIdx === i
-                              ? "border-indigo-300 bg-indigo-50"
-                              : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                          }`}
+                          className={`mb-2 p-3 rounded-xl border text-xs font-mono transition-all cursor-pointer ${activeCaseIdx === i
+                            ? "border-indigo-300 bg-indigo-50"
+                            : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                            }`}
                           onClick={() => setActiveCaseIdx(i)}
                         >
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="font-semibold text-gray-500">Case {i + 1}</span>
                             {testResults[i] && (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                                testResults[i].pass ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                              }`}>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${testResults[i].pass ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                                }`}>
                                 {testResults[i].pass ? "PASS" : "FAIL"}
                               </span>
                             )}
@@ -1346,11 +1345,10 @@ export function InterviewRoom({
                         <button
                           key={tab}
                           onClick={() => setCodeTab(tab)}
-                          className={`px-4 py-2 text-xs font-medium transition-colors ${
-                            codeTab === tab
-                              ? "text-white border-b-2 border-indigo-400"
-                              : "text-slate-400 hover:text-slate-200"
-                          }`}
+                          className={`px-4 py-2 text-xs font-medium transition-colors ${codeTab === tab
+                            ? "text-white border-b-2 border-indigo-400"
+                            : "text-slate-400 hover:text-slate-200"
+                            }`}
                         >
                           {tab === "cases" ? "Test Cases" : tab === "output" ? "Output" : "Results"}
                         </button>
@@ -1373,11 +1371,10 @@ export function InterviewRoom({
                       {codeTab === "output" && (
                         <div>
                           {runVerdict && (
-                            <span className={`inline-block mb-2 text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                              runVerdict === "pass" ? "bg-emerald-900 text-emerald-300" :
+                            <span className={`inline-block mb-2 text-[10px] px-2 py-0.5 rounded-full font-bold ${runVerdict === "pass" ? "bg-emerald-900 text-emerald-300" :
                               runVerdict === "fail" ? "bg-red-900 text-red-300" :
-                              "bg-amber-900 text-amber-300"
-                            }`}>
+                                "bg-amber-900 text-amber-300"
+                              }`}>
                               {runVerdict.toUpperCase()}
                             </span>
                           )}
@@ -1389,9 +1386,8 @@ export function InterviewRoom({
                           {testResults.length === 0 && <span className="text-slate-500">Click &quot;Run All&quot; to test all cases</span>}
                           {testResults.map((r) => (
                             <div key={r.idx} className="flex items-center gap-2">
-                              <span className={`w-12 text-center text-[10px] px-1.5 py-0.5 rounded-lg font-bold ${
-                                r.pass ? "bg-emerald-900 text-emerald-300" : "bg-red-900 text-red-300"
-                              }`}>
+                              <span className={`w-12 text-center text-[10px] px-1.5 py-0.5 rounded-lg font-bold ${r.pass ? "bg-emerald-900 text-emerald-300" : "bg-red-900 text-red-300"
+                                }`}>
                                 {r.pass ? "PASS" : "FAIL"}
                               </span>
                               <span className="text-slate-400">Case {r.idx + 1}</span>

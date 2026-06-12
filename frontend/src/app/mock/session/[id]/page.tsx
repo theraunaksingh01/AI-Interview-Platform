@@ -30,6 +30,9 @@ export default function MockSessionPage() {
     answeredCount: 0,
     elapsedMs: 0,
   });
+  const silenceBannerShown = useRef(false);
+  const [showSilenceBanner, setShowSilenceBanner] = useState(false);
+
   const [coachingState, setCoachingState] = useState<CoachingState>({
     wpm: 0,
     wpmStatus: "good",
@@ -91,6 +94,22 @@ export default function MockSessionPage() {
       sessionActiveRef.current = false;
     };
   }, [sessionId]);
+
+  useEffect(() => {
+      if (
+        coachingState.currentSilenceSecs >= 12 &&
+        coachingState.isAnswerActive &&
+        !silenceBannerShown.current
+      ) {
+        silenceBannerShown.current = true;
+        setShowSilenceBanner(true);
+        setTimeout(() => {
+          setShowSilenceBanner(false);
+          silenceBannerShown.current = false;
+        }, 4000);
+      }
+    }, [coachingState.currentSilenceSecs, coachingState.isAnswerActive]);
+
 
   useEffect(() => {
     if (session?.status === "completed") {
@@ -176,9 +195,36 @@ export default function MockSessionPage() {
             audioAgeMs={coachingState.audioAgeMs}
             debug={false}
           />
+
         }
         onMockSessionComplete={handleMockComplete}
       />
+
+      {/* Silence notification banner */}
+      {showSilenceBanner && (
+        <div
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm"
+          style={{ animation: "slideDown 300ms ease" }}
+        >
+          <div className="flex items-center gap-3 rounded-2xl bg-[#111] px-4 py-3 shadow-xl">
+            <span className="text-[18px]">🤫</span>
+            <div className="flex-1">
+              <p className="text-[13px] font-bold text-white leading-tight">
+                Still thinking? That's okay.
+              </p>
+              <p className="text-[11px] text-[#666] mt-0.5">
+                Start with what you know — even partial is fine.
+              </p>
+            </div>
+          </div>
+          <style>{`
+      @keyframes slideDown {
+        from { opacity: 0; transform: translate(-50%, -8px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+      }
+    `}</style>
+        </div>
+      )}
 
       {showCompletion && (
         <div className="fixed inset-0 bg-[#FFFDF0] z-50 flex items-center justify-center p-6">

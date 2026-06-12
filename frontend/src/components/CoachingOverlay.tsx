@@ -46,78 +46,98 @@ export default function CoachingOverlay({
     .slice(0, 3);
 
   return (
-    <aside className="w-80 shrink-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-gray-900">Live coaching</h3>
-
-      <div className="mt-4">
-        <div className="mb-2 text-xs font-medium text-gray-500">Pace</div>
-        <div className="h-2 w-full rounded-full bg-gray-100">
-          <div
-            className={`h-2 rounded-full ${statusColor(wpmStatus)}`}
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
+    <>
+      {/* Mobile compact bar — shown only on small screens */}
+      <div className="flex lg:hidden items-center justify-between bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs shadow-sm">
+        <div className="flex items-center gap-1.5">
+          <div className={`w-2 h-2 rounded-full ${statusColor(wpmStatus)}`} />
           <span className="font-semibold text-gray-800">{wpm} WPM</span>
-          <span className={`${wpmStatus === "too_fast" ? "text-red-600" : wpmStatus === "fast" ? "text-amber-600" : "text-emerald-600"}`}>
-            {statusText(wpmStatus)}
-          </span>
+          <span className="text-gray-400">·</span>
+          <span className="text-gray-600">{statusText(wpmStatus)}</span>
         </div>
-      </div>
-
-      <div className="mt-5">
-        <div className="mb-2 text-xs font-medium text-gray-500">Fillers</div>
-        {topFillers.length === 0 ? (
-          <p className="text-xs text-gray-400">No fillers detected yet.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2 text-xs">
-            {topFillers.map(([word, count]) => (
-              <span
-                key={word}
-                className={`rounded-full px-2.5 py-1 ${count >= 5 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}
-              >
-                {word}: {count}
-              </span>
-            ))}
-          </div>
+        {topFillers.length > 0 && (
+          <span className="text-amber-600 font-medium">
+            {topFillers[0][0]}: {topFillers[0][1]}×
+          </span>
+        )}
+        {currentSilenceSecs >= 3 && (
+          <span className="text-red-500 font-medium animate-pulse">
+            {currentSilenceSecs}s silence
+          </span>
         )}
       </div>
+      <aside className="hidden lg:block w-80 shrink-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">      <h3 className="text-sm font-semibold text-gray-900">Live coaching</h3>
 
-      <div className="mt-5">
-        <div className="mb-1 text-xs font-medium text-gray-500">Silence</div>
-        <p className="text-xs text-gray-700">{currentSilenceSecs}s (alert at 12s)</p>
-      </div>
-
-      {showSilenceNudge ? (
-        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm">
-          Silence alert: keep going and think out loud.
+        <div className="mt-4">
+          <div className="mb-2 text-xs font-medium text-gray-500">Pace</div>
+          <div className="h-2 w-full rounded-full bg-gray-100">
+            <div
+              className={`h-2 rounded-full ${statusColor(wpmStatus)}`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="font-semibold text-gray-800">{wpm} WPM</span>
+            <span className={`${wpmStatus === "too_fast" ? "text-red-600" : wpmStatus === "fast" ? "text-amber-600" : "text-emerald-600"}`}>
+              {statusText(wpmStatus)}
+            </span>
+          </div>
         </div>
-      ) : null}
 
-      {currentHint ? (
-        <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-          <span className="font-semibold">Hint {hintLevel}:</span> {currentHint}
+        <div className="mt-5">
+          <div className="mb-2 text-xs font-medium text-gray-500">Fillers</div>
+          {topFillers.length === 0 ? (
+            <p className="text-xs text-gray-400">No fillers detected yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {topFillers.map(([word, count]) => (
+                <span
+                  key={word}
+                  className={`rounded-full px-2.5 py-1 ${count >= 5 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}
+                >
+                  {word}: {count}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      ) : null}
 
-      {debug && (
-        <div
-          style={{
-            marginTop: "12px",
-            padding: "8px",
-            background: "#1a1a1a",
-            borderRadius: "4px",
-            fontSize: "11px",
-            fontFamily: "monospace",
-            color: "#00ff00",
-          }}
-        >
-          <div>isAnswerActive: {String(isAnswerActive)}</div>
-          <div>silence: {currentSilenceSecs}s</div>
-          <div>wpm: {wpm}</div>
-          <div>audioAge: {audioAgeMs}ms</div>
+        <div className="mt-5">
+          <div className="mb-1 text-xs font-medium text-gray-500">Silence</div>
+          <p className="text-xs text-gray-700">{currentSilenceSecs}s (alert at 12s)</p>
         </div>
-      )}
-    </aside>
+
+        {showSilenceNudge ? (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm">
+            Silence alert: keep going and think out loud.
+          </div>
+        ) : null}
+
+        {currentHint ? (
+          <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+            <span className="font-semibold">Hint {hintLevel}:</span> {currentHint}
+          </div>
+        ) : null}
+
+        {debug && (
+          <div
+            style={{
+              marginTop: "12px",
+              padding: "8px",
+              background: "#1a1a1a",
+              borderRadius: "4px",
+              fontSize: "11px",
+              fontFamily: "monospace",
+              color: "#00ff00",
+            }}
+          >
+            <div>isAnswerActive: {String(isAnswerActive)}</div>
+            <div>silence: {currentSilenceSecs}s</div>
+            <div>wpm: {wpm}</div>
+            <div>audioAge: {audioAgeMs}ms</div>
+          </div>
+        )}
+      </aside>
+    </>
   );
 }
