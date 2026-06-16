@@ -8,33 +8,46 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
+const PRACTICE_DROPDOWN = [
+  { name: "Mock Interview",  href: "/mock",            icon: "🎤", desc: "Full interview simulation, scored" },
+  { name: "Topic Practice",  href: "/topic-practice",  icon: "📊", desc: "Drill one subject deep" },
+  { name: "Quick Prep",      href: "/quick-prep",      icon: "☕", desc: "Rapid revision before interview" },
+];
+
 const PUBLIC_NAV = [
   { name: "Features", href: "/features" },
-  { name: "Pricing", href: "/pricing" },
-  { name: "About", href: "/about" },
+  { name: "Pricing",  href: "/pricing"  },
+  { name: "About",    href: "/about"    },
 ];
 
 const APP_NAV = [
-  { name: "Practice", href: "/mock" },
-  { name: "Daily", href: "/daily" },
-  { name: "Dashboard", href: "/mock/dashboard" },
-  { name: "Calendar", href: "/calendar" },
-  { name: "Quick Prep", href: "/quick-prep" },
-  { name: "Passport", href: "/passport" },
-  { name: "Pricing", href: "/pricing" },
+  { name: "Daily",     href: "/daily"          },
+  { name: "Dashboard", href: "/mock/dashboard"  },
+  { name: "Calendar",  href: "/calendar"        },
+  { name: "Passport",  href: "/passport"        },
+  { name: "Pricing",   href: "/pricing"         },
 ];
 
+const PRACTICE_HREFS = PRACTICE_DROPDOWN.map(p => p.href);
+
 export function Navbar() {
-  const [menuState, setMenuState] = React.useState(false);
-  const [isScrolled, setIsScrolled] = React.useState(false);
+  const [menuState,    setMenuState]    = React.useState(false);
+  const [isScrolled,   setIsScrolled]   = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
-  const userMenuRef = React.useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const router = useRouter();
+  const [practiceOpen, setPracticeOpen] = React.useState(false);
+
+  const userMenuRef  = React.useRef<HTMLDivElement>(null);
+  const practiceRef  = React.useRef<HTMLLIElement>(null);  
+  const pathname     = usePathname();
+  const router       = useRouter();
   const { user, logout, loading } = useAuth();
 
   const isLoggedIn = !!user;
-  const menuItems = isLoggedIn ? APP_NAV : PUBLIC_NAV;
+  const menuItems  = isLoggedIn ? APP_NAV : PUBLIC_NAV;
+
+  const practiceActive = PRACTICE_HREFS.some(
+    h => pathname === h || pathname.startsWith(h + "/")
+  );
 
   React.useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -45,23 +58,28 @@ export function Navbar() {
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const original = document.body.style.overflow;
-    if (menuState) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = original || "";
-    }
+    document.body.style.overflow = menuState ? "hidden" : original || "";
     return () => { document.body.style.overflow = original || ""; };
   }, [menuState]);
 
-  // Close user menu on outside click
   React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handle(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  React.useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (practiceRef.current && !practiceRef.current.contains(e.target as Node)) {
+        setPracticeOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
   }, []);
 
   function handleLogout() {
@@ -74,7 +92,6 @@ export function Navbar() {
   const userInitial = user
     ? (user.full_name || user.email || "U")[0].toUpperCase()
     : "U";
-
   const userPlan = user?.plan ?? "free";
 
   return (
@@ -92,7 +109,7 @@ export function Navbar() {
         >
           <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
 
-            {/* Left — logo + mobile hamburger */}
+            {/* Logo + mobile hamburger */}
             <div className="flex w-full justify-between lg:w-auto">
               <Link href="/" aria-label="home" className="flex items-center space-x-2">
                 <span className="text-xl font-black tracking-tight">
@@ -101,7 +118,7 @@ export function Navbar() {
               </Link>
 
               <button
-                onClick={() => setMenuState((s) => !s)}
+                onClick={() => setMenuState(s => !s)}
                 aria-expanded={menuState}
                 aria-label={menuState ? "Close Menu" : "Open Menu"}
                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
@@ -115,9 +132,83 @@ export function Navbar() {
               </button>
             </div>
 
-            {/* Center — nav links desktop */}
+            {/* Desktop nav */}
             <div className="absolute inset-0 m-auto hidden size-fit lg:block">
-              <ul className="flex gap-8 text-sm">
+              <ul className="flex gap-8 text-sm items-center">
+
+                {/* Practice dropdown */}
+                {isLoggedIn && (
+                  <li className="relative" ref={practiceRef}>
+                    <button
+                      onClick={() => setPracticeOpen(v => !v)}
+                      onMouseEnter={() => setPracticeOpen(true)}
+                      className={cn(
+                        "flex items-center gap-1 duration-150 text-sm font-medium select-none",
+                        practiceActive
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-accent-foreground"
+                      )}
+                    >
+                      Practice
+                      <svg
+                        width="12" height="12" viewBox="0 0 12 12" fill="none"
+                        className={cn("transition-transform duration-200 mt-px", practiceOpen ? "rotate-180" : "")}
+                      >
+                        <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+
+                    {practiceOpen && (
+                      <div
+                        onMouseLeave={() => setPracticeOpen(false)}
+                        className="absolute left-1/2 -translate-x-1/2 top-9 z-50 w-[240px] overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white"
+                        style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)" }}
+                      >
+                        {PRACTICE_DROPDOWN.map((item, i) => {
+                          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setPracticeOpen(false)}
+                              className={cn(
+                                "flex items-start gap-3.5 px-4 py-3.5 transition-colors",
+                                i < PRACTICE_DROPDOWN.length - 1 && "border-b border-[#F3F4F6]",
+                                active ? "bg-[#FFFDF0]" : "hover:bg-[#F9FAFB]"
+                              )}
+                            >
+                              <div className={cn(
+                                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-[18px]",
+                                active ? "bg-yellow-400" : "bg-[#F3F4F6]"
+                              )}>
+                                {item.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn(
+                                  "text-[13px] font-bold leading-tight",
+                                  active ? "text-[#111]" : "text-[#1C1C1E]"
+                                )}>
+                                  {item.name}
+                                </p>
+                                <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-snug">
+                                  {item.desc}
+                                </p>
+                              </div>
+                              {active && (
+                                <div className="flex-shrink-0 mt-1.5">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                                </div>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </li>
+                )}
+
+                {/* Regular links */}
                 {menuItems.map((item, index) => {
                   const active = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (
@@ -139,15 +230,13 @@ export function Navbar() {
               </ul>
             </div>
 
-            {/* Right — auth buttons or user menu */}
+            {/* Right — auth */}
             <div className="bg-background mb-6 hidden w-full flex-wrap items-center justify-end rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent">
               <div className="hidden lg:flex lg:items-center lg:gap-3">
-
                 {loading ? (
                   <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
                 ) : isLoggedIn ? (
                   <>
-                    {/* Plan badge */}
                     {userPlan !== "free" && (
                       <span className={cn(
                         "rounded-full px-2.5 py-0.5 text-[11px] font-black",
@@ -159,10 +248,9 @@ export function Navbar() {
                       </span>
                     )}
 
-                    {/* User avatar + dropdown */}
                     <div className="relative" ref={userMenuRef}>
                       <button
-                        onClick={() => setUserMenuOpen((v) => !v)}
+                        onClick={() => setUserMenuOpen(v => !v)}
                         className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F3F4F6] text-[13px] font-bold text-[#374151] hover:bg-[#E5E7EB] transition select-none"
                       >
                         {userInitial}
@@ -170,46 +258,30 @@ export function Navbar() {
 
                       {userMenuOpen && (
                         <div className="absolute right-0 top-10 w-52 rounded-xl border border-[#E5E7EB] bg-white py-1.5 shadow-lg animate-slide-in">
-                          {/* User info */}
                           <div className="border-b border-[#F3F4F6] px-4 py-2.5 mb-1">
                             <p className="text-[13px] font-semibold text-[#111] truncate">
                               {user.full_name || user.email}
                             </p>
                             <p className="text-[11px] text-[#9CA3AF] truncate">{user.email}</p>
                           </div>
-
-                          <Link
-                            href="/mock/dashboard"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition"
-                          >
+                          <Link href="/mock/dashboard" onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition">
                             <LayoutDashboard className="h-4 w-4 text-[#9CA3AF]" />
                             Dashboard
                           </Link>
-
-                          <Link
-                            href="/mock"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition"
-                          >
+                          <Link href="/mock" onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition">
                             <User className="h-4 w-4 text-[#9CA3AF]" />
                             Practice
                           </Link>
-
-                          <Link
-                            href="/settings"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition"
-                          >
+                          <Link href="/settings" onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition">
                             <Settings className="h-4 w-4 text-[#9CA3AF]" />
                             Settings
                           </Link>
-
                           <div className="border-t border-[#F3F4F6] mt-1 pt-1">
-                            <button
-                              onClick={handleLogout}
-                              className="flex w-full items-center gap-2.5 px-4 py-2 text-[13px] text-rose-600 hover:bg-rose-50 transition"
-                            >
+                            <button onClick={handleLogout}
+                              className="flex w-full items-center gap-2.5 px-4 py-2 text-[13px] text-rose-600 hover:bg-rose-50 transition">
                               <LogOut className="h-4 w-4" />
                               Sign out
                             </button>
@@ -219,7 +291,6 @@ export function Navbar() {
                     </div>
                   </>
                 ) : (
-                  // Not logged in
                   !isScrolled ? (
                     <>
                       <Button asChild variant="outline" size="sm">
@@ -237,7 +308,6 @@ export function Navbar() {
                 )}
               </div>
             </div>
-
           </div>
         </div>
 
@@ -249,14 +319,57 @@ export function Navbar() {
               className="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm transition-opacity"
             />
             <div className="fixed inset-x-4 top-20 z-30 rounded-2xl border bg-background p-6 shadow-xl animate-slide-in">
-              <div className="space-y-6">
-                <ul className="space-y-4 text-base">
+              <div className="space-y-5">
+                <ul className="space-y-1">
+
+                  {isLoggedIn && (
+                    <li>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2 px-1">
+                        Practice
+                      </p>
+                      <div className="space-y-1">
+                        {PRACTICE_DROPDOWN.map(item => {
+                          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setMenuState(false)}
+                              className={cn(
+                                "flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
+                                active ? "bg-[#FFFDF0]" : "hover:bg-[#F9FAFB]"
+                              )}
+                            >
+                              <div className={cn(
+                                "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[15px]",
+                                active ? "bg-yellow-400" : "bg-[#F3F4F6]"
+                              )}>
+                                {item.icon}
+                              </div>
+                              <div>
+                                <p className="text-[14px] font-bold text-[#111]">{item.name}</p>
+                                <p className="text-[11px] text-[#9CA3AF]">{item.desc}</p>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </li>
+                  )}
+
+                  {isLoggedIn && <li className="border-t border-[#F3F4F6] my-2" />}
+
                   {menuItems.map((item, index) => (
                     <li key={index}>
                       <Link
                         href={item.href}
                         onClick={() => setMenuState(false)}
-                        className="block text-lg font-medium"
+                        className={cn(
+                          "block rounded-xl px-3 py-2 text-[15px] font-medium transition-colors",
+                          pathname === item.href
+                            ? "bg-[#F9FAFB] text-[#111]"
+                            : "text-[#374151] hover:bg-[#F9FAFB]"
+                        )}
                       >
                         {item.name}
                       </Link>
@@ -265,9 +378,8 @@ export function Navbar() {
                 </ul>
 
                 {isLoggedIn ? (
-                  <div className="space-y-2 border-t border-[#F3F4F6] pt-4">
-                    {/* User info */}
-                    <div className="flex items-center gap-3 mb-3">
+                  <div className="space-y-1 border-t border-[#F3F4F6] pt-4">
+                    <div className="flex items-center gap-3 px-3 mb-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F4F6] text-[14px] font-bold text-[#374151]">
                         {userInitial}
                       </div>
@@ -285,26 +397,19 @@ export function Navbar() {
                         )}
                       </div>
                     </div>
-
-                    <Link
-                      href="/settings"
-                      onClick={() => setMenuState(false)}
-                      className="flex items-center gap-2 text-[14px] text-[#374151] py-1"
-                    >
+                    <Link href="/settings" onClick={() => setMenuState(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[14px] text-[#374151] hover:bg-[#F9FAFB] transition">
                       <Settings className="h-4 w-4 text-[#9CA3AF]" />
                       Settings
                     </Link>
-
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2 text-[14px] text-rose-600 py-1 w-full"
-                    >
+                    <button onClick={handleLogout}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[14px] text-rose-600 hover:bg-rose-50 transition">
                       <LogOut className="h-4 w-4" />
                       Sign out
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 border-t border-[#F3F4F6] pt-4">
                     <Button asChild variant="outline" size="sm" onClick={() => setMenuState(false)}>
                       <Link href="/login"><span>Login</span></Link>
                     </Button>
@@ -322,7 +427,7 @@ export function Navbar() {
       <style jsx>{`
         @keyframes slideIn {
           from { transform: translateY(-8px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
+          to   { transform: translateY(0);    opacity: 1; }
         }
         .animate-slide-in {
           animation: slideIn 220ms cubic-bezier(0.2, 0.9, 0.2, 1);

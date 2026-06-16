@@ -2,11 +2,9 @@ from db.session import SessionLocal
 from sqlalchemy import text
 db = SessionLocal()
 cols = db.execute(text("""
-    SELECT column_name, data_type 
-    FROM information_schema.columns
+    SELECT column_name FROM information_schema.columns
     WHERE table_name = 'user_progress'
     ORDER BY ordinal_position
-""")).mappings().all()
-for c in cols:
-    print(c['column_name'], '-', c['data_type'])
+""")).scalars().all()
+print('user_progress cols:', cols)
 db.close()
