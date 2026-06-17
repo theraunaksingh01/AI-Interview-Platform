@@ -25,6 +25,7 @@ const APP_NAV = [
   { name: "Daily",     href: "/daily"          },
   { name: "Dashboard", href: "/mock/dashboard"  },
   { name: "Calendar",  href: "/calendar"        },
+  { name: "Cheat Sheet",  href: "/cheat-sheet"      },
   { name: "Passport",  href: "/passport"        },
   { name: "Pricing",   href: "/pricing"         },
 ];
