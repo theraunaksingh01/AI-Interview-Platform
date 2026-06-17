@@ -29,6 +29,7 @@ type ReportResponse = {
     status: string;
     completed_at: string | null;
     overall_score: number | null;
+    session_type?: string | null;
     communication_score?: number | null;
     specific_fix?: string | null;
     coach_note?: string | null;
@@ -115,9 +116,8 @@ function QuestionCard({ q, index, userPlan }: { q: QuestionData; index: number; 
   const hasTranscript = q.transcript && q.transcript.trim().length > 0;
 
   return (
-    <div className={`rounded-2xl border bg-white overflow-hidden transition-shadow hover:shadow-md ${
-      q.score < 50 ? "border-rose-200" : q.score >= 75 ? "border-emerald-200" : "border-amber-200"
-    }`}>
+    <div className={`rounded-2xl border bg-white overflow-hidden transition-shadow hover:shadow-md ${q.score < 50 ? "border-rose-200" : q.score >= 75 ? "border-emerald-200" : "border-amber-200"
+      }`}>
       {/* Header row — always clickable */}
       <div
         className="flex items-start justify-between gap-4 p-5 cursor-pointer select-none"
@@ -360,6 +360,28 @@ export default function MockReportPage() {
     return json;
   }, [sessionId]);
 
+  const [consistency, setConsistency] = useState<{
+    has_data: boolean;
+    consistency_score?: number;
+    summary?: string;
+    gaps?: string[];
+  } | null>(null);
+
+  useEffect(() => {
+  if (!sessionId) return;
+  if (data?.session?.session_type !== "resume_prep") return;
+  if (consistency !== null) return; // already fetched, don't refetch
+  const token = typeof window !== "undefined"
+    ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+    : null;
+  fetch(`/api/resume-prep/consistency/${sessionId}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+    .then(r => r.json())
+    .then(d => setConsistency(d))
+    .catch(() => { });
+}, [data, sessionId, consistency]);
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -461,6 +483,7 @@ export default function MockReportPage() {
 
   const { session, report, questions } = data;
   const coachNote = data?.session?.coach_note;
+  const isResumePrep = session.session_type === "resume_prep";
   const userPlan = data.plan ?? "free";
   const displayScore = session.overall_score ?? session.communication_score ?? report?.star_avg_score ?? null;
   const sortedQuestions = [...(questions || [])].sort(
@@ -492,6 +515,43 @@ export default function MockReportPage() {
             <p className="mt-1 text-[11px] text-[#9CA3AF]">Overall Score</p>
           </div>
         </div>
+
+        {isResumePrep && consistency?.has_data && (
+          <div className="mb-5 rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[#F3F4F6]"
+              style={{ background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" }}>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-[15px] font-black text-white">
+                📄
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-black text-[#111]">Resume Consistency</p>
+                <p className="text-[11px] text-[#6B7280]">Did your spoken answers match your resume claims?</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-[22px] font-black" style={{
+                  color: (consistency.consistency_score ?? 0) >= 75 ? "#10B981" :
+                    (consistency.consistency_score ?? 0) >= 50 ? "#F59E0B" : "#EF4444"
+                }}>
+                  {consistency.consistency_score}
+                </p>
+                <p className="text-[10px] text-[#9CA3AF]">/100</p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[14px] text-[#374151] leading-relaxed mb-3">{consistency.summary}</p>
+              {consistency.gaps && consistency.gaps.length > 0 && (
+                <div className="space-y-1.5">
+                  {consistency.gaps.map((g, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-amber-500 mt-0.5 text-[12px]">⚠</span>
+                      <p className="text-[12px] text-[#92400E]">{g}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {coachNote && (
           <div className="mb-5 rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden">

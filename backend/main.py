@@ -91,6 +91,7 @@ from api import daily as daily_api
 from api import interruption as interruption_api
 from api import quick_prep as quick_prep_api
 from api import topic_practice as topic_practice_api
+from api import resume_prep as resume_prep_api
 
 
 
@@ -143,6 +144,7 @@ app.include_router(daily_api.router)
 app.include_router(interruption_api.router)
 app.include_router(quick_prep_api.router)
 app.include_router(topic_practice_api.router)
+app.include_router(resume_prep_api.router)
 
 _startup_import_error = None
 

@@ -12,6 +12,7 @@ const PRACTICE_DROPDOWN = [
   { name: "Mock Interview",  href: "/mock",            icon: "🎤", desc: "Full interview simulation, scored" },
   { name: "Topic Practice",  href: "/topic-practice",  icon: "📊", desc: "Drill one subject deep" },
   { name: "Quick Prep",      href: "/quick-prep",      icon: "☕", desc: "Rapid revision before interview" },
+  { name: "Resume Prep",     href: "/resume-prep",     icon: "📄", desc: "Questions from YOUR resume" },
 ];
 
 const PUBLIC_NAV = [

@@ -758,6 +758,7 @@ def get_mock_report(
             "communication_score": _safe_float(session.communication_score),
             "specific_fix": getattr(session, "specific_fix", None),
             "coach_note": getattr(session, "coach_note", None),
+            "session_type": getattr(session, "session_type", None),
             "coaching_pattern": coaching_report.get("pattern") if isinstance(coaching_report, dict) else None,
             "delivery_note": coaching_report.get("delivery_note") if isinstance(coaching_report, dict) else None,
         },

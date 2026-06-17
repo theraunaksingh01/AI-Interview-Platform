@@ -151,6 +151,7 @@ class MockSession(Base):
     specific_fix = Column(Text, nullable=True)
     coach_note = Column(Text, nullable=True)
     coaching_report = Column(JSONB, nullable=True)
+    session_type = Column(Text, nullable=True)
     started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
