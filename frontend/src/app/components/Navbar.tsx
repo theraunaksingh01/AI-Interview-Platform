@@ -13,6 +13,7 @@ const PRACTICE_DROPDOWN = [
   { name: "Topic Practice",  href: "/topic-practice",  icon: "📊", desc: "Drill one subject deep" },
   { name: "Quick Prep",      href: "/quick-prep",      icon: "☕", desc: "Rapid revision before interview" },
   { name: "Resume Prep",     href: "/resume-prep",     icon: "📄", desc: "Questions from YOUR resume" },
+  { name: "Peer Practice",   href: "/peer",            icon: "⚔️", desc: "Challenge a friend, compare scores" },
 ];
 
 const PUBLIC_NAV = [
