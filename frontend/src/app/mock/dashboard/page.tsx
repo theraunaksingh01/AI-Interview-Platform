@@ -237,6 +237,72 @@ function ScoreCard({
   );
 }
 
+function DSAPracticeWidget() {
+  const { authHeader } = useAuth();
+  const [stats, setStats] = useState<{
+    solved: number;
+    easy_solved: number;
+    medium_solved: number;
+    hard_solved: number;
+    total_submissions: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+      : null;
+    fetch("/api/dsa/stats", {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+      .then(r => r.json())
+      .then(d => setStats(d))
+      .catch(() => {});
+  }, []);
+
+  const total = 185;
+
+  if (!stats || stats.total_submissions === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[16px]">💻</span>
+          <p className="text-[14px] font-black text-[#111]">DSA Practice</p>
+        </div>
+        <Link href="/dsa" className="text-[12px] font-bold text-[#9CA3AF] hover:text-[#111] transition">
+          Continue →
+        </Link>
+      </div>
+      <div className="flex items-center gap-4 mb-4">
+        <div className="text-center">
+          <p className="text-[26px] font-black text-[#111]">{stats.solved}</p>
+          <p className="text-[10px] text-[#9CA3AF] uppercase tracking-wide">Solved</p>
+        </div>
+        <div className="flex-1">
+          <div className="h-2 w-full rounded-full bg-[#F3F4F6] overflow-hidden mb-1.5">
+            <div className="h-full rounded-full bg-[#111] transition-all duration-700"
+              style={{ width: `${Math.round((stats.solved / total) * 100)}%` }} />
+          </div>
+          <p className="text-[11px] text-[#9CA3AF]">{Math.round((stats.solved / total) * 100)}% of {total} problems</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Easy", value: stats.easy_solved, color: "#15803D", bg: "#F0FDF4" },
+          { label: "Medium", value: stats.medium_solved, color: "#B45309", bg: "#FFFBEB" },
+          { label: "Hard", value: stats.hard_solved, color: "#B91C1C", bg: "#FEF2F2" },
+        ].map(d => (
+          <div key={d.label} className="rounded-xl py-2.5 text-center" style={{ background: d.bg }}>
+            <p className="text-[15px] font-black" style={{ color: d.color }}>{d.value}</p>
+            <p className="text-[10px] font-bold" style={{ color: d.color + "99" }}>{d.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function MockDashboardPage() {
@@ -559,6 +625,9 @@ export default function MockDashboardPage() {
             color={COLORS.communication}
           />
         </div>
+
+        {/* ── DSA Practice widget ── */}
+        <DSAPracticeWidget />
 
         {/* ── Score trend chart ── */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">

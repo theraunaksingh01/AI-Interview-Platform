@@ -9,44 +9,45 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
 const PRACTICE_DROPDOWN = [
-  { name: "Mock Interview",  href: "/mock",            icon: "🎤", desc: "Full interview simulation, scored" },
-  { name: "Topic Practice",  href: "/topic-practice",  icon: "📊", desc: "Drill one subject deep" },
-  { name: "Quick Prep",      href: "/quick-prep",      icon: "☕", desc: "Rapid revision before interview" },
-  { name: "Resume Prep",     href: "/resume-prep",     icon: "📄", desc: "Questions from YOUR resume" },
-  { name: "Peer Practice",   href: "/peer",            icon: "⚔️", desc: "Challenge a friend, compare scores" },
+  { name: "Mock Interview", href: "/mock", icon: "🎤", desc: "Full interview simulation, scored" },
+  { name: "Topic Practice", href: "/topic-practice", icon: "📊", desc: "Drill one subject deep" },
+  { name: "Quick Prep", href: "/quick-prep", icon: "☕", desc: "Rapid revision before interview" },
+  { name: "Resume Prep", href: "/resume-prep", icon: "📄", desc: "Questions from YOUR resume" },
+  { name: "Peer Practice", href: "/peer", icon: "⚔️", desc: "Challenge a friend, compare scores" },
+  { name: "DSA Practice", href: "/dsa", icon: "💻", desc: "Practice and code with company-focused questions" },
 ];
 
 const PUBLIC_NAV = [
   { name: "Features", href: "/features" },
-  { name: "Pricing",  href: "/pricing"  },
-  { name: "About",    href: "/about"    },
+  { name: "Pricing", href: "/pricing" },
+  { name: "About", href: "/about" },
 ];
 
 const APP_NAV = [
-  { name: "Daily",     href: "/daily"          },
-  { name: "Dashboard", href: "/mock/dashboard"  },
-  { name: "Calendar",  href: "/calendar"        },
-  { name: "Cheat Sheet",  href: "/cheat-sheet"      },
-  { name: "Passport",  href: "/passport"        },
-  { name: "Pricing",   href: "/pricing"         },
+  { name: "Daily", href: "/daily" },
+  { name: "Dashboard", href: "/mock/dashboard" },
+  { name: "Calendar", href: "/calendar" },
+  { name: "Cheat Sheet", href: "/cheat-sheet" },
+  { name: "Passport", href: "/passport" },
+  { name: "Pricing", href: "/pricing" },
 ];
 
 const PRACTICE_HREFS = PRACTICE_DROPDOWN.map(p => p.href);
 
 export function Navbar() {
-  const [menuState,    setMenuState]    = React.useState(false);
-  const [isScrolled,   setIsScrolled]   = React.useState(false);
+  const [menuState, setMenuState] = React.useState(false);
+  const [isScrolled, setIsScrolled] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const [practiceOpen, setPracticeOpen] = React.useState(false);
 
-  const userMenuRef  = React.useRef<HTMLDivElement>(null);
-  const practiceRef  = React.useRef<HTMLLIElement>(null);  
-  const pathname     = usePathname();
-  const router       = useRouter();
+  const userMenuRef = React.useRef<HTMLDivElement>(null);
+  const practiceRef = React.useRef<HTMLLIElement>(null);
+  const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, loading } = useAuth();
 
   const isLoggedIn = !!user;
-  const menuItems  = isLoggedIn ? APP_NAV : PUBLIC_NAV;
+  const menuItems = isLoggedIn ? APP_NAV : PUBLIC_NAV;
 
   const practiceActive = PRACTICE_HREFS.some(
     h => pathname === h || pathname.startsWith(h + "/")
@@ -107,7 +108,7 @@ export function Navbar() {
           className={cn(
             "mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12",
             isScrolled &&
-              "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5"
+            "bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5"
           )}
         >
           <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
@@ -165,47 +166,59 @@ export function Navbar() {
                     {practiceOpen && (
                       <div
                         onMouseLeave={() => setPracticeOpen(false)}
-                        className="absolute left-1/2 -translate-x-1/2 top-9 z-50 w-[240px] overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white"
+                        className="absolute left-0 top-9 z-50 w-[520px] rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden"
                         style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)" }}
                       >
-                        {PRACTICE_DROPDOWN.map((item, i) => {
-                          const active = pathname === item.href || pathname.startsWith(item.href + "/");
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setPracticeOpen(false)}
-                              className={cn(
-                                "flex items-start gap-3.5 px-4 py-3.5 transition-colors",
-                                i < PRACTICE_DROPDOWN.length - 1 && "border-b border-[#F3F4F6]",
-                                active ? "bg-[#FFFDF0]" : "hover:bg-[#F9FAFB]"
-                              )}
-                            >
-                              <div className={cn(
-                                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-[18px]",
-                                active ? "bg-yellow-400" : "bg-[#F3F4F6]"
-                              )}>
-                                {item.icon}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className={cn(
-                                  "text-[13px] font-bold leading-tight",
-                                  active ? "text-[#111]" : "text-[#1C1C1E]"
+                        {/* Header */}
+                        <div className="px-5 py-3.5 border-b border-[#F3F4F6] bg-[#FAFAF8]">
+                          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF]">Practice Modes</p>
+                        </div>
+                        {/* 2-column grid */}
+                        <div className="grid grid-cols-2 p-2 gap-0.5">
+                          {PRACTICE_DROPDOWN.map((item) => {
+                            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setPracticeOpen(false)}
+                                className={cn(
+                                  "flex items-start gap-3 rounded-xl px-3.5 py-3 transition-colors group",
+                                  active ? "bg-[#FFFDF0]" : "hover:bg-[#F9FAFB]"
+                                )}
+                              >
+                                <div className={cn(
+                                  "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-[17px] mt-0.5",
+                                  active ? "bg-yellow-400" : "bg-[#F3F4F6] group-hover:bg-[#EEEEF0]"
                                 )}>
-                                  {item.name}
-                                </p>
-                                <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-snug">
-                                  {item.desc}
-                                </p>
-                              </div>
-                              {active && (
-                                <div className="flex-shrink-0 mt-1.5">
-                                  <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                                  {item.icon}
                                 </div>
-                              )}
-                            </Link>
-                          );
-                        })}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className={cn(
+                                      "text-[13px] font-bold leading-tight",
+                                      active ? "text-[#111]" : "text-[#1C1C1E]"
+                                    )}>
+                                      {item.name}
+                                    </p>
+                                    {active && <div className="h-1.5 w-1.5 rounded-full bg-yellow-400 flex-shrink-0" />}
+                                  </div>
+                                  <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-snug">
+                                    {item.desc}
+                                  </p>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                        {/* Footer CTA */}
+                        <div className="border-t border-[#F3F4F6] px-5 py-3 bg-[#FAFAF8] flex items-center justify-between">
+                          <p className="text-[11px] text-[#9CA3AF]">Not sure where to start?</p>
+                          <Link href="/mock" onClick={() => setPracticeOpen(false)}
+                            className="text-[11px] font-black text-[#111] hover:underline">
+                            Start a mock interview →
+                          </Link>
+                        </div>
                       </div>
                     )}
                   </li>
