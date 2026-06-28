@@ -101,6 +101,16 @@ from api import dsa_practice as dsa_practice_api
 
 app = FastAPI(title="AI Interview Platform API")
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 app.include_router(ops_router.router)
 
 app.include_router(responses.router)
@@ -218,15 +228,6 @@ app.add_middleware(
 def health():
     return {"ok": True}
 
-#Debug model config
-@app.get("/__debug_model")
-def debug_model():
-    return {
-        "AI_PROVIDER": os.getenv("AI_PROVIDER"),
-        "OPENAI_MODEL": os.getenv("OPENAI_MODEL"),
-        "OLLAMA_URL": os.getenv("OLLAMA_URL"),
-        "OLLAMA_MODEL": os.getenv("OLLAMA_MODEL"),
-    }
 
 
 # Demo uploads route (keeps UI from blocking)
@@ -261,7 +262,10 @@ except Exception as exc:  # capture import/startup error for diagnostics
     _startup_import_error = exc
 
 @app.get("/__startup_error")
-def startup_error():
+def startup_error(x_admin_key: str = ""):
+    if x_admin_key != os.getenv("ADMIN_SECRET_KEY", ""):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="not_found")
     if _startup_import_error is None:
         return {"ok": True, "error": None}
     return {"ok": False, "error": repr(_startup_import_error)}

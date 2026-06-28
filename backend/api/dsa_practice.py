@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_current_user
 from db.session import SessionLocal
+from core.code_safety import validate_code
 
 log = logging.getLogger(__name__)
 
@@ -579,6 +580,9 @@ def run_code(
     """Run against sample cases only. No attempt saved."""
     if payload.language not in ("python", "java", "cpp"):
         raise HTTPException(status_code=400, detail="unsupported_language")
+    validate_code(payload.code, payload.language)
+    
+    validate_code(payload.code, payload.language)
 
     detail = db.execute(
         text("""
@@ -635,6 +639,7 @@ def submit_code(
 
     if payload.language not in ("python", "java", "cpp"):
         raise HTTPException(status_code=400, detail="unsupported_language")
+    validate_code(payload.code, payload.language)
 
     detail = db.execute(
         text("""
