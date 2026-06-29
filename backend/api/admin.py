@@ -611,7 +611,6 @@ def get_questions(
     category: str = "",
     topic: str = "",
     difficulty: str = "",
-    is_active: Optional[bool] = None,
     page: int = 1,
     per_page: int = 30,
     db: Session = Depends(_get_db),
@@ -632,12 +631,11 @@ def get_questions(
     if difficulty:
         where.append("q.difficulty = :difficulty")
         params["difficulty"] = difficulty
-    
 
     where_clause = " AND ".join(where)
 
     total = db.execute(text(f"""
-        SELECT COUNT(*) FROM interview_questions q WHERE {where_clause}
+        SELECT COUNT(*) FROM questions q WHERE {where_clause}
     """), params).scalar() or 0
 
     params["offset"] = (page - 1) * per_page
@@ -646,21 +644,24 @@ def get_questions(
     rows = db.execute(text(f"""
         SELECT
             q.id, q.question_text, q.type, q.topic,
-            q.difficulty, q.source, q.position,
-            COUNT(ia.id) as times_served,
-            ROUND(AVG(ia.overall_score)::numeric, 1) as avg_score
-        FROM interview_questions q
-        LEFT JOIN interview_answers ia ON ia.interview_question_id = q.id
+            q.difficulty, q.source, q.is_fundamental,
+            q.times_used, q.avg_score, q.quality_score,
+            q.created_at
+        FROM questions q
         WHERE {where_clause}
-        GROUP BY q.id
         ORDER BY q.id DESC
         LIMIT :limit OFFSET :offset
     """), params).mappings().all()
 
-    # Category breakdown
     cat_breakdown = db.execute(text("""
-        SELECT type, COUNT(*) as count, COUNT(*) FILTER (WHERE is_active) as active
-        FROM interview_questions GROUP BY type ORDER BY count DESC
+        SELECT type, COUNT(*) as count
+        FROM questions GROUP BY type ORDER BY count DESC
+    """)).mappings().all()
+
+    topic_breakdown = db.execute(text("""
+        SELECT topic, COUNT(*) as count
+        FROM questions WHERE topic IS NOT NULL
+        GROUP BY topic ORDER BY count DESC LIMIT 10
     """)).mappings().all()
 
     return {
@@ -670,6 +671,7 @@ def get_questions(
         "per_page": per_page,
         "pages": max(1, -(-total // per_page)),
         "category_breakdown": [dict(r) for r in cat_breakdown],
+        "topic_breakdown": [dict(r) for r in topic_breakdown],
     }
 
 
@@ -692,18 +694,15 @@ def update_question(
         updates["question_text"] = payload.question_text
     if payload.difficulty is not None:
         updates["difficulty"] = payload.difficulty
-    
     if payload.topic is not None:
         updates["topic"] = payload.topic
-    if payload.subtopic is not None:
-        updates["subtopic"] = payload.subtopic
 
     if not updates:
         return {"ok": True}
 
     set_clause = ", ".join(f"{k} = :{k}" for k in updates)
     updates["qid"] = question_id
-    db.execute(text(f"UPDATE interview_questions SET {set_clause} WHERE id = :qid"), updates)
+    db.execute(text(f"UPDATE questions SET {set_clause} WHERE id = :qid"), updates)
     db.commit()
     return {"ok": True}
 

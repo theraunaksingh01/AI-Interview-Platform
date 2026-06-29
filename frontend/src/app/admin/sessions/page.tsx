@@ -16,7 +16,7 @@ const SCORE_COLOR = (s: number | null) => {
 };
 
 export default function AdminSessionsPage() {
-  const { authHeader } = useAuth();
+  const { authHeader, user, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
@@ -26,6 +26,7 @@ export default function AdminSessionsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchSessions = useCallback(async () => {
+    if (authLoading || !user) return;
     setLoading(true);
     const params = new URLSearchParams({
       page: String(page), per_page: "20",
@@ -35,7 +36,7 @@ export default function AdminSessionsPage() {
     const res = await fetch(`${API}/api/admin/sessions?${params}`, { headers: authHeader() });
     setData(await res.json());
     setLoading(false);
-  }, [page, status, company]);
+  }, [page, status, company, user, authLoading]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
