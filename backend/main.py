@@ -95,6 +95,7 @@ from api import resume_prep as resume_prep_api
 from api import cheat_sheet as cheat_sheet_api
 from api import peer_practice as peer_practice_api
 from api import dsa_practice as dsa_practice_api
+from api import admin as admin_api
 
 
 
@@ -162,6 +163,8 @@ app.include_router(cheat_sheet_api.router)
 app.include_router(peer_practice_api.router)
 
 app.include_router(dsa_practice_api.router)
+
+app.include_router(admin_api.router)
 
 _startup_import_error = None
 
