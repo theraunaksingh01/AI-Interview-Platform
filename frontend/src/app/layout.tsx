@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { Providers } from "./providers";
 import { NavbarWrapper } from "@/app/components/NavbarWrapper";
 import { DailyPopup } from "@/app/components/DailyPopup";
+import { CookieBanner } from "@/app/components/CookieBanner";
 
 export const metadata = {
   title: "AI Interview Platform",
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <NavbarWrapper />
           {children}
           <DailyPopup />
+          <CookieBanner />
         </Providers>
       </body>
     </html>
