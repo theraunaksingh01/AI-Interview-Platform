@@ -4,34 +4,34 @@ const challenges = [
   {
     id: "01",
     color: "#FDE68A",
-    icon: "🎯",
-    title: "No Real Pressure Practice",
-    desc: "Students practice in comfort zones. Real interviews have time pressure, silence, and follow-up probing. Most tools never simulate this — leaving candidates blindsided on the day.",
-    tag: "Confidence Gap",
+    icon: "🗣️",
+    title: "Practicing with friends?",
+    desc: "They won't tell you your answer was bad. Qued scores you honestly and shows exactly what a strong answer looks like — no sugarcoating.",
+    tag: "Smart Scoring",
   },
   {
     id: "02",
     color: "#BAE6FD",
-    icon: "🔁",
-    title: "Generic Feedback Loops",
-    desc: "You get a score. Maybe a rubric. But nobody tells you *why* your answer fell flat — or what pattern keeps repeating across your mocks. Feedback without diagnosis is noise.",
-    tag: "Feedback Quality",
+    icon: "📖",
+    title: "Reading GFG articles all day?",
+    desc: "That's studying, not practicing. Real interviews need you to SPEAK — out loud, under pressure, with someone actually listening.",
+    tag: "Voice-Based Practice",
   },
   {
     id: "03",
     color: "#BBF7D0",
-    icon: "📉",
-    title: "Follow-up Collapse",
-    desc: "Students memorise answers, not concepts. The moment an interviewer digs deeper — 'Why not X? What's your tradeoff?' — the answer crumbles. Nobody trains for depth.",
-    tag: "Depth Problem",
+    icon: "💻",
+    title: "Solved it but can't explain why?",
+    desc: "Interviewers don't just want correct code. They want to hear WHY you chose that approach over the alternatives.",
+    tag: "Approach Comparison",
   },
   {
     id: "04",
     color: "#FECACA",
-    icon: "🧩",
-    title: "No Personalised Weak-spot Tracking",
-    desc: "Every session starts from scratch. Students don't know their recurring failure patterns — hedging on trade-offs, weak closing, poor structure — because no tool remembers them.",
-    tag: "Progress Blindness",
+    icon: "🧭",
+    title: "No idea if you're actually ready?",
+    desc: "Your Skill Passport tracks every topic across every session. Know exactly where you stand before you walk in.",
+    tag: "Progress Tracking",
   },
 ];
 
@@ -53,10 +53,9 @@ export default function ChallengesSection() {
       <div className="challenges-inner">
         {/* Heading */}
         <div className="challenges-heading">
-          <p className="challenges-eyebrow">Why Most Students Struggle</p>
+          <p className="challenges-eyebrow">Be Honest With Yourself</p>
           <h2 className="challenges-title">
-            Common Challenges in<br />
-            <em>Interview Preparation</em>
+            Sound   <em>Familiar?</em>
           </h2>
           <div className="title-underline" />
         </div>

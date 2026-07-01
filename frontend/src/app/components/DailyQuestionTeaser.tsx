@@ -22,10 +22,12 @@ type TodayQuestion = {
   answered: { score: number } | null;
 };
 
-const STATS = [
-  { value: "247", label: "answered today" },
-  { value: "12", label: "day top streak" },
-  { value: "Free", label: "forever" },
+// What you actually get — real, verifiable claims about the product,
+// not numbers that need real users to be true.
+const VALUE_POINTS = [
+  { icon: "🎯", text: "One question, every day — no decision fatigue" },
+  { icon: "🤖", text: "Scored instantly by AI, not left to guess" },
+  { icon: "💡", text: "Model answer revealed right after you answer" },
 ];
 
 export function DailyQuestionTeaser() {
@@ -88,12 +90,14 @@ export function DailyQuestionTeaser() {
                 Build the habit that separates prepared candidates from everyone else. Answer one interview question daily, get AI scored, track your streak.
               </p>
 
-              {/* Mini stats */}
-              <div className="mt-8 grid grid-cols-3 gap-4">
-                {STATS.map(({ value, label }) => (
-                  <div key={label}>
-                    <p className="text-[24px] font-black text-[#111] leading-none">{value}</p>
-                    <p className="text-[11px] text-[#9CA3AF] mt-0.5">{label}</p>
+              {/* Value points instead of fake stats */}
+              <div className="mt-8 space-y-3">
+                {VALUE_POINTS.map(({ icon, text }) => (
+                  <div key={text} className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[15px]" style={{ background: "#FFF9E6" }}>
+                      {icon}
+                    </span>
+                    <p className="text-[13px] font-medium text-[#374151]">{text}</p>
                   </div>
                 ))}
               </div>
@@ -108,7 +112,6 @@ export function DailyQuestionTeaser() {
                     const todayIdx = today === 0 ? 6 : today - 1;
                     const isPast = i < todayIdx;
                     const isToday = i === todayIdx;
-                    const isFuture = i > todayIdx;
                     return (
                       <div key={i} className="flex flex-col items-center gap-1">
                         <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all ${
@@ -147,7 +150,7 @@ export function DailyQuestionTeaser() {
               </div>
 
               {/* Question text */}
-              <div className="flex-1">
+              <div>
                 {loading ? (
                   <div className="space-y-3">
                     <div className="h-5 bg-[#F3F4F6] rounded-lg w-full animate-pulse" />
@@ -163,24 +166,36 @@ export function DailyQuestionTeaser() {
                 )}
               </div>
 
-              {/* Separator */}
-              <div className="my-6 h-px bg-[#F3F4F6]" />
-
-              {/* Confidence row */}
-              <div className="flex items-center gap-3 mb-5">
-                {/* Fake avatar stack */}
-                <div className="flex -space-x-2">
-                  {["#6366F1","#10B981","#F59E0B","#EF4444"].map((c, i) => (
-                    <div key={i} className="h-7 w-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white"
-                      style={{ background: c }}>
-                      {["P","R","A","S"][i]}
+              {/* Mini preview of what happens after you answer — fills the space, sets expectation */}
+              {!data?.answered && (
+                <div className="flex-1 flex items-center my-6">
+                  <div className="w-full rounded-2xl border border-dashed border-[#E5E7EB] bg-[#FAFAFA] p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
+                      After you answer
+                    </p>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#111] text-[13px] font-black text-yellow-400">
+                        78
+                      </div>
+                      <div className="flex-1">
+                        <div className="h-1.5 w-full rounded-full bg-[#E5E7EB] overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: "78%" }} />
+                        </div>
+                        <p className="text-[10px] text-[#9CA3AF] mt-1">Instant score out of 100</p>
+                      </div>
                     </div>
-                  ))}
+                    <div className="rounded-xl bg-white border border-[#F0F0EB] px-3 py-2.5">
+                      <p className="text-[10px] font-black text-yellow-700 mb-0.5">💡 MODEL ANSWER</p>
+                      <p className="text-[11px] text-[#6B7280] leading-snug">
+                        See exactly what a strong answer sounds like — revealed right after you submit.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[12px] text-[#6B7280]">
-                  <span className="font-bold text-[#111]">247 students</span> answered today
-                </p>
-              </div>
+              )}
+
+              {/* Separator */}
+              <div className="mb-6 h-px bg-[#F3F4F6]" />
 
               {/* CTA */}
               {data?.answered ? (
@@ -221,7 +236,6 @@ export function DailyQuestionTeaser() {
             { icon: "🔥", text: "Streak tracking" },
             { icon: "🤖", text: "AI scoring on every answer" },
             { icon: "💡", text: "Model answers revealed after" },
-            { icon: "🏆", text: "Weekly leaderboard" },
           ].map(({ icon, text }) => (
             <span key={text} className="flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] font-medium text-[#6B7280]">
               <span>{icon}</span> {text}

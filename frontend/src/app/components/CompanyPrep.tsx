@@ -242,9 +242,9 @@ const questions: Question[] = [
 ];
 
 const difficultyStyle = {
-  Easy: { bg: "#D1FAE5", color: "#065F46" },
-  Medium: { bg: "#FEF3C7", color: "#92400E" },
-  Hard: { bg: "#FEE2E2", color: "#991B1B" },
+  Easy: { bg: "#D1FAE5", color: "#065F46", dot: "#10B981" },
+  Medium: { bg: "#FEF3C7", color: "#92400E", dot: "#F59E0B" },
+  Hard: { bg: "#FEE2E2", color: "#991B1B", dot: "#EF4444" },
 };
 
 export function CompanyPrep() {
@@ -350,7 +350,7 @@ export function CompanyPrep() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
           >
             {filtered.slice(0, 6).map((q, i) => (
               <motion.div
@@ -358,143 +358,180 @@ export function CompanyPrep() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06 }}
-                whileHover={{ y: -4, transition: { duration: 0.15 } }}
-                className="flex flex-col"
+                whileHover={{ y: -6, transition: { duration: 0.18 } }}
+                className="group flex flex-col relative overflow-hidden"
                 style={{
                   background: "white",
-                  border: "1px solid #E8E8E0",
-                  borderRadius: "20px",
-                  padding: "24px",
+                  border: "1px solid #ECECE4",
+                  borderRadius: "22px",
                   cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                  transition: "box-shadow 0.2s ease, border-color 0.2s ease",
                 }}
               >
-                {/* Top row — topic + type */}
-                <div className="flex items-center justify-between mb-4">
-                  <span
-                    className="text-xs font-bold px-3 py-1 rounded-full"
-                    style={{
-                      background: q.topicBg,
-                      color: q.topicColor,
-                    }}
-                  >
-                    {q.topic}
-                  </span>
-                  <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full"
-                    style={{
-                      background:
-                        q.type === "code" ? "#111" : "#F5F5F0",
-                      color:
-                        q.type === "code" ? "#FFD600" : "#888",
-                    }}
-                  >
-                    {q.type === "code" ? "⌨ Code" : "🎙 Voice"}
-                  </span>
-                </div>
-
-                {/* Visual placeholder — gradient bar */}
+                {/* Top accent strip */}
                 <div
-                  className="rounded-xl mb-4 flex items-center justify-center"
                   style={{
-                    height: "100px",
-                    background:
-                      q.type === "code"
-                        ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
-                        : `linear-gradient(135deg, ${q.topicBg} 0%, white 100%)`,
-                    border: "1px solid #F0F0EB",
+                    height: "4px",
+                    width: "100%",
+                    background: q.topicColor,
+                    opacity: 0.85,
                   }}
-                >
-                  {q.type === "code" ? (
-                    <div className="flex flex-col gap-1.5 px-4 w-full">
-                      {[
-                        { w: "60%", color: "#6366F1" },
-                        { w: "80%", color: "#14B8A6" },
-                        { w: "45%", color: "#F59E0B" },
-                        { w: "70%", color: "#6366F1" },
-                      ].map((line, li) => (
-                        <div
-                          key={li}
-                          style={{
-                            width: line.w,
-                            height: "6px",
-                            background: line.color,
-                            borderRadius: "3px",
-                            opacity: 0.7,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-end gap-1 px-4">
-                      {[12, 24, 18, 32, 20, 28, 16, 24, 20].map(
-                        (h, wi) => (
-                          <div
-                            key={wi}
-                            style={{
-                              width: "6px",
-                              height: `${h}px`,
-                              background: q.topicColor,
-                              borderRadius: "3px",
-                              opacity: 0.4 + (wi % 3) * 0.2,
-                            }}
-                          />
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
+                />
 
-                {/* Content */}
-                <div className="flex-1">
-                  <h3
-                    className="font-bold leading-snug mb-2"
-                    style={{
-                      fontSize: "15px",
-                      color: "#111111",
-                    }}
-                  >
-                    {q.title}
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "13px",
-                      color: "#888",
-                      lineHeight: 1.65,
-                    }}
-                  >
-                    {q.desc}
-                  </p>
-                </div>
+                <div className="flex flex-col flex-1" style={{ padding: "22px 22px 20px" }}>
 
-                {/* Bottom row */}
-                <div
-                  className="flex items-center justify-between mt-4 pt-4"
-                  style={{ borderTop: "1px solid #F0F0EB" }}
-                >
-                  <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full"
+                  {/* Top row — topic + type */}
+                  <div className="flex items-center justify-between mb-4">
+                    <span
+                      className="text-xs font-bold px-3 py-1 rounded-full"
+                      style={{
+                        background: q.topicBg,
+                        color: q.topicColor,
+                      }}
+                    >
+                      {q.topic}
+                    </span>
+                    <span
+                      className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
+                      style={{
+                        background:
+                          q.type === "code" ? "#111" : "#F5F5F0",
+                        color:
+                          q.type === "code" ? "#FFD600" : "#888",
+                      }}
+                    >
+                      {q.type === "code" ? "⌨ Code" : "🎙 Voice"}
+                    </span>
+                  </div>
+
+                  {/* Visual — real product mockup, not abstract bars */}
+                  <div
+                    className="rounded-xl mb-4 overflow-hidden relative"
                     style={{
+                      height: "108px",
                       background:
-                        difficultyStyle[q.difficulty].bg,
-                      color: difficultyStyle[q.difficulty].color,
+                        q.type === "code"
+                          ? "#13131F"
+                          : `linear-gradient(160deg, ${q.topicBg} 0%, #FFFFFF 100%)`,
+                      border: q.type === "code" ? "none" : "1px solid #F0F0EB",
                     }}
                   >
-                    {q.difficulty}
-                  </span>
-                  <button
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      color: "#111",
-                      background: "#FFD600",
-                      border: "none",
-                      borderRadius: "8px",
-                      padding: "6px 14px",
-                      cursor: "pointer",
-                    }}
+                    {q.type === "code" ? (
+                      <div className="px-4 py-3.5 font-mono" style={{ fontSize: "11px", lineHeight: 1.9 }}>
+                        <div style={{ color: "#6B7280" }}>
+                          <span style={{ color: "#C084FC" }}>function</span>{" "}
+                          <span style={{ color: "#60A5FA" }}>solve</span>
+                          <span style={{ color: "#E5E7EB" }}>(input) {"{"}</span>
+                        </div>
+                        <div style={{ color: "#34D399", paddingLeft: "14px" }}>
+                          // optimal approach
+                        </div>
+                        <div style={{ paddingLeft: "14px" }}>
+                          <span style={{ color: "#FBBF24" }}>return</span>{" "}
+                          <span style={{ color: "#F472B6" }}>result</span>
+                          <span style={{ color: "#E5E7EB" }}>;</span>
+                        </div>
+                        <div style={{ color: "#E5E7EB" }}>{"}"}</div>
+                      </div>
+                    ) : (
+                      <div className="flex h-full items-center px-4">
+                        <div
+                          className="flex items-center gap-2 rounded-full px-3 py-2 w-full"
+                          style={{ background: "rgba(255,255,255,0.7)" }}
+                        >
+                          <span
+                            className="flex items-center justify-center rounded-full flex-shrink-0"
+                            style={{
+                              width: "22px",
+                              height: "22px",
+                              background: q.topicColor,
+                              color: "white",
+                              fontSize: "10px",
+                            }}
+                          >
+                            🎤
+                          </span>
+                          <div className="flex items-end gap-[3px] flex-1">
+                            {[6, 12, 9, 16, 10, 14, 8, 12, 10, 15, 7].map((h, wi) => (
+                              <div
+                                key={wi}
+                                style={{
+                                  width: "3px",
+                                  height: `${h}px`,
+                                  background: q.topicColor,
+                                  borderRadius: "2px",
+                                  opacity: 0.5 + (wi % 3) * 0.15,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1">
+                    <h3
+                      className="font-bold leading-snug mb-2"
+                      style={{
+                        fontSize: "15px",
+                        color: "#111111",
+                      }}
+                    >
+                      {q.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: "13px",
+                        color: "#888",
+                        lineHeight: 1.65,
+                      }}
+                    >
+                      {q.desc}
+                    </p>
+                  </div>
+
+                  {/* Bottom row */}
+                  <div
+                    className="flex items-center justify-between mt-4 pt-4"
+                    style={{ borderTop: "1px solid #F0F0EB" }}
                   >
-                    Practice →
-                  </button>
+                    <span
+                      className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+                      style={{
+                        background: difficultyStyle[q.difficulty].bg,
+                        color: difficultyStyle[q.difficulty].color,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "5px",
+                          height: "5px",
+                          borderRadius: "50%",
+                          background: difficultyStyle[q.difficulty].dot,
+                          display: "inline-block",
+                        }}
+                      />
+                      {q.difficulty}
+                    </span>
+                    <button
+                      className="transition-transform duration-150 group-hover:translate-x-0.5"
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: "#111",
+                        background: "#FFD600",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "6px 14px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Practice →
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}

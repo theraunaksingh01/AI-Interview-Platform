@@ -73,8 +73,8 @@ const cards = [
   },
   {
     id: 3,
-    span: "md:col-span-4",
-    height: "h-[260px]",
+    span: "md:col-span-3",
+    height: "h-[300px]",
     bg: "#FFF1F2",
     border: "#FECDD3",
     tag: "FEEDBACK",
@@ -104,42 +104,67 @@ const cards = [
   },
   {
     id: 4,
-    span: "md:col-span-4",
-    height: "h-[260px]",
-    bg: "#F5F3FF",
-    border: "#DDD6FE",
-    tag: "COMING SOON",
-    tagBg: "#EDE9FE",
-    tagColor: "#5B21B6",
-    title: "Multi-agent panel",
-    desc: "3 AI interviewers simultaneously — technical, HR, and hiring manager.",
+    span: "md:col-span-6",
+    height: "h-[300px]",
+    bg: "#0F0F17",
+    border: "#2A2A3A",
+    tag: "CODE",
+    tagBg: "#1F1F2E",
+    tagColor: "#A5B4FC",
+    title: "DSA Practice IDE",
+    desc: "185 problems in Python, Java, C++. Real test cases — see the optimal approach and why it works.",
+    dark: true,
     visual: (
-      <div className="flex items-center gap-2 mt-4">
-        {[
-          { initial: "T", bg: "#6366F1", label: "Technical" },
-          { initial: "H", bg: "#14B8A6", label: "HR" },
-          { initial: "M", bg: "#F59E0B", label: "Manager" },
-        ].map((av) => (
-          <div key={av.label} className="text-center">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm mb-1"
-              style={{ background: av.bg }}
-            >
-              {av.initial}
-            </div>
-            <div className="text-[10px] text-gray-400">{av.label}</div>
-          </div>
-        ))}
-        <div className="ml-2 text-xs text-gray-400 leading-relaxed">
-          Simulates a real<br />panel interview
+      <div
+        className="mt-4 rounded-xl p-3 font-mono"
+        style={{ background: "#1A1A26", border: "1px solid #2A2A3A", fontSize: "11px", lineHeight: 1.85 }}
+      >
+        <div style={{ color: "#6B7280" }}>
+          <span style={{ color: "#C084FC" }}>def</span>{" "}
+          <span style={{ color: "#60A5FA" }}>max_profit</span>
+          <span style={{ color: "#E5E7EB" }}>(prices):</span>
+        </div>
+        <div style={{ paddingLeft: "14px", color: "#E5E7EB" }}>
+          min_price = prices[0]
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: "#065F46", color: "#6EE7B7" }}>
+            ✓ 12/12 passed
+          </span>
+          <span className="text-[10px]" style={{ color: "#6B7280" }}>O(n) time</span>
         </div>
       </div>
     ),
   },
   {
     id: 5,
-    span: "md:col-span-4",
-    height: "h-[260px]",
+    span: "md:col-span-3",
+    height: "h-[300px]",
+    bg: "#F5F3FF",
+    border: "#DDD6FE",
+    tag: "RESUME",
+    tagBg: "#EDE9FE",
+    tagColor: "#5B21B6",
+    title: "Project discussion prep",
+    desc: "AI reads your resume and asks about YOUR projects — not generic questions.",
+    visual: (
+      <div
+        className="mt-4 rounded-xl p-3"
+        style={{ background: "white", border: "1px solid #E8E8E0" }}
+      >
+        <div className="text-[11px] font-bold mb-1" style={{ color: "#5B21B6" }}>
+          "Why MongoDB over SQL?"
+        </div>
+        <div className="text-[10px] leading-relaxed" style={{ color: "#888" }}>
+          Based on your project: ExpenseTracker
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 6,
+    span: "md:col-span-12",
+    height: "h-[200px]",
     bg: "#111111",
     border: "#333333",
     tag: "ASR",
@@ -150,7 +175,7 @@ const cards = [
     dark: true,
     visual: (
       <div className="flex items-end gap-1 mt-4 h-10">
-        {[8, 20, 32, 24, 40, 28, 36, 16, 28, 20, 32, 12].map((h, i) => (
+        {[8, 20, 32, 24, 40, 28, 36, 16, 28, 20, 32, 12, 18, 30, 22, 36, 14, 26, 20, 32, 10, 24, 18, 30].map((h, i) => (
           <div
             key={i}
             style={{
@@ -215,6 +240,17 @@ export function ProcessBento() {
                 </div>
                 <div className="text-xs text-gray-400 mt-0.5">
                   curated questions
+                </div>
+              </div>
+              <div>
+                <div
+                  className="font-black text-xl"
+                  style={{ color: "#111" }}
+                >
+                  185
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  DSA problems
                 </div>
               </div>
               <div>

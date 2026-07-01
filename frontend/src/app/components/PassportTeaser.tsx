@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function SkillPassport() {
   return (
@@ -6,9 +6,12 @@ export default function SkillPassport() {
       {/* Heading */}
       <div className="heading-wrapper">
         <h2 className="heading">
-          Take a look at my{" "}
+          Take a look at your{" "}
           <span className="heading-highlight">Skill Passport</span>
         </h2>
+        <p className="subheading">
+          Every session feeds one score. Know exactly where you stand before you walk in.
+        </p>
       </div>
 
       {/* Card */}
@@ -16,7 +19,6 @@ export default function SkillPassport() {
         {/* Left: Text content */}
         <div className="card-left">
           <div className="brand">
-            {/* logo mark */}
             <svg
               width="22"
               height="22"
@@ -34,54 +36,56 @@ export default function SkillPassport() {
             <span className="brand-name">QUED</span>
           </div>
 
-          <span className="badge">Raunak Singh</span>
+          <span className="badge">Your Skill Passport</span>
 
-          <h3 className="card-title">Your Skill Verification</h3>
+          <h3 className="card-title">One score. Every session.</h3>
 
           <p className="card-desc">
-            A comprehensive report detailing your performance across key skill dimensions, cheat risk analysis,
-            and personalized coaching tips to help you improve and succeed in your interviews.  
+            A live readiness report across DSA, system design, behavioral, and
+            communication — built from every mock interview you've done.
+            Shareable on LinkedIn when you're ready to show it off.
           </p>
 
-          <a href="#" className="card-link">
-            Coming Soon <span className="arrow">→</span>
-          </a>
+          <Link href="/passport" className="card-link">
+            View your Skill Passport <span className="arrow">→</span>
+          </Link>
         </div>
 
-        {/* Right: Image placeholder */}
+        {/* Right: Real mini-preview */}
         <div className="card-right">
-          <div className="image-placeholder">
-            {/*
-              Replace the content below with your <Image> once you have the asset:
-              <Image src="/your-image.png" alt="Skill visual" fill style={{ objectFit: "cover" }} />
-            */}
-            <div className="placeholder-inner">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 48 48"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect
-                  x="4"
-                  y="8"
-                  width="40"
-                  height="32"
-                  rx="3"
-                  stroke="#aaa"
-                  strokeWidth="2"
-                />
-                <circle cx="15" cy="19" r="4" stroke="#aaa" strokeWidth="2" />
-                <path
-                  d="M4 32 L14 22 L22 30 L30 22 L44 34"
-                  stroke="#aaa"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <p className="placeholder-text">Your image goes here</p>
+          <div className="preview-card">
+            <div className="preview-header">
+              <span className="preview-name">Skill Passport</span>
+              <span className="preview-band">Developing</span>
             </div>
+
+            <div className="preview-score-row">
+              <span className="preview-score">62</span>
+              <span className="preview-score-max">/100</span>
+            </div>
+            <p className="preview-score-label">Readiness Score</p>
+
+            <div className="preview-bars">
+              {[
+                { label: "DSA", value: 71, color: "#5B21B6" },
+                { label: "System Design", value: 48, color: "#92400E" },
+                { label: "Behavioral", value: 65, color: "#065F46" },
+                { label: "Communication", value: 58, color: "#1E40AF" },
+              ].map((d) => (
+                <div key={d.label} className="preview-bar-row">
+                  <span className="preview-bar-label">{d.label}</span>
+                  <div className="preview-bar-track">
+                    <div
+                      className="preview-bar-fill"
+                      style={{ width: `${d.value}%`, background: d.color }}
+                    />
+                  </div>
+                  <span className="preview-bar-value">{d.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="preview-footer">12 sessions · Updated live</p>
           </div>
         </div>
       </div>
@@ -115,6 +119,17 @@ export default function SkillPassport() {
           border-radius: 3px;
           display: inline-block;
           color: #111;
+        }
+
+        .subheading {
+          margin-top: 12px;
+          font-size: 0.95rem;
+          color: #666;
+          font-family: "Arial", sans-serif;
+          max-width: 420px;
+          margin-left: auto;
+          margin-right: auto;
+          line-height: 1.6;
         }
 
         /* ── Card ── */
@@ -182,7 +197,7 @@ export default function SkillPassport() {
 
         .card-link {
           font-size: 0.9rem;
-          font-weight: 700;
+          font-weight: 800;
           color: #111;
           text-decoration: none;
           display: inline-flex;
@@ -204,7 +219,7 @@ export default function SkillPassport() {
           font-size: 1rem;
         }
 
-        /* ── Right ── */
+        /* ── Right — real preview ── */
         .card-right {
           flex: 1;
           min-width: 0;
@@ -214,31 +229,122 @@ export default function SkillPassport() {
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 28px;
         }
 
-        .image-placeholder {
+        .preview-card {
           width: 100%;
-          height: 100%;
-          min-height: 260px;
+          max-width: 280px;
+          background: #fff;
+          border: 1.5px solid #111;
+          border-radius: 14px;
+          padding: 20px;
+          box-shadow: 4px 4px 0px rgba(17,17,17,0.08);
+        }
+
+        .preview-header {
           display: flex;
           align-items: center;
-          justify-content: center;
-          position: relative;
+          justify-content: space-between;
+          margin-bottom: 14px;
         }
 
-        .placeholder-inner {
+        .preview-name {
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #111;
+          font-family: "Arial", sans-serif;
+        }
+
+        .preview-band {
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: #92400E;
+          background: #FEF3C7;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-family: "Arial", sans-serif;
+        }
+
+        .preview-score-row {
+          display: flex;
+          align-items: baseline;
+          gap: 2px;
+        }
+
+        .preview-score {
+          font-size: 2.4rem;
+          font-weight: 900;
+          color: #111;
+          font-family: "Arial Black", "Arial", sans-serif;
+          line-height: 1;
+        }
+
+        .preview-score-max {
+          font-size: 1rem;
+          color: #999;
+          font-weight: 700;
+          font-family: "Arial", sans-serif;
+        }
+
+        .preview-score-label {
+          font-size: 0.7rem;
+          color: #999;
+          font-family: "Arial", sans-serif;
+          margin: 2px 0 16px;
+        }
+
+        .preview-bars {
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 12px;
-          opacity: 0.5;
+          gap: 9px;
+          margin-bottom: 14px;
         }
 
-        .placeholder-text {
-          font-size: 0.8rem;
-          color: #777;
+        .preview-bar-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .preview-bar-label {
+          font-size: 0.65rem;
+          color: #555;
+          font-family: "Arial", sans-serif;
+          width: 84px;
+          flex-shrink: 0;
+        }
+
+        .preview-bar-track {
+          flex: 1;
+          height: 6px;
+          background: #F0F0EB;
+          border-radius: 999px;
+          overflow: hidden;
+        }
+
+        .preview-bar-fill {
+          height: 100%;
+          border-radius: 999px;
+        }
+
+        .preview-bar-value {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: #111;
+          font-family: "Arial", sans-serif;
+          width: 20px;
+          text-align: right;
+          flex-shrink: 0;
+        }
+
+        .preview-footer {
+          font-size: 0.65rem;
+          color: #999;
           font-family: "Arial", sans-serif;
           margin: 0;
+          padding-top: 10px;
+          border-top: 1px solid #F0F0EB;
         }
 
         /* ── Responsive ── */

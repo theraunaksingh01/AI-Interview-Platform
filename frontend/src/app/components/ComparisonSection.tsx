@@ -77,7 +77,7 @@ export default function ComparisonSection() {
           <div className="panel panel--others">
             <div className="panel-header">
               <span className="panel-badge panel-badge--others">Others</span>
-              <p className="panel-label">Pramp · ChatGPT · LeetCode Mock</p>
+              <p className="panel-label">Generic prep tools &amp; one-off chatbots</p>
             </div>
             <div className="tag-cloud">
               {theirTags.map((t) => (

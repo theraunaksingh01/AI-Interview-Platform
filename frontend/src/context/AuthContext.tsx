@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { isPublicRoute, isCandidateInterviewRoute } from "@/lib/publicRoutes";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
@@ -28,18 +29,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-/** Public routes that don't require authentication */
-const PUBLIC_ROUTES = ["/", "/login", "/signup", "/forgot-password", "/candidate/submit", "/candidate/interview", "/mock", "/pricing", "/daily", "/calendar", "/passport", "/quick-prep", "/topic-practice", "/resume-prep", "/cheat-sheet", "/peer", "/dsa"];
-
-function isPublicRoute(path: string): boolean {
-  return PUBLIC_ROUTES.some((r) => path === r || path.startsWith(r + "/"));
-}
-
-/** Candidate-facing interview routes that are publicly accessible */
-function isCandidateRoute(path: string): boolean {
-  return /^\/interview\/[^/]+\/(join|prepare|live)$/.test(path);
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -97,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Redirect logic: if not loading, no token, and on a protected route → redirect to /login
   useEffect(() => {
     if (loading) return;
-    if (!token && !isPublicRoute(pathname) && !isCandidateRoute(pathname)) {
+    if (!token && !isPublicRoute(pathname) && !isCandidateInterviewRoute(pathname)) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
     }
   }, [loading, token, pathname, router]);

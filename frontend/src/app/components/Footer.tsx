@@ -6,6 +6,13 @@ import { Github, Linkedin, Twitter, Instagram } from "lucide-react";
 
 export function FooterHero() {
   const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Wire to your backend newsletter endpoint when ready.
+    setSubmitted(true);
+  };
 
   return (
     <footer
@@ -51,53 +58,61 @@ export function FooterHero() {
               className="font-semibold mb-3"
               style={{ fontSize: "13px", color: "#888" }}
             >
-              Sign up to our News letter
+              Get prep tips in your inbox
             </p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  background: "#1a1a1a",
-                  border: "1px solid #333",
-                  borderRadius: "6px",
-                  padding: "9px 14px",
-                  fontSize: "13px",
-                  color: "white",
-                  outline: "none",
-                  width: "220px",
-                }}
-              />
-              <button
-                style={{
-                  background: "#FFD600",
-                  color: "#111",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  padding: "9px 18px",
-                  borderRadius: "6px",
-                  border: "none",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Submit
-              </button>
-            </div>
+            {submitted ? (
+              <p style={{ fontSize: "13px", color: "#FFD600" }}>
+                ✓ You're in — check your inbox soon.
+              </p>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{
+                    background: "#1a1a1a",
+                    border: "1px solid #333",
+                    borderRadius: "6px",
+                    padding: "9px 14px",
+                    fontSize: "13px",
+                    color: "white",
+                    outline: "none",
+                    width: "220px",
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    background: "#FFD600",
+                    color: "#111",
+                    fontWeight: 700,
+                    fontSize: "13px",
+                    padding: "9px 18px",
+                    borderRadius: "6px",
+                    border: "none",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Submit
+                </button>
+              </form>
+            )}
 
             {/* Social icons */}
             <div className="flex items-center gap-3 mt-4">
               {[
-                { icon: <Linkedin size={14} />, href: "#", label: "LinkedIn" },
-                { icon: <Github size={14} />, href: "#", label: "GitHub" },
-                { icon: <Twitter size={14} />, href: "#", label: "Twitter" },
-                { icon: <Instagram size={14} />, href: "#", label: "Instagram" },
+                { icon: <Linkedin size={14} />, href: "https://linkedin.com", label: "LinkedIn" },
+                { icon: <Instagram size={14} />, href: "https://instagram.com", label: "Instagram" },
               ].map((s) => (
                 <Link
                   key={s.label}
                   href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   aria-label={s.label}
                   style={{
                     width: "32px",
@@ -124,20 +139,40 @@ export function FooterHero() {
         >
           {[
             {
-              title: "Categories",
-              links: ["Mock Interview", "Company Prep", "Skill Passport", "Pricing"],
+              title: "Practice",
+              links: [
+                { label: "Mock Interview", href: "/mock" },
+                { label: "DSA Practice", href: "/dsa" },
+                { label: "Company Prep", href: "/cheat-sheet" },
+                { label: "Skill Passport", href: "/passport" },
+              ],
             },
             {
               title: "Quick Links",
-              links: ["Home", "About", "Blog", "Contact"],
+              links: [
+                { label: "Home", href: "/" },
+                { label: "Pricing", href: "/pricing" },
+                { label: "About", href: "/about" },
+                { label: "Contact", href: "/contact" },
+              ],
             },
             {
               title: "Features",
-              links: ["Real-time coaching", "AI scoring", "Voice interview", "Progress tracking"],
+              links: [
+                { label: "Real-time coaching", href: "/features" },
+                { label: "AI scoring", href: "/features" },
+                { label: "Voice interview", href: "/features" },
+                { label: "Progress tracking", href: "/features" },
+              ],
             },
             {
               title: "Company",
-              links: ["About us", "Careers", "Privacy Policy", "Terms of Service"],
+              links: [
+                { label: "About us", href: "/about" },
+                { label: "Contact", href: "/contact" },
+                { label: "Privacy Policy", href: "/privacy" },
+                { label: "Terms of Service", href: "/terms" },
+              ],
             },
           ].map((col) => (
             <div key={col.title}>
@@ -149,13 +184,13 @@ export function FooterHero() {
               </h4>
               <ul className="space-y-3">
                 {col.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <Link
-                      href="#"
+                      href={link.href}
                       style={{ fontSize: "13px", color: "#555" }}
                       className="hover:text-white transition-colors"
                     >
-                      {link}
+                      {link.label}
                     </Link>
                   </li>
                 ))}
@@ -170,21 +205,20 @@ export function FooterHero() {
             © 2026 Qued. Built for India's engineering students.
           </p>
           <div className="flex gap-6">
-            {["Media Inquiries", "Terms", "Privacy"].map((l) => (
-              <Link
-                key={l}
-                href="#"
-                style={{ fontSize: "12px", color: "#444" }}
-                className="hover:text-white transition-colors"
-              >
-                {l}
-              </Link>
-            ))}
+            <Link href="/contact" style={{ fontSize: "12px", color: "#444" }} className="hover:text-white transition-colors">
+              Contact
+            </Link>
+            <Link href="/terms" style={{ fontSize: "12px", color: "#444" }} className="hover:text-white transition-colors">
+              Terms
+            </Link>
+            <Link href="/privacy" style={{ fontSize: "12px", color: "#444" }} className="hover:text-white transition-colors">
+              Privacy
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Giant QUED text at bottom — exactly like Skillora */}
+      {/* Giant QUED text at bottom */}
       <div
         aria-hidden
         className="pointer-events-none flex justify-center overflow-hidden"

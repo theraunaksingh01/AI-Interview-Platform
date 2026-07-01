@@ -144,9 +144,9 @@ export function HeroSection() {
               color: "#111111",
             }}
           >
-            AI Interviewer get your
+            Practice for your exact
             <br />
-            dream top{" "}
+           
             <span
               style={{
                 background: "#FFD600",
@@ -157,7 +157,7 @@ export function HeroSection() {
                 display: "inline",
               }}
             >
-              talent.
+              Placement  Interview
             </span>
           </motion.h1>
 
@@ -173,9 +173,9 @@ export function HeroSection() {
               lineHeight: 1.65,
             }}
           >
-            Configure custom interview questions and get comprehensive
-            performance analysis on every candidate. Evaluate everyone
-            fairly while focusing your time on top talent.
+            Mock interviews with the same questions TCS, Infosys, and Amazon 
+            actually ask at campus drives. Speak your answer. Get scored instantly. 
+            See what you should have said.
           </motion.p>
 
           {/* Buttons */}
@@ -198,7 +198,7 @@ export function HeroSection() {
                   cursor: "pointer",
                 }}
               >
-                Practice For Free Try Now!
+                Start Free Mock Interview
               </button>
             </Link>
             <Link href="#how-it-works">
@@ -214,7 +214,7 @@ export function HeroSection() {
                   cursor: "pointer",
                 }}
               >
-                How Top Talent
+                Watch How It Works
               </button>
             </Link>
           </motion.div>

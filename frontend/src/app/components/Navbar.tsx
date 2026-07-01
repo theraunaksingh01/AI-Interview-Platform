@@ -21,6 +21,7 @@ const PUBLIC_NAV = [
   { name: "Features", href: "/features" },
   { name: "Pricing", href: "/pricing" },
   { name: "About", href: "/about" },
+  { name: "Contact",  href: "/contact"  },
 ];
 
 const APP_NAV = [

@@ -4,46 +4,76 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { FooterHero } from "@/app/components/Footer";
 
-// ─── SEO meta is in a separate layout or head tag ─────────────────────────────
-// Primary keywords: AI mock interview India, campus placement preparation,
-// mock interview platform for engineering students, AI interview coach
-
 const FEATURES = [
   {
     tag: "Live Coaching",
     headline: "A coach in your ear, every answer.",
     body: "While you speak, Qued tracks your words per minute, detects filler words like 'um' and 'basically', and nudges you when you've been silent too long. No more realising your bad habits after the interview.",
-    stat: "14 filler words caught on average per session",
+    stat: "Real-time pace and filler tracking",
     icon: "🎯",
     color: "#FFF9C4",
-    accent: "#FFD600",
+    accent: "#7A6000",
+    visual: (
+      <div className="flex items-end gap-1 mt-4 h-9">
+        {[6, 14, 22, 12, 18, 26, 10, 16, 20, 8, 14, 22].map((h, i) => (
+          <div key={i} style={{ width: "5px", height: `${h}px`, background: "#FFD600", borderRadius: "3px", opacity: 0.5 + (i % 3) * 0.2 }} />
+        ))}
+      </div>
+    ),
   },
   {
     tag: "AI Scoring",
-    headline: "Scored on 5 dimensions, not just a number.",
-    body: "Technical accuracy, problem solving, communication clarity, depth of knowledge, relevance — each answer gets a breakdown. You know exactly what to improve, not just that you scored 62.",
+    headline: "Scored on what matters, not just a number.",
+    body: "Technical accuracy, communication clarity, completeness — each answer gets a breakdown. You know exactly what to improve, not just that you scored 62.",
     stat: "Calibrated for Indian campus placement level",
     icon: "✦",
     color: "#EEF2FF",
-    accent: "#6366F1",
+    accent: "#4338CA",
+    visual: (
+      <div className="mt-4 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#111] text-[14px] font-black text-white">62</div>
+        <div className="flex-1 space-y-1.5">
+          {[70, 55, 80].map((v, i) => (
+            <div key={i} className="h-1.5 rounded-full bg-[#E0E7FF] overflow-hidden">
+              <div className="h-full rounded-full bg-[#6366F1]" style={{ width: `${v}%` }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
   },
   {
     tag: "Per-Question Report",
     headline: "See what you said. See what you should have said.",
-    body: "Full transcript of your answer, what was missing, and a model answer — what a strong candidate would have said. The fastest way to close the gap between where you are and where you need to be.",
-    stat: "Model answers included for Pro and Max plans",
+    body: "Full transcript of your answer, what was missing, and a model answer — what a strong candidate would have said. The fastest way to close the gap.",
+    stat: "Model answers included on Pro and Max",
     icon: "📄",
     color: "#F0FDF4",
-    accent: "#22C55E",
+    accent: "#166534",
+    visual: (
+      <div className="mt-4 rounded-lg bg-white border border-[#DCFCE7] px-3 py-2.5">
+        <p className="text-[10px] font-black text-emerald-700 mb-1">💡 MODEL ANSWER</p>
+        <p className="text-[11px] text-[#6B7280] leading-snug">"First, I'd clarify the constraints, then walk through..."</p>
+      </div>
+    ),
   },
   {
     tag: "Company Prep",
     headline: "TCS is not Amazon. We know the difference.",
     body: "TCS NQT-style questions are nothing like a FAANG system design round. Qued's question bank is tagged by company and role so your prep actually matches what you'll face on the day.",
-    stat: "Questions tagged: TCS, Infosys, Amazon, Microsoft, Wipro",
+    stat: "Tagged: TCS, Infosys, Amazon, Microsoft, Wipro",
     icon: "🏢",
     color: "#FFF7ED",
-    accent: "#F59E0B",
+    accent: "#9A3412",
+    visual: (
+      <div className="flex flex-wrap gap-1.5 mt-4">
+        {["TCS", "Amazon", "Microsoft", "Infosys"].map((c) => (
+          <span key={c} className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white border border-[#FED7AA] text-[#9A3412]">
+            {c}
+          </span>
+        ))}
+      </div>
+    ),
   },
   {
     tag: "Progress Tracking",
@@ -53,45 +83,64 @@ const FEATURES = [
     icon: "📈",
     color: "#F9FAFB",
     accent: "#111111",
+    visual: (
+      <svg viewBox="0 0 120 32" className="mt-4 w-full h-8">
+        <polyline points="0,28 20,22 40,24 60,14 80,16 100,6 120,4" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
   },
   {
     tag: "Follow-up Questions",
     headline: "Real interviews don't stop at the first answer.",
     body: "After your answer, Qued asks follow-ups — 'Can you give an example from a project?' or 'What's the trade-off there?' Training you to handle pressure and think on your feet.",
-    stat: "Contextual follow-ups based on your actual answer",
+    stat: "Contextual, based on your actual answer",
     icon: "💬",
     color: "#FDF4FF",
-    accent: "#A855F7",
+    accent: "#7E22CE",
+    visual: (
+      <div className="mt-4 space-y-1.5">
+        <div className="rounded-lg bg-white border border-[#F3E8FF] px-3 py-1.5 text-[10px] text-[#6B7280]">"Can you give an example?"</div>
+        <div className="rounded-lg bg-[#F3E8FF] px-3 py-1.5 text-[10px] text-[#7E22CE] font-bold ml-4">Follow-up #2</div>
+      </div>
+    ),
   },
 ];
 
 const COMPARISON = [
-  { feature: "Live coaching while you speak",     qued: true,  paper: false, pramp: false, interviewbit: false },
-  { feature: "Per-question model answers",        qued: true,  paper: false, pramp: false, interviewbit: false },
-  { feature: "Company-specific questions",        qued: true,  paper: true,  pramp: false, interviewbit: true  },
-  { feature: "WPM + filler word tracking",        qued: true,  paper: false, pramp: false, interviewbit: false },
-  { feature: "Instant AI feedback",               qued: true,  paper: false, pramp: true,  interviewbit: false },
-  { feature: "Campus placement focus (India)",    qued: true,  paper: true,  pramp: false, interviewbit: true  },
-  { feature: "Progress tracking over time",       qued: true,  paper: false, pramp: false, interviewbit: true  },
-  { feature: "Available 24/7, no scheduling",     qued: true,  paper: true,  pramp: false, interviewbit: true  },
+  { feature: "Live coaching while you speak",     qued: true,  paper: false, generic: false },
+  { feature: "Per-question model answers",        qued: true,  paper: false, generic: false },
+  { feature: "Company-specific questions",        qued: true,  paper: true,  generic: false },
+  { feature: "WPM + filler word tracking",        qued: true,  paper: false, generic: false },
+  { feature: "Instant AI feedback",               qued: true,  paper: false, generic: true  },
+  { feature: "Campus placement focus (India)",    qued: true,  paper: true,  generic: false },
+  { feature: "Progress tracking over time",       qued: true,  paper: false, generic: false },
+  { feature: "Available 24/7, no scheduling",     qued: true,  paper: true,  generic: true  },
 ];
 
 const FAQS = [
   {
     q: "How is Qued different from just practising with ChatGPT?",
-    a: "ChatGPT gives you generic feedback on what you typed. Qued listens to your actual voice, tracks your speaking patterns in real time, scores you across 5 dimensions, and shows you a model answer for every question. It's the difference between a text editor and a flight simulator.",
+    a: "ChatGPT gives you generic feedback on what you typed. Qued listens to your actual voice, tracks your speaking patterns in real time, scores your answers across multiple dimensions, and shows you a model answer for every question. It's the difference between a text editor and a flight simulator.",
   },
   {
     q: "Is this useful for TCS/Infosys campus placements?",
-    a: "Yes — this is exactly who we built it for. The question bank has TCS NQT and Infosys InfyTQ-style questions. Beginner difficulty is calibrated for campus placement level, not senior engineer level.",
+    a: "Yes — this is exactly who we built it for. The question bank includes TCS NQT and Infosys InfyTQ-style questions. Difficulty is calibrated for campus placement level, not senior engineer level.",
   },
   {
     q: "How many sessions do I need before I see improvement?",
-    a: "Most students see measurable score improvement by session 3-4. The per-question coaching report after each session is the fastest accelerator — students who read it carefully improve 2x faster.",
+    a: "It varies by student, but the per-question coaching report after each session is the fastest accelerator — students who read it carefully and act on the one specific fix tend to improve fastest.",
   },
   {
     q: "Does it work for non-CS branches?",
-    a: "Yes. ECE and IT students use it regularly. The behavioral and communication questions are relevant for any engineering branch. Technical questions can be filtered by role.",
+    a: "Yes. ECE and IT students use it too. The behavioral and communication questions are relevant for any engineering branch, and technical questions can be filtered by role.",
+  },
+  {
+    q: "What languages can I use for DSA practice?",
+    a: "Python, Java, and C++. Pick whichever you're most comfortable with — the scoring and test cases work the same across all three.",
+  },
+  {
+    q: "Do I need to pay to see my score?",
+    a: "No. Score, transcript, and what was missing are free forever on every plan. Paid plans unlock model answers, unlimited sessions, company-specific prep, and the Skill Passport.",
   },
 ];
 
@@ -162,7 +211,7 @@ export default function FeaturesPage() {
           </motion.div>
         </section>
 
-        {/* ── Feature grid ── */}
+        {/* ── Feature grid — redesigned cards ── */}
         <section className="mx-auto max-w-6xl px-6 pb-24">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f, i) => (
@@ -172,74 +221,103 @@ export default function FeaturesPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.07 }}
-                className="rounded-2xl border border-gray-200 bg-white p-6 hover:shadow-md transition-shadow"
+                whileHover={{ y: -5, transition: { duration: 0.18 } }}
+                className="relative flex flex-col overflow-hidden rounded-2xl bg-white"
+                style={{ border: "1px solid #ECECE4", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}
               >
-                <div
-                  className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-xl"
-                  style={{ background: f.color }}
-                >
-                  {f.icon}
-                </div>
-                <span
-                  className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest"
-                  style={{ background: f.color, color: f.accent }}
-                >
-                  {f.tag}
-                </span>
-                <h3 className="mt-2 text-[18px] font-black leading-snug text-[#111]">
-                  {f.headline}
-                </h3>
-                <p className="mt-2 text-[13px] leading-relaxed text-[#6B7280]">
-                  {f.body}
-                </p>
-                <div className="mt-4 rounded-xl border border-dashed border-gray-200 px-3 py-2">
-                  <p className="text-[11px] font-bold text-[#9CA3AF]">{f.stat}</p>
+                {/* Top accent strip */}
+                <div style={{ height: "4px", width: "100%", background: f.accent, opacity: 0.85 }} />
+
+                <div className="p-6 flex flex-col flex-1">
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-xl"
+                      style={{ background: f.color }}
+                    >
+                      {f.icon}
+                    </div>
+                    <span
+                      className="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest"
+                      style={{ background: f.color, color: f.accent }}
+                    >
+                      {f.tag}
+                    </span>
+                  </div>
+
+                  <h3 className="text-[18px] font-black leading-snug text-[#111]">
+                    {f.headline}
+                  </h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-[#6B7280] flex-1">
+                    {f.body}
+                  </p>
+
+                  {/* Real visual instead of dashed-border stat box */}
+                  {f.visual}
+
+                  <div className="mt-4 pt-3 border-t border-[#F0F0EB]">
+                    <p className="text-[11px] font-bold text-[#9CA3AF]">{f.stat}</p>
+                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
         </section>
 
-        {/* ── How it works ── */}
+        {/* ── What the AI actually checks ── */}
         <section className="border-t border-gray-200 bg-white px-6 py-24">
           <div className="mx-auto max-w-5xl">
             <div className="mb-14 text-center">
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">How it works</p>
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Under the hood</p>
               <h2 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 900, letterSpacing: "-1.5px", color: "#111" }}>
-                From zero to{" "}
-                <span style={{ background: "#FFD600", padding: "1px 8px", borderRadius: "5px", fontStyle: "italic" }}>placement-ready</span>
-                {" "}in 4 steps.
+                What the AI is actually{" "}
+                <span style={{ background: "#FFD600", padding: "1px 8px", borderRadius: "5px", fontStyle: "italic" }}>listening for.</span>
               </h2>
+              <p className="mt-3 text-[15px] text-[#6B7280] mx-auto max-w-lg">
+                Not a black box. Here's exactly what gets evaluated every time you answer.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {[
-                { step: "01", title: "Pick your role", body: "Choose Backend, Frontend, AI, or System Design. Pick your target company. Set difficulty.", icon: "🎯" },
-                { step: "02", title: "Do the interview", body: "Answer questions out loud. Qued coaches you in real time — pace, fillers, silence.", icon: "🎙️" },
-                { step: "03", title: "Get your report", body: "Per-question breakdown, model answers, your transcript, what was missing.", icon: "📊" },
-                { step: "04", title: "Repeat and improve", body: "Track your score trend. The dashboard shows exactly where you're improving.", icon: "📈" },
-              ].map((s, i) => (
+                {
+                  icon: "🗣️",
+                  title: "Did you actually answer the question?",
+                  body: "Qued checks if your response addresses what was asked, not just whether you said something fluent-sounding. Rambling around the topic without answering it gets flagged.",
+                },
+                {
+                  icon: "🔍",
+                  title: "Did you go deep, or stay surface-level?",
+                  body: "Naming the right concept isn't enough. Qued checks whether you explained the why and how — the part interviewers actually probe on follow-up.",
+                },
+                {
+                  icon: "⏱️",
+                  title: "How you said it, not just what you said",
+                  body: "Speaking pace, filler word frequency, and long silences are tracked live. These are the habits you can't see in yourself until someone points them out.",
+                },
+                {
+                  icon: "🎯",
+                  title: "Does it match what this company actually asks?",
+                  body: "Your answer is evaluated against the pattern of that specific company's interview style — a TCS-style answer and an Amazon-style answer aren't scored the same way.",
+                },
+              ].map((item, i) => (
                 <motion.div
-                  key={s.step}
+                  key={item.title}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: i * 0.1 }}
                   className="rounded-2xl border border-gray-100 bg-[#F9FAFB] p-6"
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-[28px]">{s.icon}</span>
-                    <span className="text-[32px] font-black text-[#E5E7EB]">{s.step}</span>
-                  </div>
-                  <h3 className="text-[16px] font-black text-[#111] mb-2">{s.title}</h3>
-                  <p className="text-[13px] text-[#6B7280] leading-relaxed">{s.body}</p>
+                  <span className="text-[26px] block mb-3">{item.icon}</span>
+                  <h3 className="text-[15px] font-black text-[#111] mb-2 leading-snug">{item.title}</h3>
+                  <p className="text-[13px] text-[#6B7280] leading-relaxed">{item.body}</p>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ── Comparison table ── */}
+        {/* ── Comparison table — generic categories, no named competitors ── */}
         <section className="px-6 py-24" style={{ background: "#FFFDF0" }}>
           <div className="mx-auto max-w-4xl">
             <div className="mb-12 text-center">
@@ -259,8 +337,7 @@ export default function FeaturesPage() {
                     <th className="border-b border-gray-100 bg-[#F9FAFB] px-5 py-4 text-left text-[12px] font-bold text-[#374151]">Feature</th>
                     <th className="border-b border-gray-100 bg-[#111] px-4 py-4 text-center text-[12px] font-black text-white">Qued</th>
                     <th className="border-b border-gray-100 px-4 py-4 text-center text-[11px] font-bold text-[#9CA3AF]">On paper</th>
-                    <th className="border-b border-gray-100 px-4 py-4 text-center text-[11px] font-bold text-[#9CA3AF]">Pramp</th>
-                    <th className="border-b border-gray-100 px-4 py-4 text-center text-[11px] font-bold text-[#9CA3AF]">InterviewBit</th>
+                    <th className="border-b border-gray-100 px-4 py-4 text-center text-[11px] font-bold text-[#9CA3AF]">Generic prep tools</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -269,8 +346,7 @@ export default function FeaturesPage() {
                       <td className="px-5 py-3.5 text-[13px] text-[#374151]">{row.feature}</td>
                       <td className="px-4 py-3.5 text-center bg-[#111]/[0.02]"><Check filled={row.qued} /></td>
                       <td className="px-4 py-3.5 text-center"><Check filled={row.paper} /></td>
-                      <td className="px-4 py-3.5 text-center"><Check filled={row.pramp} /></td>
-                      <td className="px-4 py-3.5 text-center"><Check filled={row.interviewbit} /></td>
+                      <td className="px-4 py-3.5 text-center"><Check filled={row.generic} /></td>
                     </tr>
                   ))}
                 </tbody>

@@ -6,10 +6,12 @@ import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 
 import { HeroSection } from "./components/HeroSection";
 import ChallangesSection from "./components/Challenges";
+import HowItWorks  from "./components/HowItWorks";
 import { CompanyPrep } from "./components/CompanyPrep";
 import { FAQ } from "./components/FAQ";
-import CtaVideoLeft from "./components/ui/cta-with-marquee";
+import FinalCTA from "./components/ui/cta-with-marquee";
 import { ProcessBento } from "./components/ui/process-bento";
+import { ProductDemo } from "./components/ProductDemo";
 import StatsSection from "./components/ui/stats";
 import { SocialProof } from "./components/ui/SocialProof";
 import SkillPassport  from "./components/PassportTeaser";
@@ -35,11 +37,15 @@ export default function Page() {
           {/* Challenges Section */}
         <ChallangesSection />
 
+        <HowItWorks />
+
         <SocialProof />
         
         <ProcessBento />
 
         <CompanyPrep />
+
+        <ProductDemo />
 
         <ComparisonSection />
 
@@ -54,7 +60,7 @@ export default function Page() {
         <BlogSection />
         <DailyQuestionTeaser />
         <FAQ />
-        <CtaVideoLeft />
+        <FinalCTA />
 
       </main>
 
