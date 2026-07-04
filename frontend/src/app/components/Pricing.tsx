@@ -10,7 +10,7 @@ const PLANS_MONTHLY = [
     badge: null,
     price: "₹0",
     period: "forever",
-    desc: "Start practicing with no commitment.",
+    desc: "Start practicing — campus drive or off-campus application.",
     cta: "Start free",
     ctaStyle: { background: "white", color: "#111", border: "1.5px solid #E8E8E0" },
     featured: false,
@@ -30,7 +30,7 @@ const PLANS_MONTHLY = [
     badge: "Most Popular",
     price: "₹299",
     period: "per month",
-    desc: "Everything you need to crack placements.",
+    desc: "Everything to crack placements — campus or off-campus.",
     cta: "Start Pro — ₹299/mo",
     ctaStyle: { background: "#111111", color: "white", border: "none" },
     featured: true,
@@ -51,7 +51,7 @@ const PLANS_MONTHLY = [
     badge: null,
     price: "₹699",
     period: "per month",
-    desc: "For serious candidates who want every edge.",
+    desc: "For serious candidates who want every edge before the interview.",
     cta: "Start Max — ₹699/mo",
     ctaStyle: { background: "white", color: "#111", border: "1.5px solid #E8E8E0" },
     featured: false,
@@ -71,14 +71,15 @@ const PLANS_MONTHLY = [
 const PLANS_YEARLY = PLANS_MONTHLY.map((p) => {
   if (p.price === "₹0") return { ...p, price: "₹0", period: "forever", cta: "Start free" };
   const monthlyNum = parseInt(p.price.replace("₹", ""), 10);
-  const yearlyMonthlyEquivalent = Math.round(monthlyNum * 0.63 / 10) * 10; // ~37% off, rounded to nearest 10
+  const yearlyMonthlyEquivalent = Math.round((monthlyNum * 0.63) / 10) * 10;
   return {
     ...p,
     price: `₹${yearlyMonthlyEquivalent}`,
     period: "per month, billed yearly",
-    cta: p.name === "Pro"
-      ? `Start Pro — ₹${yearlyMonthlyEquivalent}/mo`
-      : `Start Max — ₹${yearlyMonthlyEquivalent}/mo`,
+    cta:
+      p.name === "Pro"
+        ? `Start Pro — ₹${yearlyMonthlyEquivalent}/mo`
+        : `Start Max — ₹${yearlyMonthlyEquivalent}/mo`,
   };
 });
 
@@ -104,15 +105,21 @@ export function Pricing() {
             className="font-black leading-tight"
             style={{ fontSize: "clamp(32px, 5vw, 52px)", letterSpacing: "-1.5px", color: "#111111" }}
           >
-            Simple pricing
-            <br />
-            for{" "}
-            <span style={{ background: "#FFD600", padding: "2px 10px", borderRadius: "6px", fontStyle: "italic" }}>
-              students
+            Simple pricing for{" "}
+            <span
+              style={{
+                background: "#FFD600",
+                padding: "2px 10px",
+                borderRadius: "6px",
+                fontStyle: "italic",
+              }}
+            >
+              every student
             </span>
           </h2>
           <p className="mt-4" style={{ fontSize: "16px", color: "#666", lineHeight: 1.7 }}>
-            No corporate pricing. No tricks. Cancel anytime.
+            Campus drive or off-campus application — no corporate pricing, no
+            tricks. Cancel anytime.
           </p>
           <p className="mt-2" style={{ fontSize: "13px", color: "#999" }}>
             Pro costs about the same as one Swiggy order a month.
@@ -186,7 +193,12 @@ export function Pricing() {
                   borderRadius: "24px",
                   padding: "32px 28px",
                   position: "relative",
-                  transform: plan.featured ? "scale(1.04)" : hovered === i ? "translateY(-4px)" : "none",
+                  transform:
+                    plan.featured
+                      ? "scale(1.04)"
+                      : hovered === i
+                      ? "translateY(-4px)"
+                      : "none",
                   transition: "transform 0.2s ease, box-shadow 0.2s ease",
                   boxShadow: plan.featured
                     ? "0 20px 60px rgba(0,0,0,0.15)"
@@ -315,11 +327,19 @@ export function Pricing() {
                           flexShrink: 0,
                           marginTop: "1px",
                           background: f.included
-                            ? plan.featured ? "#6366F1" : "#D1FAE5"
-                            : plan.featured ? "rgba(255,255,255,0.06)" : "#F5F5F0",
+                            ? plan.featured
+                              ? "#6366F1"
+                              : "#D1FAE5"
+                            : plan.featured
+                            ? "rgba(255,255,255,0.06)"
+                            : "#F5F5F0",
                           color: f.included
-                            ? plan.featured ? "white" : "#065F46"
-                            : plan.featured ? "#444" : "#CCC",
+                            ? plan.featured
+                              ? "white"
+                              : "#065F46"
+                            : plan.featured
+                            ? "#444"
+                            : "#CCC",
                         }}
                       >
                         {f.included ? "✓" : "×"}
@@ -328,8 +348,12 @@ export function Pricing() {
                         style={{
                           fontSize: "13px",
                           color: f.included
-                            ? plan.featured ? "#CCC" : "#444"
-                            : plan.featured ? "#444" : "#BBB",
+                            ? plan.featured
+                              ? "#CCC"
+                              : "#444"
+                            : plan.featured
+                            ? "#444"
+                            : "#BBB",
                           lineHeight: 1.5,
                         }}
                       >
@@ -343,12 +367,39 @@ export function Pricing() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Bottom note */}
-        <p className="text-center mt-10" style={{ fontSize: "13px", color: "#999" }}>
-          All plans include free access to interview tips and company guides.
-          <br />
-          Student discount available — email us with your college ID.
-        </p>
+        {/* See full comparison button + bottom note */}
+        <div className="text-center mt-10 space-y-4">
+          <Link href="/pricing">
+            <button
+              style={{
+                background: "white",
+                color: "#111",
+                border: "1.5px solid #E8E8E0",
+                borderRadius: "12px",
+                padding: "12px 28px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#111";
+                e.currentTarget.style.background = "#F9FAFB";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#E8E8E0";
+                e.currentTarget.style.background = "white";
+              }}
+            >
+              See full feature comparison →
+            </button>
+          </Link>
+          <p style={{ fontSize: "13px", color: "#999", paddingTop: "24px", lineHeight: 1.6 }}>
+            All plans include free access to interview tips and company guides.
+            <br />
+            Student discount available — email us with your college ID.
+          </p>
+        </div>
+
       </div>
     </section>
   );

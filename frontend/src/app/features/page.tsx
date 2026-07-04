@@ -25,7 +25,7 @@ const FEATURES = [
     tag: "AI Scoring",
     headline: "Scored on what matters, not just a number.",
     body: "Technical accuracy, communication clarity, completeness — each answer gets a breakdown. You know exactly what to improve, not just that you scored 62.",
-    stat: "Calibrated for Indian campus placement level",
+    stat: "Calibrated for Indian campus and off-campus placement level",
     icon: "✦",
     color: "#EEF2FF",
     accent: "#4338CA",
@@ -59,15 +59,15 @@ const FEATURES = [
   },
   {
     tag: "Company Prep",
-    headline: "TCS is not Amazon. We know the difference.",
-    body: "TCS NQT-style questions are nothing like a FAANG system design round. Qued's question bank is tagged by company and role so your prep actually matches what you'll face on the day.",
-    stat: "Tagged: TCS, Infosys, Amazon, Microsoft, Wipro",
+    headline: "TCS is not Amazon. Campus is not off-campus.",
+    body: "TCS NQT-style questions are nothing like a FAANG system design round — and a Razorpay off-campus interview is different again. Qued's question bank is tagged by company and role so your prep actually matches what you'll face.",
+    stat: "Tagged: TCS, Infosys, Amazon, Microsoft, Wipro + off-campus",
     icon: "🏢",
     color: "#FFF7ED",
     accent: "#9A3412",
     visual: (
       <div className="flex flex-wrap gap-1.5 mt-4">
-        {["TCS", "Amazon", "Microsoft", "Infosys"].map((c) => (
+        {["TCS", "Amazon", "Microsoft", "Infosys", "Off-campus"].map((c) => (
           <span key={c} className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white border border-[#FED7AA] text-[#9A3412]">
             {c}
           </span>
@@ -107,14 +107,14 @@ const FEATURES = [
 ];
 
 const COMPARISON = [
-  { feature: "Live coaching while you speak",     qued: true,  paper: false, generic: false },
-  { feature: "Per-question model answers",        qued: true,  paper: false, generic: false },
-  { feature: "Company-specific questions",        qued: true,  paper: true,  generic: false },
-  { feature: "WPM + filler word tracking",        qued: true,  paper: false, generic: false },
-  { feature: "Instant AI feedback",               qued: true,  paper: false, generic: true  },
-  { feature: "Campus placement focus (India)",    qued: true,  paper: true,  generic: false },
-  { feature: "Progress tracking over time",       qued: true,  paper: false, generic: false },
-  { feature: "Available 24/7, no scheduling",     qued: true,  paper: true,  generic: true  },
+  { feature: "Live coaching while you speak",           qued: true,  paper: false, generic: false },
+  { feature: "Per-question model answers",              qued: true,  paper: false, generic: false },
+  { feature: "Company-specific questions",              qued: true,  paper: true,  generic: false },
+  { feature: "WPM + filler word tracking",              qued: true,  paper: false, generic: false },
+  { feature: "Instant AI feedback",                     qued: true,  paper: false, generic: true  },
+  { feature: "Campus + off-campus placement focus",     qued: true,  paper: true,  generic: false },
+  { feature: "Progress tracking over time",             qued: true,  paper: false, generic: false },
+  { feature: "Available 24/7, no scheduling",          qued: true,  paper: true,  generic: true  },
 ];
 
 const FAQS = [
@@ -125,6 +125,10 @@ const FAQS = [
   {
     q: "Is this useful for TCS/Infosys campus placements?",
     a: "Yes — this is exactly who we built it for. The question bank includes TCS NQT and Infosys InfyTQ-style questions. Difficulty is calibrated for campus placement level, not senior engineer level.",
+  },
+  {
+    q: "Does it work for off-campus applications too?",
+    a: "Yes. If your placement cell doesn't get companies like Razorpay, Zerodha, or Freshworks on campus, you can still prep for those interviews here. The question bank, scoring, and coaching are the same regardless of how you're applying. Your college tier doesn't matter to us.",
   },
   {
     q: "How many sessions do I need before I see improvement?",
@@ -166,7 +170,9 @@ export default function FeaturesPage() {
             className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-1.5 shadow-sm mb-8"
           >
             <span className="flex h-4 w-4 items-center justify-center rounded-sm bg-yellow-400 text-[10px] font-black text-yellow-900">✦</span>
-            <span className="text-sm font-semibold text-gray-600">Built for India's engineering students</span>
+            <span className="text-sm font-semibold text-gray-600">
+              Built for India's engineering students — campus and off-campus
+            </span>
           </motion.div>
 
           <motion.h1
@@ -189,7 +195,9 @@ export default function FeaturesPage() {
             className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed"
             style={{ color: "#666" }}
           >
-            Not another quiz app. Qued is a full mock interview experience with live coaching, AI scoring, and model answers — all calibrated for campus placements in India.
+            Not another quiz app. Qued is a full mock interview experience with live coaching,
+            AI scoring, and model answers — calibrated for Indian placement interviews, whether
+            your company visits your campus or you're applying directly.
           </motion.p>
 
           <motion.div
@@ -211,7 +219,7 @@ export default function FeaturesPage() {
           </motion.div>
         </section>
 
-        {/* ── Feature grid — redesigned cards ── */}
+        {/* ── Feature grid ── */}
         <section className="mx-auto max-w-6xl px-6 pb-24">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f, i) => (
@@ -225,15 +233,10 @@ export default function FeaturesPage() {
                 className="relative flex flex-col overflow-hidden rounded-2xl bg-white"
                 style={{ border: "1px solid #ECECE4", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}
               >
-                {/* Top accent strip */}
                 <div style={{ height: "4px", width: "100%", background: f.accent, opacity: 0.85 }} />
-
                 <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center justify-between mb-4">
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-xl"
-                      style={{ background: f.color }}
-                    >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl text-xl" style={{ background: f.color }}>
                       {f.icon}
                     </div>
                     <span
@@ -243,17 +246,9 @@ export default function FeaturesPage() {
                       {f.tag}
                     </span>
                   </div>
-
-                  <h3 className="text-[18px] font-black leading-snug text-[#111]">
-                    {f.headline}
-                  </h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-[#6B7280] flex-1">
-                    {f.body}
-                  </p>
-
-                  {/* Real visual instead of dashed-border stat box */}
+                  <h3 className="text-[18px] font-black leading-snug text-[#111]">{f.headline}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-[#6B7280] flex-1">{f.body}</p>
                   {f.visual}
-
                   <div className="mt-4 pt-3 border-t border-[#F0F0EB]">
                     <p className="text-[11px] font-bold text-[#9CA3AF]">{f.stat}</p>
                   </div>
@@ -297,7 +292,7 @@ export default function FeaturesPage() {
                 {
                   icon: "🎯",
                   title: "Does it match what this company actually asks?",
-                  body: "Your answer is evaluated against the pattern of that specific company's interview style — a TCS-style answer and an Amazon-style answer aren't scored the same way.",
+                  body: "Your answer is evaluated against the pattern of that specific company's interview style — a TCS campus drive answer and an off-campus product company answer aren't scored the same way.",
                 },
               ].map((item, i) => (
                 <motion.div
@@ -317,7 +312,7 @@ export default function FeaturesPage() {
           </div>
         </section>
 
-        {/* ── Comparison table — generic categories, no named competitors ── */}
+        {/* ── Comparison table ── */}
         <section className="px-6 py-24" style={{ background: "#FFFDF0" }}>
           <div className="mx-auto max-w-4xl">
             <div className="mb-12 text-center">
@@ -392,7 +387,7 @@ export default function FeaturesPage() {
               </span>
             </h2>
             <p className="mt-5 text-[15px] text-[#666] mx-auto max-w-md">
-              3 free sessions. No card required. Start in 60 seconds.
+              3 free sessions. Campus drive or off-campus. No card required.
             </p>
             <Link href="/signup">
               <button className="mt-8 rounded-xl bg-white px-8 py-3.5 text-[15px] font-black text-[#111] hover:bg-gray-100 transition">

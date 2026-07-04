@@ -61,22 +61,6 @@ const DIFF: Record<number, { label: string; color: string; bg: string }> = {
   3: { label: "Hard",   color: "#EF4444", bg: "#FFF1F2" },
 };
 
-const PAST = [
-  { date: "Yesterday",  topic: "dsa",          label: "What is the difference between a stack and a queue?", attempts: 143 },
-  { date: "2 days ago", topic: "behavioral",    label: "Tell me about yourself and why you chose CS.",         attempts: 201 },
-  { date: "3 days ago", topic: "system-design", label: "Design a URL shortener like bit.ly.",                 attempts: 98  },
-];
-
-const LEADERBOARD = [
-  { rank: 1, name: "Priya S.",  college: "IIT Bombay",  score: 94, streak: 12 },
-  { rank: 2, name: "Rohan M.",  college: "NIT Trichy",  score: 91, streak: 9  },
-  { rank: 3, name: "Aditya K.", college: "BITS Pilani", score: 88, streak: 7  },
-  { rank: 4, name: "Sneha R.",  college: "VIT Vellore", score: 85, streak: 5  },
-  { rank: 5, name: "Arjun P.",  college: "DTU Delhi",   score: 82, streak: 4  },
-];
-
-const RANK_ICONS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-
 function scoreColor(s: number) {
   if (s >= 75) return "#10B981";
   if (s >= 50) return "#F59E0B";
@@ -90,7 +74,6 @@ function PracticePanel({ question, user }: { question: Question; user: unknown }
   const diff = DIFF[question.difficulty] || DIFF[2];
   const [showAnswer, setShowAnswer] = useState(false);
 
-  // Build mock URL pre-configured for this topic
   const mockUrl = `/mock?prefill_role=${encodeURIComponent(meta.mockRole)}&prefill_difficulty=intermediate`;
 
   return (
@@ -111,7 +94,6 @@ function PracticePanel({ question, user }: { question: Question; user: unknown }
             </span>
           </div>
 
-          {/* How to approach */}
           <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">
             How to approach this
           </p>
@@ -120,10 +102,8 @@ function PracticePanel({ question, user }: { question: Question; user: unknown }
           </p>
         </div>
 
-        {/* Divider */}
         <div className="h-px bg-[#F3F4F6]" />
 
-        {/* Key signals */}
         <div className="px-5 py-4">
           <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
             What interviewers look for
@@ -173,7 +153,7 @@ function PracticePanel({ question, user }: { question: Question; user: unknown }
         </div>
       </div>
 
-      {/* Practice CTA — the main action */}
+      {/* Practice CTA */}
       <div className="rounded-2xl bg-[#111] p-5">
         <div className="flex items-start gap-3 mb-4">
           <span className="text-[28px]">🎙️</span>
@@ -196,7 +176,7 @@ function PracticePanel({ question, user }: { question: Question; user: unknown }
         </p>
       </div>
 
-      {/* Model answer — collapsed by default */}
+      {/* Model answer */}
       <div className="rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden">
         <button
           onClick={() => setShowAnswer(v => !v)}
@@ -223,7 +203,6 @@ function PracticePanel({ question, user }: { question: Question; user: unknown }
             >
               <div className="border-t border-[#F3F4F6] px-5 py-4">
                 <p className="text-[13px] text-[#374151] leading-relaxed">
-                  {/* Use model_answer if available, else use a note */}
                   {question.model_answer ||
                     "Model answer will appear here. The full answer is available after you complete a mock session with this topic."}
                 </p>
@@ -250,7 +229,6 @@ export default function DailyPage() {
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"challenges" | "leaderboard">("challenges");
 
   useEffect(() => {
     async function load() {
@@ -357,21 +335,6 @@ export default function DailyPage() {
                   {question.question_text}
                 </h1>
 
-                {/* Attempt count + avatars */}
-                <div className="mt-6 flex items-center gap-3">
-                  <div className="flex -space-x-2">
-                    {["#6366F1","#10B981","#F59E0B","#EF4444","#3B82F6"].map((c, i) => (
-                      <div key={i} className="h-8 w-8 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white"
-                        style={{ background: c }}>
-                        {["P","R","A","S","M"][i]}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[13px] text-[#6B7280]">
-                    <span className="font-bold text-[#111]">247 students</span> already attempted today
-                  </p>
-                </div>
-
                 {/* Week strip */}
                 <div className="mt-8">
                   <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Your week</p>
@@ -418,107 +381,20 @@ export default function DailyPage() {
           </div>
         </div>
 
-        {/* ── BOTTOM: Past Challenges + Leaderboard ── */}
+        {/* ── BOTTOM ── */}
         <div className="mx-auto max-w-[1200px] px-6 py-10">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
 
-            {/* Left: tabs */}
+            {/* Left: past challenges */}
             <div>
-              <div className="flex items-center gap-1 mb-5 rounded-xl border border-[#E5E7EB] bg-white p-1 w-fit">
-                {(["challenges", "leaderboard"] as const).map((t) => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`rounded-lg px-4 py-1.5 text-[12px] font-black uppercase tracking-wider transition ${
-                      tab === t ? "bg-[#111] text-white" : "text-[#9CA3AF] hover:text-[#111]"
-                    }`}>
-                    {t === "challenges" ? "Past Challenges" : "Leaderboard"}
-                  </button>
-                ))}
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">Past Challenges</p>
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center">
+                <p className="text-[28px] mb-3">📅</p>
+                <p className="text-[14px] font-bold text-[#111] mb-1">Past challenges coming soon</p>
+                <p className="text-[13px] text-[#9CA3AF] max-w-xs mx-auto">
+                  Previous daily questions will appear here as the question bank grows. Check back tomorrow.
+                </p>
               </div>
-
-              <AnimatePresence mode="wait">
-                {tab === "challenges" && (
-                  <motion.div key="ch" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="space-y-3">
-                    {PAST.map((p, i) => {
-                      const m = TOPIC_META[p.topic] || TOPIC_META.general;
-                      return (
-                        <div key={i} className="rounded-2xl border border-[#E5E7EB] bg-white p-5 hover:border-[#D1D5DB] transition group cursor-pointer">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest"
-                                  style={{ background: m.bg, color: m.color }}>
-                                  <span className="h-1 w-1 rounded-full" style={{ background: m.dot }} />
-                                  {m.label}
-                                </span>
-                                <span className="text-[11px] text-[#9CA3AF]">{p.date}</span>
-                              </div>
-                              <p className="text-[14px] font-bold text-[#111] leading-snug">{p.label}</p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-[22px] font-black text-[#111] leading-none">{p.attempts}</p>
-                              <p className="text-[10px] text-[#9CA3AF] mt-0.5">attempted</p>
-                            </div>
-                          </div>
-                          <div className="mt-3 pt-3 border-t border-[#F9FAFB] flex items-center justify-between">
-                            <span className="text-[11px] text-[#9CA3AF]">Challenge closed</span>
-                            <span className="text-[11px] font-bold text-[#9CA3AF] group-hover:text-[#111] transition">View →</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <p className="text-center text-[12px] text-[#9CA3AF] pt-1">
-                      More challenges added daily as the question bank grows
-                    </p>
-                  </motion.div>
-                )}
-
-                {tab === "leaderboard" && (
-                  <motion.div key="lb" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                    <div className="rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden">
-                      <div className="border-b border-[#F3F4F6] px-5 py-4 flex items-center justify-between">
-                        <div>
-                          <p className="text-[13px] font-black text-[#111]">This week&apos;s top performers</p>
-                          <p className="text-[11px] text-[#9CA3AF] mt-0.5">Ranked by average daily score · resets Sunday</p>
-                        </div>
-                        <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black text-[#111]">LIVE</span>
-                      </div>
-
-                      <div className="grid grid-cols-[44px_1fr_72px_56px] gap-3 px-5 py-2 bg-[#FAFAF8] border-b border-[#F3F4F6]">
-                        {["Rank","Student","Score","Streak"].map(h => (
-                          <p key={h} className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">{h}</p>
-                        ))}
-                      </div>
-
-                      {LEADERBOARD.map((entry, i) => (
-                        <div key={i} className={`grid grid-cols-[44px_1fr_72px_56px] gap-3 items-center px-5 py-4 border-b border-[#F9FAFB] last:border-0 ${
-                          i === 0 ? "bg-yellow-50" : ""
-                        }`}>
-                          <div className="text-[18px]">
-                            {RANK_ICONS[entry.rank] ?? <span className="text-[13px] font-black text-[#9CA3AF]">{entry.rank}</span>}
-                          </div>
-                          <div>
-                            <p className="text-[13px] font-bold text-[#111]">{entry.name}</p>
-                            <p className="text-[11px] text-[#9CA3AF]">{entry.college}</p>
-                          </div>
-                          <div>
-                            <span className="text-[15px] font-black" style={{ color: scoreColor(entry.score) }}>{entry.score}</span>
-                          </div>
-                          <div>
-                            <span className="text-[12px] font-bold text-[#374151]">🔥{entry.streak}</span>
-                          </div>
-                        </div>
-                      ))}
-
-                      <div className="px-5 py-4 bg-[#FAFAF8] border-t border-[#F3F4F6] text-center">
-                        <p className="text-[12px] text-[#9CA3AF]">
-                          Complete a mock session to appear on the leaderboard
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
 
             {/* Right: streak stats */}
@@ -528,9 +404,9 @@ export default function DailyPage() {
                   <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">Your stats</p>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     {[
-                      { val: streakData.streak,          label: "Streak",    icon: "🔥" },
-                      { val: streakData.longest_streak,  label: "Best",      icon: "🏆" },
-                      { val: streakData.total_answered,  label: "Answered",  icon: "✅" },
+                      { val: streakData.streak,         label: "Streak",   icon: "🔥" },
+                      { val: streakData.longest_streak, label: "Best",     icon: "🏆" },
+                      { val: streakData.total_answered, label: "Answered", icon: "✅" },
                     ].map(({ val, label, icon }) => (
                       <div key={label} className="rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] p-3">
                         <p className="text-[18px] mb-1">{icon}</p>

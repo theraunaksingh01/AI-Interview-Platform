@@ -558,7 +558,7 @@ export default function CalendarPage() {
                 <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">Interview Calendar</span>
               </div>
 
-              <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, letterSpacing: "-1.5px", color: "#111", lineHeight: 1.1 }}
+              <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, letterSpacing: "-1.5px", color: "#111", lineHeight: 1.4 }}
                 className="mb-2">
                 When is your<br />
                 <span style={{ background: "#FFD600", padding: "2px 10px", borderRadius: "6px", fontStyle: "italic" }}>

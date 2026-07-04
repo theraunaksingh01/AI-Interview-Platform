@@ -14,15 +14,15 @@ const PROBLEM_SOLUTION = [
   },
   {
     label: "The gap",
-    title: "TCS is not Amazon. Generic prep tools don't know the difference.",
-    body: "A TCS NQT-style question is nothing like a FAANG system design round. Most mock interview tools are built for US tech companies and treat every interview the same. Indian campus placements have their own patterns, and almost nothing online is built around them.",
+    title: "TCS is not Amazon. Generic prep tools don't know the difference — and they don't cover off-campus either.",
+    body: "A TCS NQT-style question is nothing like a FAANG system design round. Most mock interview tools are built for US tech companies and treat every interview the same. Indian campus placements have their own patterns, and off-campus applications to companies like Razorpay or Zerodha have theirs. Almost nothing online is built around either.",
     color: "#FEF3C7",
     accent: "#92400E",
   },
   {
     label: "The solution",
     title: "Practice that talks back — specifically, honestly, every time.",
-    body: "Qued listens to how you actually answer, scores you honestly, and tells you exactly what to fix — not just that you scored 62. Company-specific question banks, live coaching while you speak, and a model answer for every question so you know what good actually sounds like.",
+    body: "Qued listens to how you actually answer, scores you honestly, and tells you exactly what to fix — not just that you scored 62. Company-specific question banks, live coaching while you speak, and a model answer for every question so you know what good actually sounds like. Works for campus drives and off-campus applications alike.",
     color: "#D1FAE5",
     accent: "#065F46",
   },
@@ -37,7 +37,7 @@ const VALUES = [
   {
     icon: "🇮🇳",
     title: "Built for India",
-    body: "TCS and Google are different interviews. We know the difference. Our question bank, scoring, and company prep are all India-first.",
+    body: "TCS and Google are different interviews. Off-campus and on-campus are different contexts. We know the difference. Our question bank, scoring, and company prep are all India-first.",
   },
   {
     icon: "📈",
@@ -74,9 +74,7 @@ export default function AboutPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               style={{ fontSize: "clamp(36px, 6vw, 68px)", fontWeight: 900, letterSpacing: "-2.5px", lineHeight: 1.3, color: "#111" }}
             >
-              Mock interviews built
-              <br />
-              for{" "}
+              Mock interviews built for{" "}
               <span style={{ background: "#FFD600", padding: "2px 12px", borderRadius: "6px", fontStyle: "italic" }}>
                 Indian placements.
               </span>
@@ -89,10 +87,13 @@ export default function AboutPage() {
               className="mt-6 max-w-2xl text-[17px] leading-relaxed"
               style={{ color: "#666" }}
             >
-              Most mock interview tools are built for US tech companies. Qued is built specifically for Indian engineering students preparing for campus placements — TCS, Infosys, Amazon, Microsoft, Wipro, and beyond.
+              Most mock interview tools are built for US tech companies. Qued is built specifically
+              for Indian engineering students preparing for placement interviews — whether that's a
+              campus drive at your college or an off-campus application to a company your placement
+              cell never contacted.
             </motion.p>
 
-            {/* Stats strip — real, verifiable claims only */}
+            {/* Stats strip */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -100,16 +101,31 @@ export default function AboutPage() {
               className="mt-10 flex flex-wrap gap-8"
             >
               {[
-                { value: "3", label: "Free sessions every month" },
-                { value: "185", label: "DSA practice problems" },
-                { value: "India", label: "First and only focus" },
-                { value: "₹299", label: "Pro plan — built for student budgets" },
+                { value: "3",      label: "Free sessions every month" },
+                { value: "185",    label: "DSA practice problems" },
+                { value: "India",  label: "First and only focus" },
+                { value: "₹299",   label: "Pro plan — built for student budgets" },
               ].map(({ value, label }) => (
                 <div key={label}>
                   <p className="text-[32px] font-black text-[#111] leading-none">{value}</p>
                   <p className="text-[12px] text-[#9CA3AF] mt-1">{label}</p>
                 </div>
               ))}
+            </motion.div>
+
+            {/* Off-campus callout */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="mt-8 inline-flex items-start gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-5 py-4 max-w-xl"
+            >
+              <span className="text-[20px] mt-0.5 flex-shrink-0">💼</span>
+              <p className="text-[13px] text-[#374151] leading-relaxed">
+                <span className="font-bold text-[#111]">Your college's placement cell isn't the only path.</span>{" "}
+                Qued works equally well for students preparing to apply directly to Razorpay, Zerodha,
+                Freshworks, and hundreds of companies that don't visit most campuses.
+              </p>
             </motion.div>
           </div>
         </section>
@@ -199,7 +215,9 @@ export default function AboutPage() {
                 <span style={{ background: "#FFD600", padding: "1px 8px", borderRadius: "5px", fontStyle: "italic" }}>shaped by students.</span>
               </h2>
               <p className="mt-3 text-[15px] text-[#6B7280] max-w-lg mx-auto">
-                We ship what students actually ask for, not what looks good on a roadmap slide. Every feature on this platform — DSA practice, company prep, the Skill Passport — exists because students said they needed it.
+                We ship what students actually ask for, not what looks good on a roadmap slide. Every
+                feature on this platform — DSA practice, company prep, the Skill Passport — exists
+                because students said they needed it.
               </p>
             </div>
 
@@ -230,7 +248,7 @@ export default function AboutPage() {
               </span>
             </h2>
             <p className="mt-5 text-[15px]" style={{ color: "#666" }}>
-              3 free sessions every month. No credit card. Cancel anytime.
+              3 free sessions every month. Campus drive or off-campus. No credit card.
             </p>
             <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
               <Link href="/signup">

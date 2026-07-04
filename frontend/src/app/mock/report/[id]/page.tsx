@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-
+import FeedbackWidget from "@/components/FeedbackWidget";
+import ContributeCard from "@/components/ContributeCard";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type QuestionData = {
@@ -347,10 +348,12 @@ export default function MockReportPage() {
       typeof window !== "undefined"
         ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
         : null;
+
     const res = await fetch(`/api/mock/report/${sessionId}`, {
       cache: "no-store",
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
+
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || "Unable to load report");
@@ -368,19 +371,19 @@ export default function MockReportPage() {
   } | null>(null);
 
   useEffect(() => {
-  if (!sessionId) return;
-  if (data?.session?.session_type !== "resume_prep") return;
-  if (consistency !== null) return; // already fetched, don't refetch
-  const token = typeof window !== "undefined"
-    ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
-    : null;
-  fetch(`/api/resume-prep/consistency/${sessionId}`, {
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-  })
-    .then(r => r.json())
-    .then(d => setConsistency(d))
-    .catch(() => { });
-}, [data, sessionId, consistency]);
+    if (!sessionId) return;
+    if (data?.session?.session_type !== "resume_prep") return;
+    if (consistency !== null) return; // already fetched, don't refetch
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+      : null;
+    fetch(`/api/resume-prep/consistency/${sessionId}`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+      .then(r => r.json())
+      .then(d => setConsistency(d))
+      .catch(() => { });
+  }, [data, sessionId, consistency]);
 
   useEffect(() => {
     let cancelled = false;
@@ -489,6 +492,14 @@ export default function MockReportPage() {
   const sortedQuestions = [...(questions || [])].sort(
     (a, b) => (a.position ?? 99) - (b.position ?? 99)
   );
+
+  const authHeader = () => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+        : null;
+    return token ? { Authorization: `Bearer ${token}` } : {} as Record<string, string>;
+  };
 
   return (
     <main className="min-h-screen bg-[#FAFAFA] px-4 pb-16 pt-28 sm:px-8">
@@ -752,6 +763,15 @@ export default function MockReportPage() {
             Copy Report Link
           </button>
         </div>
+        {/* ── Feedback Widget ── */}
+        <FeedbackWidget
+          sessionId={sessionId}
+          sessionCount={sortedQuestions.length > 0 ? 2 : 1}
+          authHeader={authHeader}
+        />
+
+        {/* Contribute card */}
+        <ContributeCard />
 
       </div>
     </main>

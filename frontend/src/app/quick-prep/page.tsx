@@ -116,7 +116,7 @@ function SetupScreen({
             <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
             <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">Quick Prep</span>
           </div>
-          <h1 style={{ fontSize: "clamp(26px, 4vw, 38px)", fontWeight: 900, letterSpacing: "-1px", color: "#111", lineHeight: 1.15 }}
+          <h1 style={{ fontSize: "clamp(26px, 4vw, 38px)", fontWeight: 900, letterSpacing: "-1px", color: "#111", lineHeight: 1.4 }}
             className="mb-2">
             Revise fast,<br />
             <span style={{ background: "#FFD600", padding: "1px 10px", borderRadius: "6px", fontStyle: "italic" }}>

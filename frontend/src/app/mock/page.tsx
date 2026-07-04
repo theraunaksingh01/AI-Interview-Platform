@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -12,10 +12,10 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").r
 const ROLES = [
   { value: "Backend Engineer",      label: "Backend",        icon: "⬡", tag: "APIs · Systems · Scale" },
   { value: "Frontend Engineer",     label: "Frontend",       icon: "◈", tag: "UI · Performance · State" },
-  { value: "Full Stack Engineer",   label: "Full Stack",     icon: "⌁", tag: "End-to-end product" },
+  { value: "Full Stack Engineer",   label: "Full Stack",     icon: "✌", tag: "End-to-end product" },
   { value: "AI Engineer",           label: "AI Engineer",    icon: "◆", tag: "ML · LLMs · Infra" },
   { value: "Data Engineer",         label: "Data",           icon: "◉", tag: "Pipelines · Warehouses" },
-  { value: "System Design",         label: "System Design",  icon: "⌂", tag: "Architecture · Trade-offs" },
+  { value: "System Design",         label: "System Design",  icon: "✂", tag: "Architecture · Trade-offs" },
 ] as const;
 
 const COMPANIES = [
@@ -33,6 +33,9 @@ const DIFFICULTY = [
   { value: "intermediate", label: "Intermediate",  sub: "1–2 yrs / placed" },
   { value: "advanced",     label: "Advanced",      sub: "3+ yrs experience" },
 ] as const;
+
+const VALID_ROLES = ROLES.map((r) => r.value);
+const VALID_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 
 const PLAN_QUESTIONS: Record<string, number> = { free: 5, pro: 8, max: 11 };
 const PLAN_LABEL: Record<string, string> = { free: "Free", pro: "Pro", max: "Max" };
@@ -96,25 +99,19 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
           overflowY: "auto",
         }}
       >
-
-        {/* ── Hero top ── */}
+        {/* Hero top */}
         <div className="relative overflow-hidden px-7 pt-6 pb-4 text-center"
           style={{ background: "linear-gradient(160deg, #FFFDF0 0%, #FFF9D6 100%)" }}>
-
-          {/* Close button */}
           <button onClick={onClose}
             className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-[#374151] hover:bg-white transition text-[16px] shadow-sm">
             ×
           </button>
-
-          {/* Central score ring */}
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl border-2 border-yellow-400 bg-white shadow-md">
             <div className="text-center">
               <p className="text-[22px] font-black text-[#111] leading-none">3</p>
               <p className="text-[9px] text-[#9CA3AF] uppercase tracking-wide">/ 3 used</p>
             </div>
           </div>
-
           <h2 className="text-[18px] font-black text-[#111] leading-tight mb-1" style={{ letterSpacing: "-0.5px" }}>
             You&apos;ve used all your
           </h2>
@@ -128,20 +125,15 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
           </p>
         </div>
 
-        {/* ── Plan selector ── */}
+        {/* Plan selector */}
         <div className="px-7 pt-4">
           <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Select your plan</p>
           <div className="grid grid-cols-2 gap-2.5 mb-3">
             {(["pro", "max"] as const).map((plan) => (
-              <button
-                key={plan}
-                onClick={() => setSelected(plan)}
+              <button key={plan} onClick={() => setSelected(plan)}
                 className={`relative rounded-2xl border-2 px-4 py-3 text-left transition-all ${
-                  selected === plan
-                    ? "border-[#111] bg-[#111]"
-                    : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
-                }`}
-              >
+                  selected === plan ? "border-[#111] bg-[#111]" : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
+                }`}>
                 {plan === "max" && (
                   <span className="absolute -top-2 left-3 rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-[#111]">
                     BEST VALUE
@@ -160,17 +152,11 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          {/* What you get */}
           <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">What you get</p>
           <div className="space-y-2 mb-6">
             {current.features.map((f, i) => (
-              <motion.div
-                key={f}
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-2.5"
-              >
+              <motion.div key={f} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }} className="flex items-center gap-2.5">
                 <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#111] text-[9px] font-black text-white">
                   ✓
                 </div>
@@ -180,12 +166,10 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* ── Sticky CTA ── */}
+        {/* Sticky CTA */}
         <div className="border-t border-[#F3F4F6] px-7 py-4 bg-white">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[13px] text-[#6B7280]">
-              {current.label} plan
-            </p>
+            <p className="text-[13px] text-[#6B7280]">{current.label} plan</p>
             <p className="text-[18px] font-black text-[#111]">
               {current.price}
               <span className="text-[12px] font-medium text-[#9CA3AF] ml-1">/month</span>
@@ -201,7 +185,6 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
             Maybe next month
           </button>
         </div>
-
       </motion.div>
     </div>
   );
@@ -211,51 +194,54 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
 
 export default function MockLandingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();   // ← use Next.js hook, not window.location
   const { user } = useAuth();
-  // Pre-fill from onboarding if first visit
+
+  const userPlan = user?.plan ?? "free";
+  const questionCount = PLAN_QUESTIONS[userPlan] ?? 5;
+  const sessionMins = questionCount * 3;
+
+  // ── FIXED: initialise state directly from URL params on first render ──────
+  const initialRole = (() => {
+    const p = searchParams.get("prefill_role") ?? "";
+    return VALID_ROLES.includes(p as typeof VALID_ROLES[number]) ? p : "";
+  })();
+
+  const initialDifficulty = (() => {
+    const p = searchParams.get("prefill_difficulty") ?? "";
+    return VALID_DIFFICULTIES.includes(p) ? p : "";
+  })();
+
+  const [role,     setRole]     = useState(initialRole);
+  const [company,  setCompany]  = useState("");
+  const [difficulty, setDifficulty] = useState(initialDifficulty);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+
+  // Onboarding prefill (localStorage) — only runs once, doesn't override URL params
   useEffect(() => {
-    const onboardingRole = localStorage.getItem("onboarding_role");
+    const onboardingRole  = localStorage.getItem("onboarding_role");
     const onboardingLevel = localStorage.getItem("onboarding_level");
+
     if (onboardingRole && !role) {
       setRole(onboardingRole);
       localStorage.removeItem("onboarding_role");
     }
     if (onboardingLevel && !difficulty) {
       const levelMap: Record<string, string> = {
-        beginner: "beginner",
+        beginner:     "beginner",
         intermediate: "intermediate",
-        ready: "advanced",
+        ready:        "advanced",
       };
       setDifficulty(levelMap[onboardingLevel] || onboardingLevel);
       localStorage.removeItem("onboarding_level");
     }
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const prefillRole = params.get("prefill_role");
-    const prefillDifficulty = params.get("prefill_difficulty");
-    if (prefillRole && ROLES.find(r => r.value === prefillRole)) {
-      setRole(prefillRole);
-    }
-    if (prefillDifficulty && ["beginner","intermediate","advanced"].includes(prefillDifficulty)) {
-      setDifficulty(prefillDifficulty);
-    }
-  }, []);
-  const userPlan = user?.plan ?? "free";
-  const questionCount = PLAN_QUESTIONS[userPlan] ?? 5;
-  const sessionMins = questionCount * 3;
-
-  const [role, setRole] = useState("");
-  const [company, setCompany] = useState("");
-  const [difficulty, setDifficulty] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showLimitModal, setShowLimitModal] = useState(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mic
   const [micStatus, setMicStatus] = useState<"idle" | "testing" | "ready" | "blocked">("idle");
-  const [micUrl, setMicUrl] = useState<string | null>(null);
+  const [micUrl,    setMicUrl]    = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const canStart = Boolean(role && difficulty);
@@ -297,12 +283,12 @@ export default function MockLandingPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          role_target: role,
-          seniority: difficulty,
-          company_type: company || null,
-          focus_area: "mixed",
-          duration_mins: questionCount * 3,
-          resume_uploaded: false,
+          role_target:      role,
+          seniority:        difficulty,
+          company_type:     company || null,
+          focus_area:       "mixed",
+          duration_mins:    questionCount * 3,
+          resume_uploaded:  false,
         }),
       });
 
@@ -333,14 +319,14 @@ export default function MockLandingPage() {
     return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
   }, []);
 
-  const selectedRole = ROLES.find((r) => r.value === role);
+  const selectedRole    = ROLES.find((r) => r.value === role);
   const selectedCompany = COMPANIES.find((c) => c.value === company);
 
   return (
     <main className="min-h-screen bg-[#F9FAFB] pt-20">
       <div className="mx-auto max-w-275 px-4 py-12 sm:px-6">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="mb-10">
           <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">
             Mock Interview
@@ -356,7 +342,7 @@ export default function MockLandingPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
 
-          {/* ── Left: Config ── */}
+          {/* Left: Config */}
           <div className="space-y-5">
 
             {/* Role */}
@@ -367,15 +353,12 @@ export default function MockLandingPage() {
                 {ROLES.map((r) => {
                   const selected = role === r.value;
                   return (
-                    <button
-                      key={r.value}
-                      onClick={() => setRole(r.value)}
+                    <button key={r.value} onClick={() => setRole(r.value)}
                       className={`group relative text-left rounded-xl border px-4 py-3.5 transition-all ${
                         selected
                           ? "border-[#111] bg-[#111] text-white"
                           : "border-[#E5E7EB] bg-white hover:border-[#111] hover:bg-[#F9FAFB]"
-                      }`}
-                    >
+                      }`}>
                       <span className="text-[20px] block mb-1.5">{r.icon}</span>
                       <span className={`block text-[13px] font-bold ${selected ? "text-white" : "text-[#111]"}`}>
                         {r.label}
@@ -410,17 +393,14 @@ export default function MockLandingPage() {
                   const selected = company === c.value;
                   const locked = userPlan === "free" && c.value !== "";
                   return (
-                    <button
-                      key={c.value}
-                      onClick={() => !locked && setCompany(c.value)}
+                    <button key={c.value} onClick={() => !locked && setCompany(c.value)}
                       className={`rounded-xl border px-4 py-2 text-[13px] font-medium transition ${
                         selected
                           ? "border-[#111] bg-[#111] text-white"
                           : locked
                           ? "border-[#F3F4F6] bg-[#F9FAFB] text-[#D1D5DB] cursor-not-allowed"
                           : "border-[#E5E7EB] text-[#374151] hover:border-[#111] hover:bg-[#F9FAFB]"
-                      }`}
-                    >
+                      }`}>
                       {c.label}
                       {locked && <span className="ml-1 text-[10px]">🔒</span>}
                     </button>
@@ -437,15 +417,12 @@ export default function MockLandingPage() {
                 {DIFFICULTY.map((d) => {
                   const selected = difficulty === d.value;
                   return (
-                    <button
-                      key={d.value}
-                      onClick={() => setDifficulty(d.value)}
+                    <button key={d.value} onClick={() => setDifficulty(d.value)}
                       className={`rounded-xl border px-4 py-3 text-center transition ${
                         selected
                           ? "border-[#111] bg-[#111] text-white"
                           : "border-[#E5E7EB] hover:border-[#111] hover:bg-[#F9FAFB]"
-                      }`}
-                    >
+                      }`}>
                       <span className={`block text-[13px] font-bold ${selected ? "text-white" : "text-[#111]"}`}>
                         {d.label}
                       </span>
@@ -463,23 +440,20 @@ export default function MockLandingPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <span className={`h-2 w-2 rounded-full ${
-                    micStatus === "ready" ? "bg-emerald-400 animate-pulse" :
+                    micStatus === "ready"   ? "bg-emerald-400 animate-pulse" :
                     micStatus === "blocked" ? "bg-rose-400" :
                     micStatus === "testing" ? "bg-amber-400 animate-pulse" :
                     "bg-gray-300"
                   }`} />
                   <span className="text-[13px] text-[#374151]">
-                    {micStatus === "ready" ? "Microphone ready" :
+                    {micStatus === "ready"   ? "Microphone ready" :
                      micStatus === "blocked" ? "Microphone blocked — check browser permissions" :
                      micStatus === "testing" ? "Testing mic..." :
                      "Microphone not tested"}
                   </span>
                 </div>
-                <button
-                  onClick={testMic}
-                  disabled={micStatus === "testing"}
-                  className="text-[12px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-50"
-                >
+                <button onClick={testMic} disabled={micStatus === "testing"}
+                  className="text-[12px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-50">
                   {micStatus === "testing" ? "Testing..." : "Test mic →"}
                 </button>
               </div>
@@ -493,15 +467,12 @@ export default function MockLandingPage() {
 
             {/* Start CTA */}
             <div>
-              <button
-                onClick={startSession}
-                disabled={loading || !canStart}
+              <button onClick={startSession} disabled={loading || !canStart}
                 className={`w-full rounded-2xl py-4 text-[15px] font-black tracking-tight transition-all ${
                   canStart && !loading
                     ? "bg-[#111] text-white hover:bg-[#333] active:scale-[0.99]"
                     : "bg-[#F3F4F6] text-[#9CA3AF] cursor-not-allowed"
-                }`}
-              >
+                }`}>
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
                     <LoaderSpinner />
@@ -526,7 +497,7 @@ export default function MockLandingPage() {
 
           </div>
 
-          {/* ── Right: Info panel ── */}
+          {/* Right: Info panel */}
           <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
 
             {/* Session summary */}
@@ -534,7 +505,6 @@ export default function MockLandingPage() {
               <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
                 Your session
               </p>
-
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-[#6B7280]">Role</span>
@@ -571,7 +541,6 @@ export default function MockLandingPage() {
                   </span>
                 </div>
               </div>
-
               {userPlan === "free" && (
                 <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5">
                   <p className="text-[12px] text-amber-700">
@@ -589,12 +558,12 @@ export default function MockLandingPage() {
               </p>
               <div className="space-y-3.5">
                 {[
-                  { icon: "🎯", label: "Live coaching overlay", sub: "WPM, filler words, silence nudges" },
+                  { icon: "🎯", label: "Live coaching overlay",      sub: "WPM, filler words, silence nudges" },
                   { icon: "✦",  label: "AI scoring after each answer", sub: "Technical, communication, depth" },
-                  { icon: "📄", label: "Full transcript + report", sub: "Per-question breakdown" },
+                  { icon: "📄", label: "Full transcript + report",   sub: "Per-question breakdown" },
                   ...(userPlan !== "free"
-                    ? [{ icon: "💡", label: "Model answers", sub: "What you could have said instead" }]
-                    : [{ icon: "🔒", label: "Model answers", sub: "Pro plan — unlock ideal answers" }]
+                    ? [{ icon: "💡", label: "Model answers",         sub: "What you could have said instead" }]
+                    : [{ icon: "🔒", label: "Model answers",         sub: "Pro plan — unlock ideal answers" }]
                   ),
                 ].map(({ icon, label, sub }) => (
                   <div key={label} className="flex items-start gap-3">
@@ -621,12 +590,12 @@ export default function MockLandingPage() {
                     {selectedRole?.label}
                   </span>
                   <p className="text-[13px] text-[#374151] leading-relaxed">
-                    {role === "Backend Engineer" && "Explain database indexing and when you'd choose a composite index over a single-column one."}
-                    {role === "Frontend Engineer" && "How does React reconciliation work, and how would you optimise a slow render?"}
+                    {role === "Backend Engineer"    && "Explain database indexing and when you'd choose a composite index over a single-column one."}
+                    {role === "Frontend Engineer"   && "How does React reconciliation work, and how would you optimise a slow render?"}
                     {role === "Full Stack Engineer" && "Walk me through a recent feature you built end-to-end — what trade-offs did you make?"}
-                    {role === "AI Engineer" && "How would you evaluate the quality of an LLM-generated response at scale?"}
-                    {role === "Data Engineer" && "Design a pipeline that ingests 10M events/day with exactly-once semantics."}
-                    {role === "System Design" && "Design a URL shortener like bit.ly. Walk through your approach."}
+                    {role === "AI Engineer"         && "How would you evaluate the quality of an LLM-generated response at scale?"}
+                    {role === "Data Engineer"       && "Design a pipeline that ingests 10M events/day with exactly-once semantics."}
+                    {role === "System Design"       && "Design a URL shortener like bit.ly. Walk through your approach."}
                   </p>
                 </div>
               </div>
@@ -634,11 +603,13 @@ export default function MockLandingPage() {
 
           </div>
         </div>
-      <AnimatePresence>
-        {showLimitModal && (
-          <SessionLimitModal onClose={() => setShowLimitModal(false)} />
-        )}
-      </AnimatePresence>
+
+        <AnimatePresence>
+          {showLimitModal && (
+            <SessionLimitModal onClose={() => setShowLimitModal(false)} />
+          )}
+        </AnimatePresence>
+
       </div>
     </main>
   );

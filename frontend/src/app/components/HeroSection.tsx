@@ -56,41 +56,25 @@ export function HeroSection() {
         <div className="relative pt-32 pb-0 text-center">
 
           {/* Floating decorative cards */}
-          <FloatingCard
-            className="left-[6%] top-[38%] w-32"
-            rotate="-8deg"
-            delay={0}
-          >
+          <FloatingCard className="left-[6%] top-[38%] w-32" rotate="-8deg" delay={0}>
             <div className="space-y-1.5 mb-2">
               <div className="h-1.5 w-full bg-gray-200 rounded" />
               <div className="h-1.5 w-4/5 bg-gray-200 rounded" />
               <div className="h-1.5 w-3/4 bg-yellow-300 rounded" />
             </div>
-            <p className="text-[10px] text-gray-300 font-medium">
-              Interview Score
-            </p>
+            <p className="text-[10px] text-gray-300 font-medium">Interview Score</p>
           </FloatingCard>
 
-          <FloatingCard
-            className="right-[6%] top-[38%] w-28"
-            rotate="6deg"
-            delay={0.5}
-          >
+          <FloatingCard className="right-[6%] top-[38%] w-28" rotate="6deg" delay={0.5}>
             <div className="space-y-1.5 mb-2">
               <div className="h-1.5 w-full bg-gray-200 rounded" />
               <div className="h-1.5 w-3/4 bg-gray-200 rounded" />
               <div className="h-1.5 w-1/2 bg-gray-200 rounded" />
             </div>
-            <p className="text-[10px] text-gray-300 font-medium">
-              AI Feedback
-            </p>
+            <p className="text-[10px] text-gray-300 font-medium">AI Feedback</p>
           </FloatingCard>
 
-          <FloatingCard
-            className="left-[4%] top-[58%] w-36"
-            rotate="-4deg"
-            delay={1}
-          >
+          <FloatingCard className="left-[4%] top-[58%] w-36" rotate="-4deg" delay={1}>
             <div className="space-y-1.5 mb-3">
               <div className="h-1.5 w-full bg-gray-200 rounded" />
               <div className="h-1.5 w-4/5 bg-gray-200 rounded" />
@@ -100,19 +84,13 @@ export function HeroSection() {
             </span>
           </FloatingCard>
 
-          <FloatingCard
-            className="right-[5%] top-[55%] w-28"
-            rotate="5deg"
-            delay={1.5}
-          >
+          <FloatingCard className="right-[5%] top-[55%] w-28" rotate="5deg" delay={1.5}>
             <div className="space-y-1.5 mb-2">
               <div className="h-1.5 w-full bg-gray-200 rounded" />
               <div className="h-1.5 w-2/3 bg-indigo-200 rounded" />
               <div className="h-1.5 w-3/4 bg-gray-200 rounded" />
             </div>
-            <p className="text-[10px] text-gray-300 font-medium">
-              Report Ready
-            </p>
+            <p className="text-[10px] text-gray-300 font-medium">Report Ready</p>
           </FloatingCard>
 
           {/* Badge */}
@@ -130,7 +108,7 @@ export function HeroSection() {
             </span>
           </motion.div>
 
-          {/* Heading */}
+          {/* Heading — unchanged, already works for both campus + off-campus */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -146,7 +124,6 @@ export function HeroSection() {
           >
             Practice for your exact
             <br />
-           
             <span
               style={{
                 background: "#FFD600",
@@ -157,11 +134,11 @@ export function HeroSection() {
                 display: "inline",
               }}
             >
-              Placement  Interview
+              Placement Interview
             </span>
           </motion.h1>
 
-          {/* Subtext */}
+          {/* Subtext — now covers campus drives AND off-campus applications */}
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -173,10 +150,31 @@ export function HeroSection() {
               lineHeight: 1.65,
             }}
           >
-            Mock interviews with the same questions TCS, Infosys, and Amazon 
-            actually ask at campus drives. Speak your answer. Get scored instantly. 
-            See what you should have said.
+            Mock interviews with the same questions TCS, Infosys, and Amazon
+            actually ask — at campus drives and off-campus applications. Speak
+            your answer. Get scored instantly. See what you should have said.
           </motion.p>
+
+          {/* Two-line social proof strip below subtext */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.45 }}
+            className="mt-4 flex items-center justify-center gap-2 flex-wrap px-6"
+          >
+            {[
+              "🎙️ Voice-based practice",
+              "🏢 Campus drives",
+              "💼 Off-campus applications",
+            ].map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-[12px] font-medium text-[#374151]"
+              >
+                {tag}
+              </span>
+            ))}
+          </motion.div>
 
           {/* Buttons */}
           <motion.div
@@ -219,7 +217,7 @@ export function HeroSection() {
             </Link>
           </motion.div>
 
-          {/* Trusted by */}
+          {/* Trusted by — added "& self-preparing students" to signal off-campus audience */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -227,21 +225,22 @@ export function HeroSection() {
             className="mt-6 flex items-center justify-center gap-4 flex-wrap px-6 pb-2"
           >
             <span style={{ fontSize: "12px", color: "#999", fontWeight: 500 }}>
-              Trusted by Students:
+              Used by students from:
             </span>
-            {["IIT Bombay", "VIT", "BITS Pilani", "DTU", "Amity"].map(
-              (name) => (
-                <span
-                  key={name}
-                  style={{ fontSize: "13px", fontWeight: 700, color: "#ccc" }}
-                >
-                  {name}
-                </span>
-              )
-            )}
+            {["IIT Bombay", "VIT", "BITS Pilani", "DTU", "Amity"].map((name) => (
+              <span
+                key={name}
+                style={{ fontSize: "13px", fontWeight: 700, color: "#ccc" }}
+              >
+                {name}
+              </span>
+            ))}
+            <span style={{ fontSize: "12px", color: "#ddd", fontWeight: 500 }}>
+              & students from 50+ colleges preparing independently
+            </span>
           </motion.div>
 
-          {/* Product screenshot — unchanged from original */}
+          {/* Product screenshot — unchanged */}
           <AnimatedGroup
             variants={{
               container: {
@@ -257,8 +256,7 @@ export function HeroSection() {
                 aria-hidden
                 className="absolute inset-0 z-10 from-transparent from-35%"
                 style={{
-                  background:
-                    "linear-gradient(to bottom, transparent 35%, #FFFDF0)",
+                  background: "linear-gradient(to bottom, transparent 35%, #FFFDF0)",
                 }}
               />
               <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1 ring-background bg-background inset-shadow-2xs">
@@ -284,28 +282,17 @@ export function HeroSection() {
 
       {/* Logos strip */}
       {logos.length > 0 && (
-        <section
-          className="pb-16 pt-16 md:pb-32"
-          style={{ background: "#FFFDF0" }}
-        >
+        <section className="pb-16 pt-16 md:pb-32" style={{ background: "#FFFDF0" }}>
           <div className="group relative m-auto max-w-5xl px-6">
             <div className="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
-              <Link
-                href="/"
-                className="block text-sm duration-150 hover:opacity-75"
-              >
+              <Link href="/" className="block text-sm duration-150 hover:opacity-75">
                 <span>Meet Our Students</span>
                 <ChevronRight className="ml-1 inline-block size-3" />
               </Link>
             </div>
             <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
               {logos.map((l) => (
-                <img
-                  key={l.alt}
-                  src={l.src}
-                  alt={l.alt}
-                  className="h-9 w-auto object-contain opacity-70"
-                />
+                <img key={l.alt} src={l.src} alt={l.alt} className="h-9 w-auto object-contain opacity-70" />
               ))}
             </div>
           </div>

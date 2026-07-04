@@ -212,7 +212,11 @@ def check_mock_limit(user_id: Optional[int], db: Session) -> dict[str, Any]:
     )
 
     if used_count >= 3:
-        raise HTTPException(status_code=403, detail="limit_reached")
+        # Try to consume a credit before blocking
+        from api.question_submission import consume_credit_if_available
+        used_credit = consume_credit_if_available(user_id, db)
+        if not used_credit:
+            raise HTTPException(status_code=403, detail="limit_reached")
 
     return {"allowed": True, "plan": "free"}
 

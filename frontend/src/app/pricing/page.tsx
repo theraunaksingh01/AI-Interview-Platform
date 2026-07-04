@@ -10,7 +10,7 @@ const tiers = [
     name: "Free",
     price: "₹0",
     period: "forever",
-    desc: "Start practicing, no commitment.",
+    desc: "Start practicing today — campus drive or off-campus.",
     cta: "Get started",
     ctaHref: "/signup",
     dark: false,
@@ -20,7 +20,7 @@ const tiers = [
     name: "Pro",
     price: "₹299",
     period: "/ month",
-    desc: "Everything to crack placements.",
+    desc: "Everything you need to crack placements — campus or off-campus.",
     cta: "Start Pro — ₹299/mo",
     ctaHref: "/signup",
     dark: true,
@@ -30,7 +30,7 @@ const tiers = [
     name: "Max",
     price: "₹699",
     period: "/ month",
-    desc: "For serious candidates who want every edge.",
+    desc: "For serious candidates who want every edge before the interview.",
     cta: "Start Max — ₹699/mo",
     ctaHref: "/signup",
     dark: false,
@@ -49,33 +49,53 @@ interface FeatureRow {
 }
 
 const features: FeatureRow[] = [
-  { label: "Sessions per month",         section: "Core",      free: "3 / month",  pro: "Unlimited",     max: "Unlimited" },
-  { label: "Questions per session",                             free: "5",          pro: "8",             max: "11" },
-  { label: "DSA problems",                                      free: "3 / day",    pro: "Unlimited",     max: "Unlimited" },
-  { label: "Score after interview",                             free: true,         pro: true,            max: true },
-  { label: "What was missing",                                  free: true,         pro: true,            max: true },
-  { label: "Streak tracking",                                   free: true,         pro: true,            max: true },
-  { label: "Model answers",              section: "Report",    free: false,        pro: true,            max: true },
-  { label: "Full communication report",                         free: false,        pro: true,            max: true },
-  { label: "WPM + filler word analysis",                        free: false,        pro: true,            max: true },
-  { label: "STAR method scoring",                               free: false,        pro: true,            max: true },
-  { label: "Session history + trends",   section: "Progress",  free: false,        pro: true,            max: true },
-  { label: "Improvement graph",                                 free: false,        pro: true,            max: true },
-  { label: "Skill Passport",                                    free: false,        pro: true,            max: true },
-  { label: "Company-specific prep",      section: "Advanced",  free: false,        pro: true,            max: true },
-  { label: "Follow-up questions",                               free: false,        pro: true,            max: true },
-  { label: "DSA solution access",                               free: false,        pro: false,           max: true },
-  { label: "Resume/Project discussion prep",                    free: false,        pro: false,           max: true },
-  { label: "Cheat Sheet — company prep page",                   free: false,        pro: false,           max: true },
-  { label: "Personal Coach Agent",                               free: false,        pro: false,           max: true },
-  { label: "Retry answer on report",                            free: false,        pro: false,           max: true },
+  { label: "Sessions per month",              section: "Core",      free: "3 / month",  pro: "Unlimited",  max: "Unlimited" },
+  { label: "Questions per session",                                  free: "5",          pro: "8",          max: "11" },
+  { label: "DSA problems",                                           free: "3 / day",    pro: "Unlimited",  max: "Unlimited" },
+  { label: "Score after interview",                                  free: true,         pro: true,         max: true },
+  { label: "What was missing",                                       free: true,         pro: true,         max: true },
+  { label: "Streak tracking",                                        free: true,         pro: true,         max: true },
+  { label: "Model answers",                   section: "Report",    free: false,        pro: true,         max: true },
+  { label: "Full communication report",                              free: false,        pro: true,         max: true },
+  { label: "WPM + filler word analysis",                             free: false,        pro: true,         max: true },
+  { label: "STAR method scoring",                                    free: false,        pro: true,         max: true },
+  { label: "Session history + trends",        section: "Progress",  free: false,        pro: true,         max: true },
+  { label: "Improvement graph",                                      free: false,        pro: true,         max: true },
+  { label: "Skill Passport",                                         free: false,        pro: true,         max: true },
+  { label: "Company-specific prep",           section: "Advanced",  free: false,        pro: true,         max: true },
+  { label: "Follow-up questions",                                    free: false,        pro: true,         max: true },
+  { label: "DSA solution access",                                    free: false,        pro: false,        max: true },
+  { label: "Resume/Project discussion prep",                         free: false,        pro: false,        max: true },
+  { label: "Cheat Sheet — company prep page",                        free: false,        pro: false,        max: true },
+  { label: "Personal Coach Agent",                                   free: false,        pro: false,        max: true },
+  { label: "Retry answer on report",                                 free: false,        pro: false,        max: true },
 ];
 
 const faqs = [
-  { q: "Can I cancel anytime?", a: "Yes. No lock-in, no cancellation fees. Cancel from your account settings anytime." },
-  { q: "What payment methods do you accept?", a: "Razorpay integration is coming soon. Reach out to us directly until then." },
-  { q: "Is there a student discount?", a: "Yes — email us with your college ID for a discount on Pro or Max." },
-  { q: "What happens to my data if I downgrade?", a: "All your sessions and reports are preserved. You just lose access to locked features." },
+  {
+    q: "Can I cancel anytime?",
+    a: "Yes. No lock-in, no cancellation fees. Cancel from your account settings anytime.",
+  },
+  {
+    q: "What payment methods do you accept?",
+    a: "Razorpay integration is coming soon. Reach out to us directly until then.",
+  },
+  {
+    q: "Is there a student discount?",
+    a: "Yes — email us with your college ID for a discount on Pro or Max.",
+  },
+  {
+    q: "What happens to my data if I downgrade?",
+    a: "All your sessions and reports are preserved. You just lose access to locked features.",
+  },
+  {
+    q: "Does Qued work for off-campus placement prep?",
+    a: "Yes — Qued is built for both campus drives and off-campus applications. Whether your college placement cell is active or you're applying to companies directly through LinkedIn or career pages, the questions, scoring, and coaching are the same. Your college tier doesn't matter here.",
+  },
+  {
+    q: "My college doesn't have great placements. Can Qued still help?",
+    a: "That's exactly who Qued is built for. Off-campus hiring is how most tier-2 and tier-3 students actually get placed at good companies. Qued prepares you for the interview itself — the part you can control.",
+  },
 ];
 
 // ─── Cell ─────────────────────────────────────────────────────────────────────
@@ -125,15 +145,32 @@ export default function PricingPage() {
         <p className="mb-4 text-[11px] font-black uppercase tracking-widest text-[#9CA3AF]">
           Pricing
         </p>
-        <h1 className="mx-auto max-w-[560px] text-[38px] font-black leading-[1.3] tracking-tight text-[#111] sm:text-[52px]">
+        <h1 className="mx-auto max-w-[600px] text-[38px] font-black leading-[1.3] tracking-tight text-[#111] sm:text-[52px]">
           Plans built for{" "}
           <span className="bg-yellow-400 px-2 rounded-md italic">
-            students
+            every student
           </span>
         </h1>
-        <p className="mx-auto mt-5 max-w-[400px] text-[15px] leading-relaxed text-[#6B7280]">
+        <p className="mx-auto mt-5 max-w-[480px] text-[15px] leading-relaxed text-[#6B7280]">
+          Campus drive or off-campus application — the interview is the same.
           No corporate pricing. No tricks. Cancel anytime.
         </p>
+
+        {/* Off-campus callout strip */}
+        <div className="mx-auto mt-6 max-w-[540px] rounded-2xl border border-[#E5E7EB] bg-white px-5 py-4 flex items-start gap-3 text-left">
+          <span className="text-[20px] mt-0.5 flex-shrink-0">💼</span>
+          <div>
+            <p className="text-[13px] font-bold text-[#111]">
+              Applying off-campus? Qued is built for you too.
+            </p>
+            <p className="text-[12px] text-[#6B7280] mt-0.5 leading-relaxed">
+              Whether your placement cell is active or you&apos;re applying directly
+              to Razorpay, Zerodha, or any company through LinkedIn — the
+              questions, coaching, and scoring are identical. Your college tier
+              doesn&apos;t matter here.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section className="mx-auto max-w-[1100px] px-4 pb-24 sm:px-6">
@@ -143,11 +180,9 @@ export default function PricingPage() {
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                {/* Label column */}
                 <th className="w-[34%] border-b border-[#E5E7EB] bg-[#F9FAFB] px-8 py-7 text-left">
                   <span className="text-[15px] font-bold text-[#374151]">Features</span>
                 </th>
-
                 {tiers.map((tier) => (
                   <th
                     key={tier.name}
@@ -155,7 +190,6 @@ export default function PricingPage() {
                       tier.dark ? "bg-[#111]" : "bg-white"
                     }`}
                   >
-                    {/* Badge */}
                     <div className="mb-2 flex h-5 justify-center">
                       {tier.badge && (
                         <span className="rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-black text-[#111]">
@@ -163,15 +197,11 @@ export default function PricingPage() {
                         </span>
                       )}
                     </div>
-
-                    {/* Name */}
                     <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${
                       tier.dark ? "text-[#9CA3AF]" : "text-[#9CA3AF]"
                     }`}>
                       {tier.name}
                     </p>
-
-                    {/* Price */}
                     <div className="flex items-baseline justify-center gap-1 mb-1">
                       <span className={`text-[32px] font-black leading-none ${
                         tier.dark ? "text-white" : "text-[#111]"
@@ -182,15 +212,11 @@ export default function PricingPage() {
                         {tier.period}
                       </span>
                     </div>
-
-                    {/* Desc */}
                     <p className={`text-[12px] mb-5 leading-snug ${
                       tier.dark ? "text-[#6B7280]" : "text-[#9CA3AF]"
                     }`}>
                       {tier.desc}
                     </p>
-
-                    {/* CTA */}
                     <Link href={tier.ctaHref}>
                       <button className={`w-full rounded-xl py-2.5 text-[13px] font-bold transition ${
                         tier.dark
@@ -204,36 +230,22 @@ export default function PricingPage() {
                 ))}
               </tr>
             </thead>
-
             <tbody>
               {features.map((row, i) => (
                 <Fragment key={`row-${i}`}>
-                  {/* Section header */}
                   {row.section && (
                     <tr>
-                      <td
-                        colSpan={4}
-                        className="border-t-2 border-[#E5E7EB] bg-[#F3F4F6] px-8 py-3"
-                      >
+                      <td colSpan={4} className="border-t-2 border-[#E5E7EB] bg-[#F3F4F6] px-8 py-3">
                         <span className="text-[12px] font-black uppercase tracking-widest text-[#374151]">
                           {row.section}
                         </span>
                       </td>
                     </tr>
                   )}
-
-                  {/* Feature row */}
                   <tr className="border-t border-[#F3F4F6] hover:bg-[#FAFAFA] transition">
-                    <td className="px-8 py-4 text-[14px] text-[#374151]">
-                      {row.label}
-                    </td>
+                    <td className="px-8 py-4 text-[14px] text-[#374151]">{row.label}</td>
                     {([row.free, row.pro, row.max] as FeatureValue[]).map((val, j) => (
-                      <td
-                        key={j}
-                        className={`px-6 py-4 text-center ${
-                          j === 1 ? "bg-[#111]/[0.015]" : ""
-                        }`}
-                      >
+                      <td key={j} className={`px-6 py-4 text-center ${j === 1 ? "bg-[#111]/[0.015]" : ""}`}>
                         <FeatureCell value={val} colIndex={j} />
                       </td>
                     ))}

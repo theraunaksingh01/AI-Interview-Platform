@@ -11,12 +11,15 @@ const NAV = [
   { label: "Mock Sessions",  href: "/admin/sessions",         icon: "◎" },
   { label: "DSA Practice",   href: "/admin/dsa",              icon: "⌘" },
   { label: "Question Bank",  href: "/admin/questions",        icon: "≡" },
+  { label: "Submissions", href: "/admin/question-submissions", icon: "📥" },
   { label: "Quick Prep",     href: "/admin/quick-prep",       icon: "⚡" },
   { label: "Peer Practice",  href: "/admin/peer",             icon: "⇄" },
   { label: "Daily Challenge", href: "/admin/daily",           icon: "◷" },
   { label: "Cheat Sheet",    href: "/admin/cheat-sheet",      icon: "⊞" },
   { label: "Analytics",      href: "/admin/analytics",        icon: "∿" },
   { label: "System",         href: "/admin/system",           icon: "⊙" },
+  { label: "Feedback",       href: "/admin/feedback",         icon: "💬" },
+  
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

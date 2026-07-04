@@ -229,6 +229,7 @@ def get_today(
             "difficulty": row["difficulty"],
             "company_tag": row["company_tag"],
             "answer_framework": row["answer_framework"],
+            "model_answer": row["model_answer"],
         },
         "answered": answered,
         "date": today.isoformat(),

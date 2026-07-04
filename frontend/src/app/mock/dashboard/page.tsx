@@ -111,13 +111,6 @@ function progressWidth(score: number | null | undefined, max = 10) {
   return `${pct}%`;
 }
 
-function scoreClass(score: number | null | undefined) {
-  if (score == null) return "text-gray-400";
-  if (score >= 70) return "text-emerald-600";
-  if (score >= 40) return "text-amber-600";
-  return "text-rose-600";
-}
-
 function scoreBadge(score: number | null | undefined) {
   if (score == null) return "bg-gray-100 text-gray-400";
   if (score >= 70) return "bg-emerald-50 text-emerald-700";
@@ -173,11 +166,7 @@ function StatCard({
           : "border-[#E5E7EB] bg-white"
       }`}
     >
-      <div
-        className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${
-          highlight ? "text-[#9CA3AF]" : "text-[#9CA3AF]"
-        }`}
-      >
+      <div className="text-[11px] font-semibold uppercase tracking-wide mb-1 text-[#9CA3AF]">
         {label}
       </div>
       <div
@@ -188,13 +177,7 @@ function StatCard({
         {value}
       </div>
       {sub && (
-        <div
-          className={`mt-0.5 text-[12px] ${
-            highlight ? "text-[#9CA3AF]" : "text-[#9CA3AF]"
-          }`}
-        >
-          {sub}
-        </div>
+        <div className="mt-0.5 text-[12px] text-[#9CA3AF]">{sub}</div>
       )}
     </div>
   );
@@ -248,14 +231,15 @@ function DSAPracticeWidget() {
   } | null>(null);
 
   useEffect(() => {
-    const token = typeof window !== "undefined"
-      ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
-      : null;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN")
+        : null;
     fetch("/api/dsa/stats", {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })
-      .then(r => r.json())
-      .then(d => setStats(d))
+      .then((r) => r.json())
+      .then((d) => setStats(d))
       .catch(() => {});
   }, []);
 
@@ -270,7 +254,10 @@ function DSAPracticeWidget() {
           <span className="text-[16px]">💻</span>
           <p className="text-[14px] font-black text-[#111]">DSA Practice</p>
         </div>
-        <Link href="/dsa" className="text-[12px] font-bold text-[#9CA3AF] hover:text-[#111] transition">
+        <Link
+          href="/dsa"
+          className="text-[12px] font-bold text-[#9CA3AF] hover:text-[#111] transition"
+        >
           Continue →
         </Link>
       </div>
@@ -281,21 +268,33 @@ function DSAPracticeWidget() {
         </div>
         <div className="flex-1">
           <div className="h-2 w-full rounded-full bg-[#F3F4F6] overflow-hidden mb-1.5">
-            <div className="h-full rounded-full bg-[#111] transition-all duration-700"
-              style={{ width: `${Math.round((stats.solved / total) * 100)}%` }} />
+            <div
+              className="h-full rounded-full bg-[#111] transition-all duration-700"
+              style={{ width: `${Math.round((stats.solved / total) * 100)}%` }}
+            />
           </div>
-          <p className="text-[11px] text-[#9CA3AF]">{Math.round((stats.solved / total) * 100)}% of {total} problems</p>
+          <p className="text-[11px] text-[#9CA3AF]">
+            {Math.round((stats.solved / total) * 100)}% of {total} problems
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: "Easy", value: stats.easy_solved, color: "#15803D", bg: "#F0FDF4" },
+          { label: "Easy",   value: stats.easy_solved,   color: "#15803D", bg: "#F0FDF4" },
           { label: "Medium", value: stats.medium_solved, color: "#B45309", bg: "#FFFBEB" },
-          { label: "Hard", value: stats.hard_solved, color: "#B91C1C", bg: "#FEF2F2" },
-        ].map(d => (
-          <div key={d.label} className="rounded-xl py-2.5 text-center" style={{ background: d.bg }}>
-            <p className="text-[15px] font-black" style={{ color: d.color }}>{d.value}</p>
-            <p className="text-[10px] font-bold" style={{ color: d.color + "99" }}>{d.label}</p>
+          { label: "Hard",   value: stats.hard_solved,   color: "#B91C1C", bg: "#FEF2F2" },
+        ].map((d) => (
+          <div
+            key={d.label}
+            className="rounded-xl py-2.5 text-center"
+            style={{ background: d.bg }}
+          >
+            <p className="text-[15px] font-black" style={{ color: d.color }}>
+              {d.value}
+            </p>
+            <p className="text-[10px] font-bold" style={{ color: d.color + "99" }}>
+              {d.label}
+            </p>
           </div>
         ))}
       </div>
@@ -310,6 +309,9 @@ export default function MockDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ── CHANGE 1: credits state ──────────────────────────────────────────────
+  const [credits, setCredits] = useState<number>(0);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -331,6 +333,20 @@ export default function MockDashboardPage() {
         }
         const json = (await res.json()) as DashboardData;
         setData(json);
+
+        // ── CHANGE 2: fetch credit balance ─────────────────────────────────
+        let fetchedCredits = 0;
+        try {
+          const creditRes = await fetch(`${API_BASE}/api/questions/credits`, {
+            headers: authHeader(),
+          });
+          if (creditRes.ok) {
+            const creditData = await creditRes.json();
+            fetchedCredits = creditData.credits ?? 0;
+          }
+        } catch { /* ignore */ }
+        setCredits(fetchedCredits);
+
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Network error");
       } finally {
@@ -340,7 +356,6 @@ export default function MockDashboardPage() {
     loadDashboard();
   }, [authLoading, user?.id, authHeader]);
 
-  // Overall score trend (0-100 scale)
   const trendData = useMemo(() => {
     const sessions = data?.sessions || [];
     return [...sessions]
@@ -389,7 +404,6 @@ export default function MockDashboardPage() {
 
   const sessions = data?.sessions || [];
   const hasSessions = sessions.length > 0;
-  // Show most recent 20, already sorted asc from backend — reverse for display
   const recentSessions = [...sessions].reverse().slice(0, 20);
 
   // ── No sessions ───────────────────────────────────────────────────────────
@@ -398,14 +412,21 @@ export default function MockDashboardPage() {
       <main className="min-h-screen bg-[#FAFAF8] px-4 pb-16 pt-28 sm:px-8">
         <div className="mx-auto max-w-[1100px]">
 
-          {/* Welcome header */}
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">
                 Progress Dashboard
               </p>
-              <h1 style={{ fontSize: "clamp(24px, 4vw, 34px)", fontWeight: 900, letterSpacing: "-1px", color: "#111" }}>
-                Welcome to Qued{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""} 👋
+              <h1
+                style={{
+                  fontSize: "clamp(24px, 4vw, 34px)",
+                  fontWeight: 900,
+                  letterSpacing: "-1px",
+                  color: "#111",
+                }}
+              >
+                Welcome to Qued
+                {user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""} 👋
               </h1>
               <p className="mt-1 text-[14px] text-[#6B7280]">
                 Your dashboard fills up after your first session.
@@ -419,27 +440,49 @@ export default function MockDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
-
-            {/* Left: how it works */}
             <div className="space-y-4">
-
-              {/* Big CTA card */}
-              <div className="rounded-3xl border border-[#E5E7EB] bg-white overflow-hidden"
-                style={{ boxShadow: "0 4px 40px rgba(0,0,0,0.06)" }}>
-                <div className="px-8 py-10"
-                  style={{ background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)" }}>
+              <div
+                className="rounded-3xl border border-[#E5E7EB] bg-white overflow-hidden"
+                style={{ boxShadow: "0 4px 40px rgba(0,0,0,0.06)" }}
+              >
+                <div
+                  className="px-8 py-10"
+                  style={{
+                    background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)",
+                  }}
+                >
                   <div className="inline-flex items-center gap-2 rounded-full border border-yellow-300 bg-white px-3 py-1.5 mb-5">
                     <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                    <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">Ready to start</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">
+                      Ready to start
+                    </span>
                   </div>
-                  <h2 style={{ fontSize: "clamp(22px, 3vw, 30px)", fontWeight: 900, letterSpacing: "-1px", color: "#111", lineHeight: 1.2 }}>
-                    Your first session takes<br />
-                    <span style={{ background: "#FFD600", padding: "1px 8px", borderRadius: "5px", fontStyle: "italic" }}>
+                  <h2
+                    style={{
+                      fontSize: "clamp(22px, 3vw, 30px)",
+                      fontWeight: 900,
+                      letterSpacing: "-1px",
+                      color: "#111",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Your first session takes
+                    <br />
+                    <span
+                      style={{
+                        background: "#FFD600",
+                        padding: "1px 8px",
+                        borderRadius: "5px",
+                        fontStyle: "italic",
+                      }}
+                    >
                       15 minutes.
                     </span>
                   </h2>
                   <p className="mt-3 text-[14px] text-[#6B7280] leading-relaxed max-w-md">
-                    Answer 5 questions by voice. Get live coaching while you speak. See a per-question breakdown after. Your score, weaknesses, and model answers — all in the report.
+                    Answer 5 questions by voice. Get live coaching while you speak.
+                    See a per-question breakdown after. Your score, weaknesses, and
+                    model answers — all in the report.
                   </p>
                   <Link href="/mock">
                     <button className="mt-6 rounded-xl bg-[#111] px-7 py-3.5 text-[14px] font-black text-white hover:bg-[#333] transition">
@@ -448,16 +491,17 @@ export default function MockDashboardPage() {
                   </Link>
                 </div>
 
-                {/* 3 steps */}
                 <div className="grid grid-cols-3 divide-x divide-[#F3F4F6] border-t border-[#F3F4F6]">
                   {[
-                    { step: "01", icon: "🎙️", title: "Answer by voice", sub: "Speak your answers naturally" },
-                    { step: "02", icon: "📊", title: "Get scored", sub: "AI scores every answer live" },
-                    { step: "03", icon: "📄", title: "See your report", sub: "Per-question feedback + model answers" },
+                    { step: "01", icon: "🎙️", title: "Answer by voice",  sub: "Speak your answers naturally" },
+                    { step: "02", icon: "📊", title: "Get scored",        sub: "AI scores every answer live" },
+                    { step: "03", icon: "📄", title: "See your report",   sub: "Per-question feedback + model answers" },
                   ].map(({ step, icon, title, sub }) => (
                     <div key={step} className="px-5 py-5">
                       <p className="text-[22px] mb-2">{icon}</p>
-                      <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">{step}</p>
+                      <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
+                        {step}
+                      </p>
                       <p className="text-[13px] font-bold text-[#111]">{title}</p>
                       <p className="text-[11px] text-[#9CA3AF] mt-0.5">{sub}</p>
                     </div>
@@ -465,19 +509,21 @@ export default function MockDashboardPage() {
                 </div>
               </div>
 
-              {/* What you'll unlock */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
                 <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
                   After your first session you&apos;ll unlock
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { icon: "📈", label: "Score trend chart", sub: "Watch improvement over time" },
+                    { icon: "📈", label: "Score trend chart",    sub: "Watch improvement over time" },
                     { icon: "🎯", label: "Per-question breakdown", sub: "What you said vs what to say" },
-                    { icon: "💡", label: "Model answers", sub: "The ideal response to each question" },
-                    { icon: "🤖", label: "Personal coach note", sub: "AI identifies your recurring patterns" },
+                    { icon: "💡", label: "Model answers",         sub: "The ideal response to each question" },
+                    { icon: "🤖", label: "Personal coach note",   sub: "AI identifies your recurring patterns" },
                   ].map(({ icon, label, sub }) => (
-                    <div key={label} className="flex items-start gap-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] p-3">
+                    <div
+                      key={label}
+                      className="flex items-start gap-3 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] p-3"
+                    >
                       <span className="text-[20px] mt-0.5">{icon}</span>
                       <div>
                         <p className="text-[12px] font-bold text-[#111]">{label}</p>
@@ -489,29 +535,41 @@ export default function MockDashboardPage() {
               </div>
             </div>
 
-            {/* Right: calendar widget + daily question */}
             <div className="space-y-4">
               <CalendarWidget />
 
-              {/* Daily question nudge */}
+              {/* ── CHANGE 4a: no-sessions dark CTA with contribute link ── */}
               <div className="rounded-2xl bg-[#111] p-5">
-                <p className="text-[14px] font-black text-white mb-1">While you&apos;re here</p>
-                <p className="text-[12px] mb-4" style={{ color: "#555" }}>
-                  Answer today&apos;s daily question — it takes 2 minutes and builds your streak.
+                <p className="text-[14px] font-black text-white mb-1">
+                  While you&apos;re here
                 </p>
-                <Link href="/daily" className="block w-full rounded-xl bg-yellow-400 py-2.5 text-center text-[13px] font-black text-[#111] hover:bg-yellow-300 transition">
+                <p className="text-[12px] mb-4" style={{ color: "#555" }}>
+                  Answer today&apos;s daily question — it takes 2 minutes and builds
+                  your streak.
+                </p>
+                <Link
+                  href="/daily"
+                  className="block w-full rounded-xl bg-yellow-400 py-2.5 text-center text-[13px] font-black text-[#111] hover:bg-yellow-300 transition"
+                >
                   Today&apos;s question →
+                </Link>
+                <Link
+                  href="/submit-question"
+                  className="block w-full rounded-xl border border-[#333] py-2.5 text-center text-[13px] font-black text-[#555] hover:text-white hover:border-white transition mt-2"
+                >
+                  ⚡ Contribute a question → earn credits
                 </Link>
               </div>
 
-              {/* Quick stats preview */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">Your stats</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
+                  Your stats
+                </p>
                 <div className="space-y-3">
                   {[
-                    { label: "Sessions completed", value: "0", note: "Do your first session" },
-                    { label: "Best score", value: "—", note: "Unlocks after session 1" },
-                    { label: "Current streak", value: "0 days", note: "Answer daily questions" },
+                    { label: "Sessions completed", value: "0",      note: "Do your first session" },
+                    { label: "Best score",          value: "—",      note: "Unlocks after session 1" },
+                    { label: "Current streak",      value: "0 days", note: "Answer daily questions" },
                   ].map(({ label, value, note }) => (
                     <div key={label} className="flex items-center justify-between">
                       <div>
@@ -547,8 +605,17 @@ export default function MockDashboardPage() {
                 Track your improvement over time
               </p>
             </div>
-            <div className="rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-4 py-1.5 text-sm font-medium text-[#92400E]">
-              🔥 {data?.streak || 0} day streak
+
+            {/* ── CHANGE 3: streak + credit badges ── */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-4 py-1.5 text-sm font-medium text-[#92400E]">
+                🔥 {data?.streak || 0} day streak
+              </div>
+              {credits > 0 && (
+                <div className="rounded-full border border-yellow-300 bg-yellow-50 px-4 py-1.5 text-sm font-medium text-[#92400E]">
+                  ⚡ {credits} bonus session{credits !== 1 ? "s" : ""} available
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -590,9 +657,7 @@ export default function MockDashboardPage() {
             }
             sub={
               improvement != null
-                ? improvement >= 0
-                  ? "since first session"
-                  : "since first session"
+                ? "since first session"
                 : "need 2+ sessions"
             }
           />
@@ -600,30 +665,10 @@ export default function MockDashboardPage() {
 
         {/* ── Dimension score cards ── */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <ScoreCard
-            label="DSA"
-            score={data?.latest_scores?.dsa ?? null}
-            delta={data?.deltas?.dsa ?? null}
-            color={COLORS.dsa}
-          />
-          <ScoreCard
-            label="System Design"
-            score={data?.latest_scores?.system_design ?? null}
-            delta={data?.deltas?.system_design ?? null}
-            color={COLORS.system_design}
-          />
-          <ScoreCard
-            label="Behavioral"
-            score={data?.latest_scores?.behavioral ?? null}
-            delta={data?.deltas?.behavioral ?? null}
-            color={COLORS.behavioral}
-          />
-          <ScoreCard
-            label="Communication"
-            score={data?.latest_scores?.communication ?? null}
-            delta={data?.deltas?.communication ?? null}
-            color={COLORS.communication}
-          />
+          <ScoreCard label="DSA"          score={data?.latest_scores?.dsa ?? null}          delta={data?.deltas?.dsa ?? null}          color={COLORS.dsa} />
+          <ScoreCard label="System Design" score={data?.latest_scores?.system_design ?? null} delta={data?.deltas?.system_design ?? null} color={COLORS.system_design} />
+          <ScoreCard label="Behavioral"   score={data?.latest_scores?.behavioral ?? null}   delta={data?.deltas?.behavioral ?? null}   color={COLORS.behavioral} />
+          <ScoreCard label="Communication" score={data?.latest_scores?.communication ?? null} delta={data?.deltas?.communication ?? null} color={COLORS.communication} />
         </div>
 
         {/* ── DSA Practice widget ── */}
@@ -631,9 +676,7 @@ export default function MockDashboardPage() {
 
         {/* ── Score trend chart ── */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
-          <h2 className="mb-1 text-[15px] font-bold text-[#111]">
-            Score Trend
-          </h2>
+          <h2 className="mb-1 text-[15px] font-bold text-[#111]">Score Trend</h2>
           <p className="mb-4 text-[12px] text-[#9CA3AF]">
             Overall score per session over time
           </p>
@@ -667,7 +710,9 @@ export default function MockDashboardPage() {
                       border: "1px solid #E5E7EB",
                       fontSize: 12,
                     }}
-                    formatter={(value: number | undefined) => value != null ? [`${value}/100`, "Overall"] : ["—", "Overall"]}
+                    formatter={(value: number | undefined) =>
+                      value != null ? [`${value}/100`, "Overall"] : ["—", "Overall"]
+                    }
                   />
                   <Line
                     type="monotone"
@@ -715,9 +760,7 @@ export default function MockDashboardPage() {
                   key={`${m.session_id}-${idx}`}
                   className="min-w-[200px] rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3"
                 >
-                  <div className="text-sm font-medium text-[#111]">
-                    ⭐ {m.message}
-                  </div>
+                  <div className="text-sm font-medium text-[#111]">⭐ {m.message}</div>
                   <div className="mt-1 text-xs text-[#9CA3AF]">
                     {formatDate(m.achieved_at)}
                   </div>
@@ -730,12 +773,8 @@ export default function MockDashboardPage() {
         {/* ── Session history table ── */}
         <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
           <div className="border-b border-[#E5E7EB] px-5 py-4 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-[#111]">
-              Session History
-            </h2>
-            <span className="text-[12px] text-[#9CA3AF]">
-              {data?.total_sessions} total
-            </span>
+            <h2 className="text-[15px] font-bold text-[#111]">Session History</h2>
+            <span className="text-[12px] text-[#9CA3AF]">{data?.total_sessions} total</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -810,9 +849,7 @@ export default function MockDashboardPage() {
                           View →
                         </Link>
                       ) : (
-                        <span className="text-[12px] text-[#9CA3AF]">
-                          Pending
-                        </span>
+                        <span className="text-[12px] text-[#9CA3AF]">Pending</span>
                       )}
                     </td>
                   </tr>
@@ -822,23 +859,29 @@ export default function MockDashboardPage() {
           </div>
         </div>
 
-        {/* ── CTA ── */}
+        {/* ── CHANGE 4b: CTA with Contribute link ── */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white px-5 py-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="text-[17px] font-semibold text-[#111]">
                 Ready for your next session?
               </div>
-              <div className="mt-1 text-sm text-[#6B7280]">
-                Keep the streak going
-              </div>
+              <div className="mt-1 text-sm text-[#6B7280]">Keep the streak going</div>
             </div>
-            <Link
-              href="/mock"
-              className="rounded-xl bg-[#111] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#333] transition"
-            >
-              Start Mock Interview →
-            </Link>
+            <div className="flex gap-3 flex-wrap">
+              <Link
+                href="/submit-question"
+                className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB] transition"
+              >
+                ⚡ Contribute a question
+              </Link>
+              <Link
+                href="/mock"
+                className="rounded-xl bg-[#111] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#333] transition"
+              >
+                Start Mock Interview →
+              </Link>
+            </div>
           </div>
         </div>
 

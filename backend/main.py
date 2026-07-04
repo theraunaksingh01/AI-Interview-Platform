@@ -96,7 +96,8 @@ from api import cheat_sheet as cheat_sheet_api
 from api import peer_practice as peer_practice_api
 from api import dsa_practice as dsa_practice_api
 from api import admin as admin_api
-
+from api.feedback import router as feedback_router
+from api.question_submission import router as question_submission_router
 
 
 
@@ -165,6 +166,9 @@ app.include_router(peer_practice_api.router)
 app.include_router(dsa_practice_api.router)
 
 app.include_router(admin_api.router)
+
+app.include_router(feedback_router)
+app.include_router(question_submission_router)
 
 _startup_import_error = None
 
