@@ -40,6 +40,21 @@ const VALID_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
 const PLAN_QUESTIONS: Record<string, number> = { free: 5, pro: 8, max: 11 };
 const PLAN_LABEL: Record<string, string> = { free: "Free", pro: "Pro", max: "Max" };
 
+// Roles that include DSA/coding questions — show language preference only for these
+const DSA_ROLES = new Set([
+  "Backend Engineer",
+  "Full Stack Engineer",
+  "AI Engineer",
+  "Data Engineer",
+]);
+
+const LANGUAGES = [
+  { value: "python", label: "Python"        },
+  { value: "java",   label: "Java"          },
+  { value: "cpp",    label: "C++"           },
+  { value: "",       label: "No preference" },
+] as const;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function LoaderSpinner() {
@@ -215,6 +230,7 @@ export default function MockLandingPage() {
   const [role,     setRole]     = useState(initialRole);
   const [company,  setCompany]  = useState("");
   const [difficulty, setDifficulty] = useState(initialDifficulty);
+  const [language,  setLanguage]  = useState("");  // preferred coding language
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
@@ -435,6 +451,36 @@ export default function MockLandingPage() {
               </div>
             </div>
 
+            {/* Language preference — only for DSA roles */}
+            {DSA_ROLES.has(role) && (
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+                <p className="text-[13px] font-bold text-[#111] mb-0.5">Preferred coding language</p>
+                <p className="text-[12px] text-[#9CA3AF] mb-4">
+                  DSA questions will be in your chosen language — or language-agnostic if you pick No preference
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {LANGUAGES.map((l) => {
+                    const selected = language === l.value;
+                    return (
+                      <button
+                        key={l.value}
+                        onClick={() => setLanguage(l.value)}
+                        className="rounded-xl border px-4 py-2 text-[13px] font-medium transition"
+                        style={{
+                          background:  selected ? "#111" : "white",
+                          color:       selected ? "white" : "#374151",
+                          borderColor: selected ? "#111" : "#E5E7EB",
+                        }}
+                      >
+                        {l.label}
+                        {selected && <span className="ml-1.5 text-yellow-400">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Mic check */}
             <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
               <div className="flex items-center justify-between">
@@ -524,6 +570,16 @@ export default function MockLandingPage() {
                     {difficulty || <span className="text-[#D1D5DB]">Not selected</span>}
                   </span>
                 </div>
+                {DSA_ROLES.has(role) && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-[#6B7280]">Coding language</span>
+                    <span className="text-[13px] font-semibold text-[#111]">
+                      {language
+                        ? LANGUAGES.find(l => l.value === language)?.label ?? language
+                        : <span className="text-[#D1D5DB]">No preference</span>}
+                    </span>
+                  </div>
+                )}
                 <div className="border-t border-[#F3F4F6] pt-3 flex items-center justify-between">
                   <span className="text-[13px] text-[#6B7280]">Questions</span>
                   <span className="text-[13px] font-bold text-[#111]">

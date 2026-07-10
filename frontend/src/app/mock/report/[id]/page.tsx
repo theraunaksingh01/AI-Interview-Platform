@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import ContributeCard from "@/components/ContributeCard";
+import FlagQuestionButton from "@/components/FlagQuestionButton";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type QuestionData = {
@@ -112,7 +113,7 @@ function ScoreRing({ score }: { score: number | null }) {
   );
 }
 
-function QuestionCard({ q, index, userPlan }: { q: QuestionData; index: number; userPlan: string }) {
+function QuestionCard({ q, index, userPlan, sessionId, authHeader }: { q: QuestionData; index: number; userPlan: string; sessionId: string; authHeader: () => Record<string, string>; }) {
   const [expanded, setExpanded] = useState(false);
   const hasTranscript = q.transcript && q.transcript.trim().length > 0;
 
@@ -154,6 +155,11 @@ function QuestionCard({ q, index, userPlan }: { q: QuestionData; index: number; 
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <FlagQuestionButton
+            questionId={q.question_id}
+            sessionId={sessionId}
+            authHeader={authHeader}
+          />
           <div className={`px-3 py-1.5 rounded-lg border text-sm font-bold ${scoreBadgeStyle(q.score)}`}>
             {Math.round(q.score)}/100
           </div>
@@ -668,7 +674,7 @@ export default function MockReportPage() {
           ) : sortedQuestions.length > 0 ? (
             <div className="space-y-3">
               {sortedQuestions.map((q, i) => (
-                <QuestionCard key={q.question_id} q={q} index={i} userPlan={userPlan} />
+                <QuestionCard key={q.question_id} q={q} index={i} userPlan={userPlan} sessionId={sessionId} authHeader={authHeader} />
               ))}
             </div>
           ) : (

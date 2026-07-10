@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_current_user_optional, get_current_user
 from db.session import get_db, SessionLocal
+from uuid import UUID as PyUUID
 
 log = logging.getLogger(__name__)
 
@@ -593,3 +594,59 @@ def consume_credit_if_available(user_id: int, db: Session) -> bool:
     )
     db.commit()
     return True
+
+class FlagQuestionRequest(BaseModel):
+    question_id: int
+    session_id:  str
+    reason:      str  # wrong_topic | wrong_language | unclear_question | other
+
+
+VALID_FLAG_REASONS = {"wrong_topic", "wrong_language", "unclear_question", "other"}
+
+
+@router.post("/flag")
+def flag_question(
+    payload: FlagQuestionRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
+):
+    if payload.reason not in VALID_FLAG_REASONS:
+        raise HTTPException(400, "Invalid reason")
+
+    try:
+        session_uuid = str(PyUUID(payload.session_id))
+    except Exception:
+        raise HTTPException(400, "Invalid session_id")
+
+    user_id = getattr(current_user, "id", None)
+
+    # Insert flag record
+    db.execute(
+        text("""
+            INSERT INTO flagged_questions (question_id, session_id, user_id, reason)
+            VALUES (:qid, :sid, :uid, :reason)
+        """),
+        {
+            "qid":    payload.question_id,
+            "sid":    session_uuid,
+            "uid":    user_id,
+            "reason": payload.reason,
+        },
+    )
+
+    # Increment flag count and auto-mark needs_review if 3+ flags
+    db.execute(
+        text("""
+            UPDATE questions
+            SET flag_count   = COALESCE(flag_count, 0) + 1,
+                needs_review = CASE
+                    WHEN COALESCE(flag_count, 0) + 1 >= 3 THEN TRUE
+                    ELSE needs_review
+                END
+            WHERE id = :qid
+        """),
+        {"qid": payload.question_id},
+    )
+
+    db.commit()
+    return {"ok": True}

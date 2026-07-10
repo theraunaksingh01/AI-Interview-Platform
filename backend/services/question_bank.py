@@ -48,6 +48,25 @@ def _assessment_clause(session_type: str) -> tuple[str, dict[str, Any]]:
     return "", {}
 
 
+def _language_clause(preferred_language: Optional[str]) -> tuple[str, dict[str, Any]]:
+    """
+    Build a WHERE clause that filters code questions by language_tag.
+
+    Rules:
+    - If preferred_language is set: include questions where language_tag matches
+      OR language_tag is NULL/empty (language-agnostic questions).
+      Exclude questions tagged with a DIFFERENT specific language.
+    - If preferred_language is None/empty: no language filter applied —
+      all questions are eligible (existing behaviour preserved).
+    """
+    if not preferred_language:
+        return "", {}
+    return (
+        " AND (language_tag IS NULL OR language_tag = '' OR language_tag = :preferred_language) ",
+        {"preferred_language": preferred_language.lower().strip()},
+    )
+
+
 def _fetch_questions(
     db: Session,
     qtype: str,
@@ -60,11 +79,18 @@ def _fetch_questions(
     session_type: str = "single",
     apply_company_filter: bool = True,
     require_role: bool = True,
+    preferred_language: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     if limit_count <= 0:
         return []
 
     assessment_sql, assessment_params = _assessment_clause(session_type)
+
+    # Language filter only applies to code questions
+    if qtype == "code":
+        language_sql, language_params = _language_clause(preferred_language)
+    else:
+        language_sql, language_params = "", {}
 
     role_sql = " AND role_tags @> ARRAY[:role]::text[] " if require_role else ""
     company_sql = ""
@@ -106,6 +132,7 @@ def _fetch_questions(
           {role_sql}
           {company_sql}
           {assessment_sql}
+          {language_sql}
         {order_sql}
         LIMIT :limit_count
         """
@@ -121,6 +148,7 @@ def _fetch_questions(
         "company": company,
     }
     params.update(assessment_params)
+    params.update(language_params)
 
     rows = db.execute(query, params).mappings().all()
     return [dict(r) for r in rows]
@@ -151,6 +179,7 @@ def get_questions_for_session(
     code_count: int = 2,
     candidate_email: str | None = None,
     session_type: str = "single",
+    preferred_language: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Retrieve balanced question bank rows with fallbacks and optional repeat-avoidance."""
     try:
@@ -158,6 +187,16 @@ def get_questions_for_session(
         count = max(0, int(count))
         code_count = max(0, min(int(code_count), count))
         voice_count = max(0, count - code_count)
+
+        # Normalise preferred_language — only accept known values
+        known_languages = {"python", "java", "cpp"}
+        if preferred_language and preferred_language.lower().strip() not in known_languages:
+            log.warning(
+                "[QUESTION_BANK] Unknown preferred_language=%s — ignoring", preferred_language
+            )
+            preferred_language = None
+        elif preferred_language:
+            preferred_language = preferred_language.lower().strip()
 
         exclusion_ids: list[int] = []
         if candidate_email:
@@ -175,20 +214,15 @@ def get_questions_for_session(
             exclusion_ids = [int(r["question_id"]) for r in seen_rows if r.get("question_id") is not None]
 
         log.info(
-            "[QUESTION_BANK] role=%s diff=%s(%s-%s) company=%s count=%s code=%s exclude=%s session_type=%s",
-            role,
-            difficulty,
-            min_diff,
-            max_diff,
-            company,
-            count,
-            code_count,
-            len(exclusion_ids),
-            session_type,
+            "[QUESTION_BANK] role=%s diff=%s(%s-%s) company=%s count=%s code=%s "
+            "lang=%s exclude=%s session_type=%s",
+            role, difficulty, min_diff, max_diff, company,
+            count, code_count, preferred_language, len(exclusion_ids), session_type,
         )
 
         used_ids: set[int] = set(exclusion_ids)
 
+        # ── Voice questions — no language filter ──────────────────────────────
         voice_rows = _fetch_questions(
             db=db,
             qtype="voice",
@@ -201,9 +235,11 @@ def get_questions_for_session(
             session_type=session_type,
             apply_company_filter=True,
             require_role=True,
+            preferred_language=None,   # language filter does not apply to voice
         )
         used_ids.update(int(r["id"]) for r in voice_rows if r.get("id") is not None)
 
+        # ── Code questions — WITH language filter ─────────────────────────────
         code_rows = _fetch_questions(
             db=db,
             qtype="code",
@@ -216,10 +252,11 @@ def get_questions_for_session(
             session_type=session_type,
             apply_company_filter=True,
             require_role=True,
+            preferred_language=preferred_language,
         )
         used_ids.update(int(r["id"]) for r in code_rows if r.get("id") is not None)
 
-        # Step 5 fallback for voice questions: remove company filter first
+        # ── Fallback 1 voice: remove company filter ───────────────────────────
         if len(voice_rows) < voice_count:
             need = voice_count - len(voice_rows)
             log.warning("[QUESTION_BANK] voice fallback #1 triggered: need=%s", need)
@@ -235,11 +272,12 @@ def get_questions_for_session(
                 session_type=session_type,
                 apply_company_filter=False,
                 require_role=True,
+                preferred_language=None,
             )
             voice_rows.extend(more)
             used_ids.update(int(r["id"]) for r in more if r.get("id") is not None)
 
-        # Step 5 fallback for voice questions: remove role filter too, keep difficulty
+        # ── Fallback 2 voice: remove role filter too ──────────────────────────
         if len(voice_rows) < voice_count:
             need = voice_count - len(voice_rows)
             log.warning("[QUESTION_BANK] voice fallback #2 triggered: need=%s", need)
@@ -255,11 +293,12 @@ def get_questions_for_session(
                 session_type=session_type,
                 apply_company_filter=False,
                 require_role=False,
+                preferred_language=None,
             )
             voice_rows.extend(more)
             used_ids.update(int(r["id"]) for r in more if r.get("id") is not None)
 
-        # Step 5 fallback for code questions, parallel strategy
+        # ── Fallback 1 code: remove company filter, keep language ─────────────
         if len(code_rows) < code_count:
             need = code_count - len(code_rows)
             log.warning("[QUESTION_BANK] code fallback #1 triggered: need=%s", need)
@@ -275,10 +314,12 @@ def get_questions_for_session(
                 session_type=session_type,
                 apply_company_filter=False,
                 require_role=True,
+                preferred_language=preferred_language,
             )
             code_rows.extend(more)
             used_ids.update(int(r["id"]) for r in more if r.get("id") is not None)
 
+        # ── Fallback 2 code: remove role filter, keep language ────────────────
         if len(code_rows) < code_count:
             need = code_count - len(code_rows)
             log.warning("[QUESTION_BANK] code fallback #2 triggered: need=%s", need)
@@ -294,16 +335,40 @@ def get_questions_for_session(
                 session_type=session_type,
                 apply_company_filter=False,
                 require_role=False,
+                preferred_language=preferred_language,
             )
             code_rows.extend(more)
             used_ids.update(int(r["id"]) for r in more if r.get("id") is not None)
 
-        # Step 6: shuffle voice only, keep code at end
+        # ── Fallback 3 code: drop language filter entirely if still not enough ─
+        if len(code_rows) < code_count:
+            need = code_count - len(code_rows)
+            log.warning(
+                "[QUESTION_BANK] code fallback #3 triggered (language filter dropped): need=%s", need
+            )
+            more = _fetch_questions(
+                db=db,
+                qtype="code",
+                limit_count=need,
+                min_diff=min_diff,
+                max_diff=max_diff,
+                role=None,
+                company=None,
+                exclude_ids=list(used_ids),
+                session_type=session_type,
+                apply_company_filter=False,
+                require_role=False,
+                preferred_language=None,   # give up on language filter as last resort
+            )
+            code_rows.extend(more)
+            used_ids.update(int(r["id"]) for r in more if r.get("id") is not None)
+
+        # ── Shuffle voice only, keep code at end ──────────────────────────────
         random.shuffle(voice_rows)
         result_rows = voice_rows + code_rows
         result = [_normalize_question_row(r, company) for r in result_rows]
 
-        # Step 7: record history for repeat-avoidance
+        # ── Record history for repeat-avoidance ───────────────────────────────
         if candidate_email:
             for row in result_rows:
                 qid = row.get("id")

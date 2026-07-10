@@ -49,6 +49,7 @@ class MockSessionStartRequest(BaseModel):
     guest_token: Optional[str] = None
     duration_mins: Optional[int] = 45
     resume_uploaded: Optional[bool] = False
+    preferred_language: Optional[str] = None
 
 
 class MockHintRequest(BaseModel):
@@ -520,6 +521,7 @@ def start_mock_session(
         code_count=code_count,
         candidate_email=candidate_email,
         session_type="single",
+        preferred_language=payload.preferred_language,
     )
 
     # Fallback to Gemini stub if bank empty

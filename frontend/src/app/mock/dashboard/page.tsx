@@ -406,68 +406,102 @@ export default function MockDashboardPage() {
   const hasSessions = sessions.length > 0;
   const recentSessions = [...sessions].reverse().slice(0, 20);
 
-  // ── No sessions ───────────────────────────────────────────────────────────
+  // ── No sessions — Guided Onboarding ─────────────────────────────────────
   if (!hasSessions) {
+    const firstName = user?.full_name ? user.full_name.split(" ")[0] : null;
+
+    const WEEK_PLAN = [
+      {
+        day: "Day 1",
+        icon: "🎙️",
+        title: "Take your first mock interview",
+        sub: "See where you actually stand. 5 questions, 15 minutes, honest score.",
+        cta: "Start mock interview →",
+        href: "/mock",
+        highlight: true,
+      },
+      {
+        day: "Day 2",
+        icon: "📅",
+        title: "Answer the daily challenge",
+        sub: "One question a day. 2 minutes. Builds your streak and your confidence.",
+        cta: "Today's question →",
+        href: "/daily",
+        highlight: false,
+      },
+      {
+        day: "Day 3",
+        icon: "💻",
+        title: "Try DSA practice",
+        sub: "185 problems across Easy, Medium, Hard. Python, Java, C++ supported.",
+        cta: "Open DSA practice →",
+        href: "/dsa",
+        highlight: false,
+      },
+      {
+        day: "Day 4",
+        icon: "🔁",
+        title: "Do a second mock session",
+        sub: "Read your Day 1 report first. Focus on the one specific fix it gives you.",
+        cta: "Start another session →",
+        href: "/mock",
+        highlight: false,
+      },
+    ];
+
     return (
       <main className="min-h-screen bg-[#FAFAF8] px-4 pb-16 pt-28 sm:px-8">
         <div className="mx-auto max-w-[1100px]">
 
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">
-                Progress Dashboard
-              </p>
-              <h1
-                style={{
-                  fontSize: "clamp(24px, 4vw, 34px)",
-                  fontWeight: 900,
-                  letterSpacing: "-1px",
-                  color: "#111",
-                }}
-              >
-                Welcome to Qued
-                {user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""} 👋
-              </h1>
-              <p className="mt-1 text-[14px] text-[#6B7280]">
-                Your dashboard fills up after your first session.
-              </p>
-            </div>
-            <Link href="/mock">
-              <button className="rounded-xl bg-[#111] px-5 py-2.5 text-[13px] font-black text-white hover:bg-[#333] transition">
-                Start first session →
-              </button>
-            </Link>
+          {/* Header */}
+          <div className="mb-8">
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">
+              Progress Dashboard
+            </p>
+            <h1
+              style={{
+                fontSize: "clamp(24px, 4vw, 34px)",
+                fontWeight: 900,
+                letterSpacing: "-1px",
+                color: "#111",
+              }}
+            >
+              {firstName ? `Welcome, ${firstName} 👋` : "Welcome to Qued 👋"}
+            </h1>
+            <p className="mt-1 text-[14px] text-[#6B7280]">
+              Here&apos;s your first week. Follow this and you&apos;ll know exactly where you stand by Day 4.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
             <div className="space-y-4">
+
+              {/* Week plan card */}
               <div
                 className="rounded-3xl border border-[#E5E7EB] bg-white overflow-hidden"
                 style={{ boxShadow: "0 4px 40px rgba(0,0,0,0.06)" }}
               >
+                {/* Card header */}
                 <div
-                  className="px-8 py-10"
-                  style={{
-                    background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)",
-                  }}
+                  className="px-7 py-6 border-b border-[#F3F4F6]"
+                  style={{ background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)" }}
                 >
-                  <div className="inline-flex items-center gap-2 rounded-full border border-yellow-300 bg-white px-3 py-1.5 mb-5">
+                  <div className="flex items-center gap-2 mb-3">
                     <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
                     <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">
-                      Ready to start
+                      Your first week
                     </span>
                   </div>
                   <h2
                     style={{
-                      fontSize: "clamp(22px, 3vw, 30px)",
+                      fontSize: "clamp(20px, 3vw, 26px)",
                       fontWeight: 900,
-                      letterSpacing: "-1px",
+                      letterSpacing: "-0.5px",
                       color: "#111",
                       lineHeight: 1.2,
                     }}
                   >
-                    Your first session takes
-                    <br />
+                    Four days to go from{" "}
                     <span
                       style={{
                         background: "#FFD600",
@@ -476,49 +510,96 @@ export default function MockDashboardPage() {
                         fontStyle: "italic",
                       }}
                     >
-                      15 minutes.
+                      zero to ready.
                     </span>
                   </h2>
-                  <p className="mt-3 text-[14px] text-[#6B7280] leading-relaxed max-w-md">
-                    Answer 5 questions by voice. Get live coaching while you speak.
-                    See a per-question breakdown after. Your score, weaknesses, and
-                    model answers — all in the report.
+                  <p className="mt-2 text-[13px] text-[#6B7280] max-w-md">
+                    Don&apos;t guess where to start. Follow this plan. Each step builds on the previous one.
                   </p>
-                  <Link href="/mock">
-                    <button className="mt-6 rounded-xl bg-[#111] px-7 py-3.5 text-[14px] font-black text-white hover:bg-[#333] transition">
-                      Start mock interview →
-                    </button>
-                  </Link>
                 </div>
 
-                <div className="grid grid-cols-3 divide-x divide-[#F3F4F6] border-t border-[#F3F4F6]">
-                  {[
-                    { step: "01", icon: "🎙️", title: "Answer by voice",  sub: "Speak your answers naturally" },
-                    { step: "02", icon: "📊", title: "Get scored",        sub: "AI scores every answer live" },
-                    { step: "03", icon: "📄", title: "See your report",   sub: "Per-question feedback + model answers" },
-                  ].map(({ step, icon, title, sub }) => (
-                    <div key={step} className="px-5 py-5">
-                      <p className="text-[22px] mb-2">{icon}</p>
-                      <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
-                        {step}
-                      </p>
-                      <p className="text-[13px] font-bold text-[#111]">{title}</p>
-                      <p className="text-[11px] text-[#9CA3AF] mt-0.5">{sub}</p>
+                {/* Day steps */}
+                <div className="divide-y divide-[#F9FAFB]">
+                  {WEEK_PLAN.map((item, i) => (
+                    <div
+                      key={item.day}
+                      className={`flex items-start gap-4 px-7 py-5 transition ${
+                        item.highlight ? "bg-[#FAFAF5]" : "hover:bg-[#FAFAF8]"
+                      }`}
+                    >
+                      {/* Step number + icon */}
+                      <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                        <div
+                          className="flex h-10 w-10 items-center justify-center rounded-xl text-[18px]"
+                          style={{
+                            background: item.highlight ? "#111" : "#F3F4F6",
+                          }}
+                        >
+                          {item.highlight ? (
+                            <span className="text-[18px]">{item.icon}</span>
+                          ) : (
+                            <span className="text-[18px]">{item.icon}</span>
+                          )}
+                        </div>
+                        {i < WEEK_PLAN.length - 1 && (
+                          <div className="w-px h-6 bg-[#E5E7EB]" />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 pt-1">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span
+                                className="text-[10px] font-black uppercase tracking-widest"
+                                style={{ color: item.highlight ? "#111" : "#9CA3AF" }}
+                              >
+                                {item.day}
+                              </span>
+                              {item.highlight && (
+                                <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-[#111]">
+                                  START HERE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[14px] font-black text-[#111] leading-snug">
+                              {item.title}
+                            </p>
+                            <p className="text-[12px] text-[#9CA3AF] mt-0.5 leading-relaxed">
+                              {item.sub}
+                            </p>
+                          </div>
+                          <Link href={item.href} className="flex-shrink-0">
+                            <button
+                              className="rounded-xl px-4 py-2 text-[12px] font-black transition whitespace-nowrap"
+                              style={{
+                                background: item.highlight ? "#111" : "white",
+                                color: item.highlight ? "white" : "#374151",
+                                border: item.highlight ? "none" : "1.5px solid #E5E7EB",
+                              }}
+                            >
+                              {item.cta}
+                            </button>
+                          </Link>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* What unlocks after first session */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
                 <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
                   After your first session you&apos;ll unlock
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { icon: "📈", label: "Score trend chart",    sub: "Watch improvement over time" },
-                    { icon: "🎯", label: "Per-question breakdown", sub: "What you said vs what to say" },
-                    { icon: "💡", label: "Model answers",         sub: "The ideal response to each question" },
-                    { icon: "🤖", label: "Personal coach note",   sub: "AI identifies your recurring patterns" },
+                    { icon: "📈", label: "Score trend chart",      sub: "Watch improvement over time" },
+                    { icon: "🎯", label: "Per-question breakdown",  sub: "What you said vs what to say" },
+                    { icon: "💡", label: "Model answers",           sub: "The ideal response to each question" },
+                    { icon: "🤖", label: "Personal coach note",     sub: "AI identifies your recurring patterns" },
                   ].map(({ icon, label, sub }) => (
                     <div
                       key={label}
@@ -538,7 +619,6 @@ export default function MockDashboardPage() {
             <div className="space-y-4">
               <CalendarWidget />
 
-              {/* ── CHANGE 4a: no-sessions dark CTA with contribute link ── */}
               <div className="rounded-2xl bg-[#111] p-5">
                 <p className="text-[14px] font-black text-white mb-1">
                   While you&apos;re here
