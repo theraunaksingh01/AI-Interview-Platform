@@ -99,6 +99,8 @@ from api import admin as admin_api
 from api.feedback import router as feedback_router
 from api.question_submission import router as question_submission_router
 from api.companies import router as companies_router
+from api.assessment import router as assessment_router
+
 
 
 
@@ -172,6 +174,7 @@ app.include_router(feedback_router)
 app.include_router(question_submission_router)
 
 app.include_router(companies_router)
+app.include_router(assessment_router)
 
 _startup_import_error = None
 
