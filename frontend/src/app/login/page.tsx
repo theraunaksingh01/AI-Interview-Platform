@@ -17,6 +17,7 @@ function LoginForm() {
   const [testimonialIdx, setTestimonialIdx] = useState(0);
 
   const next = searchParams.get("next") || "/mock/dashboard";
+  const resetSuccess = searchParams.get("reset") === "success";
 
   // If already logged in, bounce to mock dashboard
   useEffect(() => {
@@ -60,6 +61,15 @@ function LoginForm() {
             </div>
             <h1 className="mt-6 text-[32px] font-bold leading-tight text-[#111]">Welcome back</h1>
             <p className="mt-2 text-sm text-[#888]">Sign in to your interview coach</p>
+
+            {/* ── Password reset success banner ── */}
+            {resetSuccess && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-[13px] font-medium text-emerald-700">
+                  ✓ Password reset successfully. You can now log in with your new password.
+                </p>
+              </div>
+            )}
 
             <form onSubmit={onSubmit} className="mt-8 space-y-4">
               <div>
@@ -111,7 +121,11 @@ function LoginForm() {
                 </a>
               </div>
 
-              {err && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{err}</div>}
+              {err && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {err}
+                </div>
+              )}
 
               <button
                 disabled={loading}
@@ -145,7 +159,10 @@ function LoginForm() {
             </div>
 
             <p className="mt-6 text-[13px] text-[#888]">
-              New here? <a href="/signup" className="font-medium text-[#6366F1]">Create an account</a>
+              New here?{" "}
+              <a href="/signup" className="font-medium text-[#6366F1]">
+                Create an account
+              </a>
             </p>
           </div>
         </section>

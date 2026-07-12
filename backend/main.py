@@ -101,7 +101,7 @@ from api.question_submission import router as question_submission_router
 from api.companies import router as companies_router
 from api.assessment import router as assessment_router
 from api.oa_practice import router as oa_router
-
+from api.forgot_password import router as forgot_password_router
 
 
 
@@ -177,6 +177,8 @@ app.include_router(question_submission_router)
 app.include_router(companies_router)
 app.include_router(assessment_router)
 app.include_router(oa_router)
+
+app.include_router(forgot_password_router)
 
 _startup_import_error = None
 
