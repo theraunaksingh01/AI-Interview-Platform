@@ -5,6 +5,8 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { FooterHero } from "@/app/components/Footer";
+import DiagnosticsCard from "@/components/DiagnosticsCard";
+
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
@@ -41,19 +43,19 @@ type PassportData = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TOPIC_META: Record<string, { label: string; icon: string; color: string; bg: string }> = {
-  dsa:           { label: "DSA",           icon: "💻", color: "#5b21b6", bg: "#ede9fe" },
+  dsa: { label: "DSA", icon: "💻", color: "#5b21b6", bg: "#ede9fe" },
   system_design: { label: "System Design", icon: "🏗️", color: "#92400e", bg: "#fef3c7" },
-  behavioral:    { label: "Behavioural",   icon: "🎭", color: "#065f46", bg: "#d1fae5" },
+  behavioral: { label: "Behavioural", icon: "🎭", color: "#065f46", bg: "#d1fae5" },
   communication: { label: "Communication", icon: "🗣️", color: "#1e40af", bg: "#dbeafe" },
-  technical:     { label: "Technical",     icon: "⚙️", color: "#374151", bg: "#f3f4f6" },
+  technical: { label: "Technical", icon: "⚙️", color: "#374151", bg: "#f3f4f6" },
 };
 
 const BAND_COLOR: Record<string, string> = {
-  "Expert":       "#10B981",
-  "Strong":       "#3B82F6",
-  "Developing":   "#F59E0B",
-  "Beginner":     "#F97316",
-  "Needs work":   "#EF4444",
+  "Expert": "#10B981",
+  "Strong": "#3B82F6",
+  "Developing": "#F59E0B",
+  "Beginner": "#F97316",
+  "Needs work": "#EF4444",
   "Not assessed": "#D1D5DB",
 };
 
@@ -67,7 +69,7 @@ function ShareModal({ data, onClose }: { data: PassportData; onClose: () => void
   const shareText = `🎯 My Qued Interview Skill Passport\n\nReadiness Score: ${data.readiness_score}/100 (${data.readiness_band})\nSessions completed: ${data.overall.total_sessions}\nBest score: ${data.overall.best_score ? Math.round(data.overall.best_score) : "—"}/100${data.overall.improvement !== null && data.overall.improvement > 0 ? `\nImprovement: +${data.overall.improvement} points` : ""}\n\nPractice AI mock interviews free at qued.in 🚀`;
 
   const encodedText = encodeURIComponent(shareText);
-  const shareUrl   = encodeURIComponent("https://qued.in/passport");
+  const shareUrl = encodeURIComponent("https://qued.in/passport");
 
   const platforms = [
     {
@@ -330,6 +332,9 @@ export default function PassportPage() {
   const [data, setData] = useState<PassportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showShare, setShowShare] = useState(false);
+  const token = typeof window !== "undefined"
+    ? (localStorage.getItem("API_TOKEN") || localStorage.getItem("access_token") || "")
+    : "";
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -374,18 +379,37 @@ export default function PassportPage() {
 
   if (!data?.has_data) {
     return (
-      <div className="min-h-screen bg-[#FFFDF0] pt-24 px-6">
-        <div className="mx-auto max-w-[480px] text-center">
-          <div className="text-[52px] mb-4">🎖️</div>
-          <h1 className="text-[24px] font-black text-[#111] mb-2" style={{ letterSpacing: "-1px" }}>No passport yet</h1>
-          <p className="text-[14px] text-[#6B7280] mb-6">
-            {data?.message || "Complete at least one mock session to generate your Skill Passport."}
-          </p>
-          <Link href="/mock">
-            <button className="rounded-xl bg-[#111] px-6 py-3 text-[13px] font-black text-white hover:bg-[#333] transition">
-              Start a mock session →
-            </button>
-          </Link>
+      <div className="min-h-screen bg-[#FFFDF0] pt-24 px-6 pb-16">
+        <div className="mx-auto max-w-[680px]">
+
+          {/* No sessions prompt */}
+          <div className="text-center mb-8">
+            <div className="text-[52px] mb-4">🎖️</div>
+            <h1 className="text-[24px] font-black text-[#111] mb-2" style={{ letterSpacing: "-1px" }}>
+              Your passport is being built
+            </h1>
+            <p className="text-[14px] text-[#6B7280] mb-2 leading-relaxed">
+              Complete your first mock interview to generate your full Skill Passport —
+              score trend, topic breakdown, and shareable readiness card.
+            </p>
+            <p className="text-[13px] text-[#9CA3AF] mb-6">
+              Your assessment and OA results are already tracked below.
+            </p>
+            <Link href="/mock">
+              <button className="rounded-xl bg-[#111] px-6 py-3 text-[13px] font-black text-white hover:bg-[#333] transition">
+                Start mock interview →
+              </button>
+            </Link>
+          </div>
+
+          {/* Diagnostics — shows assessment + OA even without sessions */}
+          <div className="mb-4">
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
+              Your placement diagnostics
+            </p>
+            <DiagnosticsCard authHeader={authHeader} compact={false} />
+          </div>
+
         </div>
       </div>
     );
@@ -441,9 +465,8 @@ export default function PassportPage() {
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-[13px] font-black text-[#111]">Score trend</p>
                     {data.overall.improvement !== null && (
-                      <span className={`text-[12px] font-black rounded-full px-3 py-1 ${
-                        data.overall.improvement >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                      }`}>
+                      <span className={`text-[12px] font-black rounded-full px-3 py-1 ${data.overall.improvement >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                        }`}>
                         {data.overall.improvement >= 0 ? "+" : ""}{data.overall.improvement} from start
                       </span>
                     )}
@@ -488,20 +511,20 @@ export default function PassportPage() {
                 <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">Interview readiness</p>
                 <ReadinessArc score={data.readiness_score} band={data.readiness_band} />
                 <p className="mt-4 text-[13px] text-[#6B7280] leading-relaxed">
-                  {data.readiness_band === "Expert"     ? "You're ready. Go get that offer." :
-                   data.readiness_band === "Strong"     ? "Strong foundation. A few more sessions to sharpen edges." :
-                   data.readiness_band === "Developing" ? "Good progress. Keep practising consistently." :
-                   data.readiness_band === "Beginner"   ? "Early days. Consistent practice will move this fast." :
-                   "Complete more sessions to build your score."}
+                  {data.readiness_band === "Expert" ? "You're ready. Go get that offer." :
+                    data.readiness_band === "Strong" ? "Strong foundation. A few more sessions to sharpen edges." :
+                      data.readiness_band === "Developing" ? "Good progress. Keep practising consistently." :
+                        data.readiness_band === "Beginner" ? "Early days. Consistent practice will move this fast." :
+                          "Complete more sessions to build your score."}
                 </p>
               </div>
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Sessions",      value: String(data.overall.total_sessions), icon: "🎯" },
-                  { label: "Best score",    value: data.overall.best_score ? `${Math.round(data.overall.best_score)}/100` : "—", icon: "🏆" },
-                  { label: "Streak",        value: `${data.streak.current} days`, icon: "🔥" },
+                  { label: "Sessions", value: String(data.overall.total_sessions), icon: "🎯" },
+                  { label: "Best score", value: data.overall.best_score ? `${Math.round(data.overall.best_score)}/100` : "—", icon: "🏆" },
+                  { label: "Streak", value: `${data.streak.current} days`, icon: "🔥" },
                   { label: "Daily answers", value: String(data.streak.daily_answered), icon: "✅" },
                 ].map(({ label, value, icon }) => (
                   <div key={label} className="rounded-2xl border border-[#E5E7EB] bg-white p-4 text-center">
@@ -511,6 +534,12 @@ export default function PassportPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Diagnostics — Assessment + OA */}
+              <DiagnosticsCard
+                authHeader={authHeader}
+                compact={false}
+              />
 
               {/* Communication */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
@@ -553,6 +582,11 @@ export default function PassportPage() {
                   </div>
                 </div>
               )}
+
+              <DiagnosticsCard
+                authHeader={{ Authorization: `Bearer ${token}` }}
+                compact={false}
+              />
 
               {/* CTA */}
               <div className="rounded-2xl bg-[#111] p-5">

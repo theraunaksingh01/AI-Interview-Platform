@@ -16,10 +16,8 @@ import { PUBLIC_PATHS_EXACT } from "@/lib/publicRoutes";
  */
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS_EXACT.includes(pathname)) return true;
-  // Allow /candidate/* routes
-  if (pathname.startsWith("/candidate/")) return true;
-  // Allow candidate-facing interview pages (join, prepare, live)
-  if (/^\/interview\/[^/]+\/(join|prepare|live)$/.test(pathname)) return true;
+  
+  
   // Static assets and API routes
   if (pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname.includes(".")) return true;
   return false;

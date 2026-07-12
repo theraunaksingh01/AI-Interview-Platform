@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment } from "react";
+import { useSearchParams } from "next/navigation";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -136,9 +137,42 @@ function FeatureCell({ value, colIndex }: { value: FeatureValue; colIndex: numbe
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+function UpgradeBanner() {
+  const params = useSearchParams();
+  const reason = params.get("upgrade");
+  if (!reason) return null;
+
+  const messages: Record<string, { title: string; desc: string }> = {
+    oa: {
+      title: "OA Practice is available on Pro and Max plans",
+      desc: "Upgrade to practice TCS NQT, Infosys, and Wipro OA tests with locked timers and band prediction.",
+    },
+  };
+
+  const msg = messages[reason] || {
+    title: "This feature requires a paid plan",
+    desc: "Upgrade to Pro or Max to unlock all features.",
+  };
+
+  return (
+    <div className="mx-auto max-w-[1100px] px-4 pt-6">
+      <div className="rounded-2xl border border-yellow-300 bg-yellow-50 px-5 py-4 flex items-start gap-3">
+        <span className="text-[20px] flex-shrink-0 mt-0.5">⚡</span>
+        <div>
+          <p className="text-[14px] font-black text-[#111]">{msg.title}</p>
+          <p className="text-[13px] text-[#6B7280] mt-0.5">{msg.desc}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PricingPage() {
   return (
     <main className="min-h-screen bg-[#F9FAFB] pt-20">
+
+      {/* ── Upgrade banner (shown when redirected from gated feature) ── */}
+      <UpgradeBanner />
 
       {/* ── Hero ── */}
       <section className="px-4 pb-14 pt-12 text-center sm:px-8">

@@ -312,6 +312,8 @@ export default function MockDashboardPage() {
 
   // ── CHANGE 1: credits state ──────────────────────────────────────────────
   const [credits, setCredits] = useState<number>(0);
+  const [latestAssessment, setLatestAssessment] = useState<any>(null);
+  const [latestOA, setLatestOA] = useState<any>(null);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -346,6 +348,28 @@ export default function MockDashboardPage() {
           }
         } catch { /* ignore */ }
         setCredits(fetchedCredits);
+
+        // Fetch latest assessment
+        try {
+          const assessRes = await fetch(`${API_BASE}/api/assessment/latest`, {
+            headers: authHeader(),
+          });
+          if (assessRes.ok) {
+            const assessData = await assessRes.json();
+            setLatestAssessment(assessData.attempt || null);
+          }
+        } catch { /* silent */ }
+
+        // Fetch latest OA attempt
+        try {
+          const oaRes = await fetch(`${API_BASE}/api/oa/history`, {
+            headers: authHeader(),
+          });
+          if (oaRes.ok) {
+            const oaData = await oaRes.json();
+            setLatestOA(oaData.attempts?.[0] || null);
+          }
+        } catch { /* silent */ }
 
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Network error");
@@ -614,6 +638,196 @@ export default function MockDashboardPage() {
                   ))}
                 </div>
               </div>
+
+              {/* ── Placement Diagnostics — full width ── */}
+              <div
+                className="rounded-3xl border border-[#E5E7EB] bg-white overflow-hidden"
+                style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.05)" }}
+              >
+                {/* Header */}
+                <div
+                  className="px-7 py-5 border-b border-[#F3F4F6]"
+                  style={{ background: "linear-gradient(135deg, #FFFDF0 0%, #FFF9D6 100%)" }}
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
+                        Placement Diagnostics
+                      </p>
+                      <h3
+                        className="font-black text-[#111]"
+                        style={{ fontSize: "clamp(16px, 2.5vw, 20px)", letterSpacing: "-0.5px" }}
+                      >
+                        {latestAssessment
+                          ? "Your readiness snapshot"
+                          : "Find out where you stand — before your first session"}
+                      </h3>
+                    </div>
+                    {latestAssessment && (
+                      <Link href={`/assessment/results/${latestAssessment.id}`}>
+                        <button className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-black text-[#374151] hover:bg-[#F9FAFB] hover:border-[#111] transition">
+                          Full report →
+                        </button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                    {/* Assessment tile */}
+                    {latestAssessment ? (
+                      <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
+                              Readiness Assessment
+                            </p>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-[44px] font-black text-[#111] leading-none">
+                                {Math.round(latestAssessment.total_score ?? 0)}
+                              </span>
+                              <span className="text-[20px] font-black text-[#9CA3AF]">%</span>
+                            </div>
+                          </div>
+                          <div
+                            className="flex h-12 w-12 items-center justify-center rounded-2xl text-[24px]"
+                            style={{ background: "#FFF9C4" }}
+                          >
+                            📊
+                          </div>
+                        </div>
+
+                        {/* Section mini-bars */}
+                        {latestAssessment.section_scores && (
+                          <div className="space-y-1.5 mb-3">
+                            {Object.entries(
+                              typeof latestAssessment.section_scores === "string"
+                                ? JSON.parse(latestAssessment.section_scores)
+                                : latestAssessment.section_scores
+                            ).map(([key, score]) => (
+                              <div key={key} className="flex items-center gap-2">
+                                <span className="text-[10px] text-[#9CA3AF] w-24 flex-shrink-0 capitalize">
+                                  {key.replace(/_/g, " ")}
+                                </span>
+                                <div className="flex-1 h-1.5 rounded-full bg-[#E5E7EB] overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${score}%`,
+                                      background: (score as number) >= 70 ? "#10B981"
+                                        : (score as number) >= 45 ? "#F59E0B" : "#EF4444",
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-bold text-[#374151] w-7 text-right">
+                                  {score as number}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {latestAssessment.biggest_gap && (
+                          <p className="text-[11px] text-[#9CA3AF]">
+                            Biggest gap:{" "}
+                            <span className="font-bold text-[#EF4444] capitalize">
+                              {latestAssessment.biggest_gap.replace(/_/g, " ")}
+                            </span>
+                          </p>
+                        )}
+
+                        <Link href="/assessment">
+                          <button className="mt-3 w-full rounded-xl border border-[#E5E7EB] bg-white py-2 text-[11px] font-bold text-[#374151] hover:bg-[#F3F4F6] transition">
+                            Retake assessment →
+                          </button>
+                        </Link>
+                      </div>
+                    ) : (
+                      <Link href="/assessment">
+                        <div className="rounded-2xl border-2 border-dashed border-[#E5E7EB] bg-[#FAFAF8] p-5 hover:border-[#111] hover:bg-white transition cursor-pointer h-full flex flex-col items-center justify-center text-center gap-3 min-h-[180px]">
+                          <span className="text-[36px]">📊</span>
+                          <div>
+                            <p className="text-[14px] font-black text-[#111] mb-1">Take the Assessment</p>
+                            <p className="text-[12px] text-[#9CA3AF] leading-relaxed">
+                              Free · 30 min · 5 sections · Instant results
+                            </p>
+                          </div>
+                          <span className="rounded-xl bg-[#111] px-5 py-2 text-[12px] font-black text-white">
+                            Start free →
+                          </span>
+                        </div>
+                      </Link>
+                    )}
+
+                    {/* OA tile */}
+                    {latestOA ? (
+                      <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
+                              {latestOA.company?.toUpperCase()} OA Practice
+                            </p>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-[44px] font-black text-[#111] leading-none">
+                                {Math.round(latestOA.total_score ?? 0)}
+                              </span>
+                              <span className="text-[20px] font-black text-[#9CA3AF]">%</span>
+                            </div>
+                            {latestOA.band_prediction && latestOA.band_prediction !== "not_qualified" && (
+                              <span className="inline-block mt-1 rounded-full bg-yellow-100 border border-yellow-300 px-2.5 py-0.5 text-[11px] font-black text-[#7A6000] capitalize">
+                                {latestOA.band_prediction} band
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            className="flex h-12 w-12 items-center justify-center rounded-2xl text-[24px]"
+                            style={{ background: "#EEF2FF" }}
+                          >
+                            📝
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-[#9CA3AF] mb-3">
+                          {new Date(latestOA.started_at).toLocaleDateString("en-IN", {
+                            day: "numeric", month: "short", year: "numeric"
+                          })}
+                        </p>
+
+                        <div className="flex gap-2">
+                          <Link href={`/oa-practice/results/${latestOA.id}`} className="flex-1">
+                            <button className="w-full rounded-xl border border-[#E5E7EB] bg-white py-2 text-[11px] font-bold text-[#374151] hover:bg-[#F3F4F6] transition">
+                              View results →
+                            </button>
+                          </Link>
+                          <Link href={`/oa-practice/${latestOA.company}`} className="flex-1">
+                            <button className="w-full rounded-xl bg-[#111] py-2 text-[11px] font-bold text-white hover:bg-[#333] transition">
+                              Retake →
+                            </button>
+                          </Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <Link href="/oa-practice">
+                        <div className="rounded-2xl border-2 border-dashed border-[#E5E7EB] bg-[#FAFAF8] p-5 hover:border-[#111] hover:bg-white transition cursor-pointer h-full flex flex-col items-center justify-center text-center gap-3 min-h-[180px]">
+                          <span className="text-[36px]">📝</span>
+                          <div>
+                            <p className="text-[14px] font-black text-[#111] mb-1">Try OA Practice</p>
+                            <p className="text-[12px] text-[#9CA3AF] leading-relaxed">
+                              Simulate TCS NQT · Locked timers · Band prediction
+                            </p>
+                          </div>
+                          <span className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-2 text-[12px] font-black text-[#374151]">
+                            Browse tests →
+                          </span>
+                        </div>
+                      </Link>
+                    )}
+
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -639,6 +853,21 @@ export default function MockDashboardPage() {
                 >
                   ⚡ Contribute a question → earn credits
                 </Link>
+              </div>
+
+              {/* Small sidebar hint only - full card is below */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Quick links</p>
+                <div className="space-y-2">
+                  <Link href="/assessment" className="flex items-center gap-2 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] px-3 py-2.5 hover:border-[#111] transition">
+                    <span className="text-[16px]">📊</span>
+                    <span className="text-[12px] font-bold text-[#111]">Readiness Assessment</span>
+                  </Link>
+                  <Link href="/oa-practice" className="flex items-center gap-2 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] px-3 py-2.5 hover:border-[#111] transition">
+                    <span className="text-[16px]">📝</span>
+                    <span className="text-[12px] font-bold text-[#111]">OA Practice Tests</span>
+                  </Link>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
@@ -938,6 +1167,118 @@ export default function MockDashboardPage() {
             </table>
           </div>
         </div>
+
+        {/* ── Diagnostics card ── */}
+        {(latestAssessment || latestOA) && (
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[12px] font-black uppercase tracking-widest text-[#9CA3AF]">
+                Your Diagnostics
+              </p>
+              <Link href="/assessment" className="text-[12px] font-bold text-[#374151] hover:text-[#111] transition">
+                Take assessment →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+              {/* Assessment result */}
+              {latestAssessment ? (
+                <Link href={`/assessment/results/${latestAssessment.id}`}>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFAF8] p-4 hover:border-[#111] hover:bg-white transition cursor-pointer">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF]">
+                        Readiness Assessment
+                      </span>
+                      <span className="text-[11px] text-[#9CA3AF]">
+                        {new Date(latestAssessment.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <span className="text-[28px] font-black text-[#111] leading-none">
+                        {Math.round(latestAssessment.total_score ?? 0)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6B7280]">
+                        Gap: <span className="font-bold text-[#111] capitalize">
+                          {(latestAssessment.biggest_gap ?? "").replace(/_/g, " ")}
+                        </span>
+                      </span>
+                      <span className="text-[11px] font-bold text-[#374151]">View →</span>
+                    </div>
+                  </div>
+                </Link>
+              ) : (
+                <Link href="/assessment">
+                  <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-[#FAFAF8] p-4 hover:border-[#111] transition cursor-pointer text-center">
+                    <span className="text-[24px] block mb-1">📊</span>
+                    <p className="text-[13px] font-black text-[#111] mb-0.5">Take the assessment</p>
+                    <p className="text-[11px] text-[#9CA3AF]">Find out where you stand — free</p>
+                  </div>
+                </Link>
+              )}
+
+              {/* OA result */}
+              {latestOA ? (
+                <Link href={`/oa-practice/results/${latestOA.id}`}>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFAF8] p-4 hover:border-[#111] hover:bg-white transition cursor-pointer">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF]">
+                        {latestOA.company?.toUpperCase()} OA Practice
+                      </span>
+                      <span className="text-[11px] text-[#9CA3AF]">
+                        {new Date(latestOA.started_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <span className="text-[28px] font-black text-[#111] leading-none">
+                        {Math.round(latestOA.total_score ?? 0)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6B7280]">
+                        Band: <span className="font-bold text-[#111] capitalize">
+                          {latestOA.band_prediction?.replace("_", " ") ?? "—"}
+                        </span>
+                      </span>
+                      <span className="text-[11px] font-bold text-[#374151]">View →</span>
+                    </div>
+                  </div>
+                </Link>
+              ) : (
+                <Link href="/oa-practice">
+                  <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-[#FAFAF8] p-4 hover:border-[#111] transition cursor-pointer text-center">
+                    <span className="text-[24px] block mb-1">📝</span>
+                    <p className="text-[13px] font-black text-[#111] mb-0.5">Try OA practice</p>
+                    <p className="text-[11px] text-[#9CA3AF]">Simulate real company OA tests</p>
+                  </div>
+                </Link>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* Show diagnostics CTA if neither exists */}
+        {!latestAssessment && !latestOA && (
+          <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-white p-5">
+            <div className="flex items-start gap-4">
+              <span className="text-[28px] mt-0.5">📊</span>
+              <div className="flex-1">
+                <p className="text-[14px] font-black text-[#111] mb-1">Know where you stand</p>
+                <p className="text-[12px] text-[#6B7280] mb-3 leading-relaxed">
+                  Take the free Placement Readiness Assessment — 30 minutes, 5 sections,
+                  honest score. No login needed to take it.
+                </p>
+                <Link href="/assessment">
+                  <button className="rounded-xl bg-[#111] px-4 py-2 text-[12px] font-black text-white hover:bg-[#333] transition">
+                    Start assessment →
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── CHANGE 4b: CTA with Contribute link ── */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white px-5 py-5">

@@ -90,6 +90,7 @@ backend/dsa_bank/batches/
 
 # json files for questions
 backend/*.json
+backend/*.sql
 
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
