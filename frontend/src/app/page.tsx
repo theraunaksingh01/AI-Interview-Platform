@@ -21,6 +21,8 @@ import { FooterHero } from "./components/Footer";
 import BlogSection from "./components/BlogSection";
 import ComparisonSection from "./components/ComparisonSection";
 import { DailyQuestionTeaser } from "@/app/components/DailyQuestionTeaser";
+import {AssessmentFeature} from "./components/AssessmentFeature";
+import { OAPracticeFeature } from "./components/OAPracticeFeature";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -44,6 +46,10 @@ export default function Page() {
         <ProcessBento />
 
         <CompanyPrep />
+
+        <AssessmentFeature />
+
+        <OAPracticeFeature />
 
         <ProductDemo />
 

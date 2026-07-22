@@ -243,7 +243,26 @@ def update_me(
         current_user.hashed_password = security.get_password_hash(payload.new_password)
     db.commit()
     db.refresh(current_user)
-    return current_user
+    roles: List[str] = [r.title for r in getattr(current_user, "roles", [])]
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": getattr(current_user, "full_name", None),
+        "college": getattr(current_user, "college", None),
+        "year_of_study": getattr(current_user, "year_of_study", None),
+        "branch": getattr(current_user, "branch", None),
+        "is_active": getattr(current_user, "is_active", True),
+        "is_superuser": getattr(current_user, "is_superuser", False),
+        "roles": roles,
+        "plan": getattr(current_user, "plan", "free") or "free",
+        "onboarding_done": getattr(current_user, "onboarding_done", False) or False,
+        "target_roles": getattr(current_user, "target_roles", []) or [],
+        "self_level": getattr(current_user, "self_level", None),
+        "placement_goal": getattr(current_user, "placement_goal", None),
+        "target_companies": getattr(current_user, "target_companies", []) or [],
+        "linkedin_url": getattr(current_user, "linkedin_url", None),
+        "github_url": getattr(current_user, "github_url", None),
+    }
 
 
 @router.get("/admin-only")

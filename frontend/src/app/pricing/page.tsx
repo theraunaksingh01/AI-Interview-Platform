@@ -50,26 +50,30 @@ interface FeatureRow {
 }
 
 const features: FeatureRow[] = [
-  { label: "Sessions per month",              section: "Core",      free: "3 / month",  pro: "Unlimited",  max: "Unlimited" },
-  { label: "Questions per session",                                  free: "5",          pro: "8",          max: "11" },
-  { label: "DSA problems",                                           free: "3 / day",    pro: "Unlimited",  max: "Unlimited" },
-  { label: "Score after interview",                                  free: true,         pro: true,         max: true },
-  { label: "What was missing",                                       free: true,         pro: true,         max: true },
-  { label: "Streak tracking",                                        free: true,         pro: true,         max: true },
-  { label: "Model answers",                   section: "Report",    free: false,        pro: true,         max: true },
-  { label: "Full communication report",                              free: false,        pro: true,         max: true },
-  { label: "WPM + filler word analysis",                             free: false,        pro: true,         max: true },
-  { label: "STAR method scoring",                                    free: false,        pro: true,         max: true },
-  { label: "Session history + trends",        section: "Progress",  free: false,        pro: true,         max: true },
-  { label: "Improvement graph",                                      free: false,        pro: true,         max: true },
-  { label: "Skill Passport",                                         free: false,        pro: true,         max: true },
-  { label: "Company-specific prep",           section: "Advanced",  free: false,        pro: true,         max: true },
-  { label: "Follow-up questions",                                    free: false,        pro: true,         max: true },
-  { label: "DSA solution access",                                    free: false,        pro: false,        max: true },
-  { label: "Resume/Project discussion prep",                         free: false,        pro: false,        max: true },
-  { label: "Cheat Sheet — company prep page",                        free: false,        pro: false,        max: true },
-  { label: "Personal Coach Agent",                                   free: false,        pro: false,        max: true },
-  { label: "Retry answer on report",                                 free: false,        pro: false,        max: true },
+  { label: "Sessions per month",              section: "Core",         free: "3 / month",  pro: "Unlimited",  max: "Unlimited" },
+  { label: "Questions per session",                                     free: "5",          pro: "8",          max: "11" },
+  { label: "DSA problems",                                              free: "3 / day",    pro: "Unlimited",  max: "Unlimited" },
+  { label: "Score after interview",                                     free: true,         pro: true,         max: true },
+  { label: "What was missing",                                          free: true,         pro: true,         max: true },
+  { label: "Streak tracking",                                           free: true,         pro: true,         max: true },
+  { label: "Readiness Assessment",            section: "Diagnostics",  free: "1 / month",  pro: "3 / month",  max: "Unlimited" },
+  { label: "OA Practice Tests",                                         free: false,        pro: "5 / month",  max: "Unlimited" },
+  { label: "Assessment section scores",                                 free: true,         pro: true,         max: true },
+  { label: "Company match analysis",                                    free: true,         pro: true,         max: true },
+  { label: "Model answers",                   section: "Report",       free: false,        pro: true,         max: true },
+  { label: "Full communication report",                                 free: false,        pro: true,         max: true },
+  { label: "WPM + filler word analysis",                                free: false,        pro: true,         max: true },
+  { label: "STAR method scoring",                                       free: false,        pro: true,         max: true },
+  { label: "Session history + trends",        section: "Progress",     free: false,        pro: true,         max: true },
+  { label: "Improvement graph",                                         free: false,        pro: true,         max: true },
+  { label: "Skill Passport",                                            free: false,        pro: true,         max: true },
+  { label: "Company-specific prep",           section: "Advanced",     free: false,        pro: true,         max: true },
+  { label: "Follow-up questions",                                       free: false,        pro: true,         max: true },
+  { label: "DSA solution access",                                       free: false,        pro: false,        max: true },
+  { label: "Resume/Project discussion prep",                            free: false,        pro: false,        max: true },
+  { label: "Cheat Sheet — company prep page",                           free: false,        pro: false,        max: true },
+  { label: "Personal Coach Agent",                                      free: false,        pro: false,        max: true },
+  { label: "Retry answer on report",                                    free: false,        pro: false,        max: true },
 ];
 
 const faqs = [
@@ -91,7 +95,7 @@ const faqs = [
   },
   {
     q: "Does Qued work for off-campus placement prep?",
-    a: "Yes — Qued is built for both campus drives and off-campus applications. Whether your college placement cell is active or you're applying to companies directly through LinkedIn or career pages, the questions, scoring, and coaching are the same. Your college tier doesn't matter here.",
+    a: "Yes — Qued is built for both campus drives and off-campus applications. Whether your placement cell is active or you're applying directly through LinkedIn or career pages, the questions, scoring, and coaching are the same. Your college tier doesn't matter here.",
   },
   {
     q: "My college doesn't have great placements. Can Qued still help?",
@@ -135,7 +139,7 @@ function FeatureCell({ value, colIndex }: { value: FeatureValue; colIndex: numbe
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Upgrade Banner ───────────────────────────────────────────────────────────
 
 function UpgradeBanner() {
   const params = useSearchParams();
@@ -146,6 +150,10 @@ function UpgradeBanner() {
     oa: {
       title: "OA Practice is available on Pro and Max plans",
       desc: "Upgrade to practice TCS NQT, Infosys, and Wipro OA tests with locked timers and band prediction.",
+    },
+    assessment: {
+      title: "You've used your free assessment for this month",
+      desc: "Upgrade to Pro for 3 assessments per month, or Max for unlimited.",
     },
   };
 
@@ -167,14 +175,15 @@ function UpgradeBanner() {
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function PricingPage() {
   return (
     <main className="min-h-screen bg-[#F9FAFB] pt-20">
 
-      {/* ── Upgrade banner (shown when redirected from gated feature) ── */}
       <UpgradeBanner />
 
-      {/* ── Hero ── */}
+      {/* Hero */}
       <section className="px-4 pb-14 pt-12 text-center sm:px-8">
         <p className="mb-4 text-[11px] font-black uppercase tracking-widest text-[#9CA3AF]">
           Pricing
@@ -190,18 +199,16 @@ export default function PricingPage() {
           No corporate pricing. No tricks. Cancel anytime.
         </p>
 
-        {/* Off-campus callout strip */}
-        <div className="mx-auto mt-6 max-w-[540px] rounded-2xl border border-[#E5E7EB] bg-white px-5 py-4 flex items-start gap-3 text-left">
-          <span className="text-[20px] mt-0.5 flex-shrink-0">💼</span>
+        {/* New features callout */}
+        <div className="mx-auto mt-6 max-w-[600px] rounded-2xl border border-[#E5E7EB] bg-white px-5 py-4 flex items-start gap-3 text-left">
+          <span className="text-[20px] mt-0.5 flex-shrink-0">✨</span>
           <div>
             <p className="text-[13px] font-bold text-[#111]">
-              Applying off-campus? Qued is built for you too.
+              New: Placement Diagnostics now included in all plans
             </p>
             <p className="text-[12px] text-[#6B7280] mt-0.5 leading-relaxed">
-              Whether your placement cell is active or you&apos;re applying directly
-              to Razorpay, Zerodha, or any company through LinkedIn — the
-              questions, coaching, and scoring are identical. Your college tier
-              doesn&apos;t matter here.
+              Readiness Assessment (aptitude, CS, DSA, communication) is free for all students.
+              OA Practice Tests (TCS NQT, Infosys SE, Wipro NLTH, Cognizant GenC) are available on Pro and Max.
             </p>
           </div>
         </div>
@@ -209,7 +216,7 @@ export default function PricingPage() {
 
       <section className="mx-auto max-w-[1100px] px-4 pb-24 sm:px-6">
 
-        {/* ── Desktop comparison table ── */}
+        {/* Desktop comparison table */}
         <div className="hidden overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm sm:block">
           <table className="w-full border-collapse">
             <thead>
@@ -231,9 +238,7 @@ export default function PricingPage() {
                         </span>
                       )}
                     </div>
-                    <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${
-                      tier.dark ? "text-[#9CA3AF]" : "text-[#9CA3AF]"
-                    }`}>
+                    <p className="text-[11px] font-black uppercase tracking-widest mb-2 text-[#9CA3AF]">
                       {tier.name}
                     </p>
                     <div className="flex items-baseline justify-center gap-1 mb-1">
@@ -242,9 +247,7 @@ export default function PricingPage() {
                       }`}>
                         {tier.price}
                       </span>
-                      <span className={`text-[12px] ${tier.dark ? "text-[#9CA3AF]" : "text-[#9CA3AF]"}`}>
-                        {tier.period}
-                      </span>
+                      <span className="text-[12px] text-[#9CA3AF]">{tier.period}</span>
                     </div>
                     <p className={`text-[12px] mb-5 leading-snug ${
                       tier.dark ? "text-[#6B7280]" : "text-[#9CA3AF]"
@@ -290,7 +293,7 @@ export default function PricingPage() {
           </table>
         </div>
 
-        {/* ── Mobile tier cards ── */}
+        {/* Mobile tier cards */}
         <div className="space-y-4 sm:hidden">
           {tiers.map((tier) => (
             <div
@@ -304,18 +307,14 @@ export default function PricingPage() {
                   {tier.badge}
                 </span>
               )}
-              <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${
-                tier.dark ? "text-[#9CA3AF]" : "text-[#9CA3AF]"
-              }`}>
+              <p className={`text-[11px] font-black uppercase tracking-widest mb-2 text-[#9CA3AF]`}>
                 {tier.name}
               </p>
               <div className="flex items-baseline gap-1 mb-1">
                 <span className={`text-[34px] font-black ${tier.dark ? "text-white" : "text-[#111]"}`}>
                   {tier.price}
                 </span>
-                <span className={`text-[13px] ${tier.dark ? "text-[#9CA3AF]" : "text-[#9CA3AF]"}`}>
-                  {tier.period}
-                </span>
+                <span className="text-[13px] text-[#9CA3AF]">{tier.period}</span>
               </div>
               <p className={`text-[13px] mb-5 ${tier.dark ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>
                 {tier.desc}
@@ -333,7 +332,7 @@ export default function PricingPage() {
           ))}
         </div>
 
-        {/* ── FAQ ── */}
+        {/* FAQ */}
         <div className="mt-10 rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-8">
           <h2 className="mb-6 text-[17px] font-bold text-[#111]">Common questions</h2>
           <div className="grid gap-6 sm:grid-cols-2">

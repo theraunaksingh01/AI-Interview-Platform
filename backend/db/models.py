@@ -13,6 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from .session import Base
+from sqlalchemy.dialects.postgresql import ARRAY
 
 import enum
 from sqlalchemy.types import Enum as SAEnum
@@ -64,7 +65,7 @@ class User(Base):
     target_roles = Column(JSONB, nullable=True)
     self_level = Column(String(32), nullable=True)
     onboarding_done = Column(Boolean, default=False, nullable=False, server_default="false")
-    target_companies = Column(JSONB, nullable=True)
+    target_companies = Column(ARRAY(String), nullable=True)   
     linkedin_url = Column(String(512), nullable=True)
     github_url = Column(String(512), nullable=True)
     hashed_password = Column(String, nullable=False)

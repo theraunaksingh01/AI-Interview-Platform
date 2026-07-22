@@ -20,8 +20,10 @@ const PLANS_MONTHLY = [
       { text: "Score + what was missing", included: true },
       { text: "Streak tracking", included: true },
       { text: "3 DSA problems per day", included: true },
+      { text: "Readiness Assessment — 1 per month", included: true },
+      { text: "Assessment section scores + company match", included: true },
+      { text: "OA Practice Tests", included: false },
       { text: "Model answers", included: false },
-      { text: "Company-specific prep", included: false },
       { text: "Session history & improvement graph", included: false },
     ],
   },
@@ -38,11 +40,12 @@ const PLANS_MONTHLY = [
       { text: "Unlimited sessions", included: true },
       { text: "8 questions per session", included: true },
       { text: "Full report with model answers", included: true },
-      { text: "Company-specific prep (TCS, Amazon, etc.)", included: true },
+      { text: "Readiness Assessment — 3 per month", included: true },
+      { text: "OA Practice Tests — 5 per month (TCS, Infosys, Wipro, Cognizant)", included: true },
+      { text: "Company-specific prep", included: true },
       { text: "Unlimited DSA practice", included: true },
       { text: "Session history + improvement graph", included: true },
       { text: "Skill Passport", included: true },
-      { text: "Follow-up questions", included: true },
       { text: "Cheat Sheet (Max only)", included: false },
     ],
   },
@@ -58,6 +61,8 @@ const PLANS_MONTHLY = [
     features: [
       { text: "Everything in Pro", included: true },
       { text: "11 questions per session", included: true },
+      { text: "Unlimited Readiness Assessments", included: true },
+      { text: "Unlimited OA Practice Tests", included: true },
       { text: "Resume/Project discussion prep", included: true },
       { text: "Cheat Sheet — company prep page", included: true },
       { text: "Retry any answer on report page", included: true },
@@ -67,7 +72,6 @@ const PLANS_MONTHLY = [
   },
 ];
 
-// Yearly = ~37% off monthly rate, billed annually
 const PLANS_YEARLY = PLANS_MONTHLY.map((p) => {
   if (p.price === "₹0") return { ...p, price: "₹0", period: "forever", cta: "Start free" };
   const monthlyNum = parseInt(p.price.replace("₹", ""), 10);
@@ -106,20 +110,12 @@ export function Pricing() {
             style={{ fontSize: "clamp(32px, 5vw, 52px)", letterSpacing: "-1.5px", color: "#111111" }}
           >
             Simple pricing for{" "}
-            <span
-              style={{
-                background: "#FFD600",
-                padding: "2px 10px",
-                borderRadius: "6px",
-                fontStyle: "italic",
-              }}
-            >
+            <span style={{ background: "#FFD600", padding: "2px 10px", borderRadius: "6px", fontStyle: "italic" }}>
               every student
             </span>
           </h2>
           <p className="mt-4" style={{ fontSize: "16px", color: "#666", lineHeight: 1.7 }}>
-            Campus drive or off-campus application — no corporate pricing, no
-            tricks. Cancel anytime.
+            Campus drive or off-campus application — no corporate pricing, no tricks. Cancel anytime.
           </p>
           <p className="mt-2" style={{ fontSize: "13px", color: "#999" }}>
             Pro costs about the same as one Swiggy order a month.
@@ -150,16 +146,12 @@ export function Pricing() {
               >
                 {b === "monthly" ? "Monthly" : "Yearly"}
                 {b === "yearly" && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      background: billing === "yearly" ? "#FFD600" : "#DCFCE7",
-                      color: billing === "yearly" ? "#111" : "#166534",
-                      padding: "2px 7px",
-                      borderRadius: "999px",
-                    }}
-                  >
+                  <span style={{
+                    fontSize: "10px", fontWeight: 800,
+                    background: billing === "yearly" ? "#FFD600" : "#DCFCE7",
+                    color: billing === "yearly" ? "#111" : "#166534",
+                    padding: "2px 7px", borderRadius: "999px",
+                  }}>
                     Save 37%
                   </span>
                 )}
@@ -193,12 +185,7 @@ export function Pricing() {
                   borderRadius: "24px",
                   padding: "32px 28px",
                   position: "relative",
-                  transform:
-                    plan.featured
-                      ? "scale(1.04)"
-                      : hovered === i
-                      ? "translateY(-4px)"
-                      : "none",
+                  transform: plan.featured ? "scale(1.04)" : hovered === i ? "translateY(-4px)" : "none",
                   transition: "transform 0.2s ease, box-shadow 0.2s ease",
                   boxShadow: plan.featured
                     ? "0 20px 60px rgba(0,0,0,0.15)"
@@ -207,51 +194,31 @@ export function Pricing() {
                     : "none",
                 }}
               >
-                {/* Badge */}
                 {plan.badge && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "-14px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      background: "#FFD600",
-                      color: "#111",
-                      fontSize: "11px",
-                      fontWeight: 800,
-                      padding: "4px 16px",
-                      borderRadius: "20px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <div style={{
+                    position: "absolute", top: "-14px", left: "50%", transform: "translateX(-50%)",
+                    background: "#FFD600", color: "#111",
+                    fontSize: "11px", fontWeight: 800,
+                    padding: "4px 16px", borderRadius: "20px", whiteSpace: "nowrap",
+                  }}>
                     {plan.badge}
                   </div>
                 )}
 
-                {/* Plan name */}
-                <p
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    letterSpacing: "1px",
-                    textTransform: "uppercase",
-                    color: plan.featured ? "#6366F1" : "#999",
-                    marginBottom: "12px",
-                  }}
-                >
+                <p style={{
+                  fontSize: "12px", fontWeight: 700, letterSpacing: "1px",
+                  textTransform: "uppercase",
+                  color: plan.featured ? "#6366F1" : "#999",
+                  marginBottom: "12px",
+                }}>
                   {plan.name}
                 </p>
 
-                {/* Price */}
                 <div className="flex items-baseline gap-2" style={{ marginBottom: "4px" }}>
-                  <span
-                    style={{
-                      fontSize: "42px",
-                      fontWeight: 900,
-                      letterSpacing: "-2px",
-                      color: plan.featured ? "white" : "#111",
-                    }}
-                  >
+                  <span style={{
+                    fontSize: "42px", fontWeight: 900, letterSpacing: "-2px",
+                    color: plan.featured ? "white" : "#111",
+                  }}>
                     {plan.price}
                   </span>
                   <span style={{ fontSize: "13px", color: plan.featured ? "#666" : "#999" }}>
@@ -260,103 +227,63 @@ export function Pricing() {
                 </div>
 
                 {billing === "yearly" && plan.price !== "₹0" && (
-                  <p
-                    style={{
-                      fontSize: "11px",
-                      color: plan.featured ? "#6EE7B7" : "#16A34A",
-                      fontWeight: 700,
-                      marginBottom: "12px",
-                    }}
-                  >
+                  <p style={{
+                    fontSize: "11px",
+                    color: plan.featured ? "#6EE7B7" : "#16A34A",
+                    fontWeight: 700, marginBottom: "12px",
+                  }}>
                     Billed annually · save 37% vs monthly
                   </p>
                 )}
 
-                <p
-                  style={{
-                    fontSize: "13px",
-                    color: plan.featured ? "#888" : "#666",
-                    marginBottom: "24px",
-                    marginTop: billing === "yearly" && plan.price !== "₹0" ? 0 : "8px",
-                    lineHeight: 1.6,
-                  }}
-                >
+                <p style={{
+                  fontSize: "13px",
+                  color: plan.featured ? "#888" : "#666",
+                  marginBottom: "24px",
+                  marginTop: billing === "yearly" && plan.price !== "₹0" ? 0 : "8px",
+                  lineHeight: 1.6,
+                }}>
                   {plan.desc}
                 </p>
 
-                {/* CTA */}
                 <Link href="/signup">
-                  <button
-                    style={{
-                      width: "100%",
-                      padding: "13px",
-                      borderRadius: "12px",
-                      fontSize: "14px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      marginBottom: "24px",
-                      ...plan.ctaStyle,
-                    }}
-                  >
+                  <button style={{
+                    width: "100%", padding: "13px", borderRadius: "12px",
+                    fontSize: "14px", fontWeight: 700, cursor: "pointer",
+                    marginBottom: "24px", ...plan.ctaStyle,
+                  }}>
                     {plan.cta}
                   </button>
                 </Link>
 
-                {/* Divider */}
-                <div
-                  style={{
-                    borderTop: `1px solid ${plan.featured ? "rgba(255,255,255,0.08)" : "#F0F0EB"}`,
-                    marginBottom: "20px",
-                  }}
-                />
+                <div style={{
+                  borderTop: `1px solid ${plan.featured ? "rgba(255,255,255,0.08)" : "#F0F0EB"}`,
+                  marginBottom: "20px",
+                }} />
 
-                {/* Features */}
                 <ul className="space-y-3">
                   {plan.features.map((f) => (
                     <li key={f.text} className="flex items-start gap-3">
-                      <span
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "10px",
-                          fontWeight: 800,
-                          flexShrink: 0,
-                          marginTop: "1px",
-                          background: f.included
-                            ? plan.featured
-                              ? "#6366F1"
-                              : "#D1FAE5"
-                            : plan.featured
-                            ? "rgba(255,255,255,0.06)"
-                            : "#F5F5F0",
-                          color: f.included
-                            ? plan.featured
-                              ? "white"
-                              : "#065F46"
-                            : plan.featured
-                            ? "#444"
-                            : "#CCC",
-                        }}
-                      >
+                      <span style={{
+                        width: "18px", height: "18px", borderRadius: "50%",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "10px", fontWeight: 800, flexShrink: 0, marginTop: "1px",
+                        background: f.included
+                          ? plan.featured ? "#6366F1" : "#D1FAE5"
+                          : plan.featured ? "rgba(255,255,255,0.06)" : "#F5F5F0",
+                        color: f.included
+                          ? plan.featured ? "white" : "#065F46"
+                          : plan.featured ? "#444" : "#CCC",
+                      }}>
                         {f.included ? "✓" : "×"}
                       </span>
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          color: f.included
-                            ? plan.featured
-                              ? "#CCC"
-                              : "#444"
-                            : plan.featured
-                            ? "#444"
-                            : "#BBB",
-                          lineHeight: 1.5,
-                        }}
-                      >
+                      <span style={{
+                        fontSize: "13px",
+                        color: f.included
+                          ? plan.featured ? "#CCC" : "#444"
+                          : plan.featured ? "#444" : "#BBB",
+                        lineHeight: 1.5,
+                      }}>
                         {f.text}
                       </span>
                     </li>
@@ -367,35 +294,23 @@ export function Pricing() {
           </motion.div>
         </AnimatePresence>
 
-        {/* See full comparison button + bottom note */}
+        {/* Bottom */}
         <div className="text-center mt-10 space-y-4">
           <Link href="/pricing">
             <button
               style={{
-                background: "white",
-                color: "#111",
-                border: "1.5px solid #E8E8E0",
-                borderRadius: "12px",
-                padding: "12px 28px",
-                fontSize: "14px",
-                fontWeight: 700,
-                cursor: "pointer",
+                background: "white", color: "#111",
+                border: "1.5px solid #E8E8E0", borderRadius: "12px",
+                padding: "12px 28px", fontSize: "14px", fontWeight: 700, cursor: "pointer",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#111";
-                e.currentTarget.style.background = "#F9FAFB";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#E8E8E0";
-                e.currentTarget.style.background = "white";
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#111"; e.currentTarget.style.background = "#F9FAFB"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E8E8E0"; e.currentTarget.style.background = "white"; }}
             >
               See full feature comparison →
             </button>
           </Link>
           <p style={{ fontSize: "13px", color: "#999", paddingTop: "24px", lineHeight: 1.6 }}>
-            All plans include free access to interview tips and company guides.
-            <br />
+            All plans include free access to interview tips and company guides.<br />
             Student discount available — email us with your college ID.
           </p>
         </div>

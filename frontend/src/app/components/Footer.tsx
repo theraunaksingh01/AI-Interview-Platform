@@ -2,111 +2,87 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Github, Linkedin, Twitter, Instagram } from "lucide-react";
+import { Linkedin, Instagram } from "lucide-react";
+
+const FOOTER_LINKS = [
+  {
+    title: "Practice",
+    links: [
+      { label: "Mock Interview",    href: "/mock" },
+      { label: "Topic Practice",    href: "/topic-practice" },
+      { label: "Quick Prep",        href: "/quick-prep" },
+      { label: "Resume Prep",       href: "/resume-prep" },
+      { label: "DSA Practice",      href: "/dsa" },
+      { label: "Peer Practice",     href: "/peer" },
+    ],
+  },
+  {
+    title: "Prepare",
+    links: [
+      { label: "Readiness Assessment", href: "/assessment" },
+      { label: "OA Practice Tests",    href: "/oa-practice" },
+      { label: "Company Guides",       href: "/companies" },
+      { label: "Cheat Sheet",          href: "/cheat-sheet" },
+    ],
+  },
+  {
+    title: "Track",
+    links: [
+      { label: "Dashboard",         href: "/mock/dashboard" },
+      { label: "Skill Passport",    href: "/passport" },
+      { label: "Interview Calendar",href: "/calendar" },
+      { label: "Daily Challenge",   href: "/daily" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "Features",      href: "/features" },
+      { label: "Pricing",       href: "/pricing" },
+      { label: "About",         href: "/about" },
+      { label: "Contact",       href: "/contact" },
+      { label: "Privacy",       href: "/privacy" },
+      { label: "Terms",         href: "/terms" },
+    ],
+  },
+];
 
 export function FooterHero() {
-  const [email, setEmail] = useState("");
+  const [email,     setEmail]     = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Wire to your backend newsletter endpoint when ready.
     setSubmitted(true);
   };
 
   return (
-    <footer
-      className="relative overflow-hidden"
-      style={{ background: "#111111" }}
-    >
-      {/* Main footer content */}
+    <footer className="relative overflow-hidden" style={{ background: "#111111" }}>
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
 
-        {/* Top row — logo + newsletter */}
+        {/* ── Top row ── */}
         <div
-          className="flex flex-col md:flex-row items-start justify-between gap-8 pb-12"
-          style={{ borderBottom: "1px solid #222222" }}
+          className="flex flex-col lg:flex-row items-start justify-between gap-10 pb-12"
+          style={{ borderBottom: "1px solid #1E1E1E" }}
         >
-          {/* Logo */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span
-                className="text-2xl font-black tracking-tight"
-                style={{ color: "white" }}
-              >
-                <span
-                  style={{
-                    background: "#FFD600",
-                    color: "#111",
-                    padding: "1px 6px",
-                    borderRadius: "4px",
-                  }}
-                >
-                  Qu
-                </span>{" "}
+          {/* Brand */}
+          <div style={{ maxWidth: 280 }}>
+            <Link href="/">
+              <span className="text-[22px] font-black tracking-tight inline-block mb-3">
+                <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: "4px" }}>Qu</span>
                 <span style={{ color: "white" }}>ed</span>
               </span>
-            </div>
-            <p style={{ fontSize: "13px", color: "#555", maxWidth: "220px", lineHeight: 1.6 }}>
-              AI-powered mock interviews built for India's engineering students.
+            </Link>
+            <p style={{ fontSize: "13px", color: "#555", lineHeight: 1.7 }}>
+              AI-powered placement prep for India's engineering students.
+              Mock interviews, OA practice, placement diagnostics — all in one place.
             </p>
-          </div>
 
-          {/* Newsletter */}
-          <div>
-            <p
-              className="font-semibold mb-3"
-              style={{ fontSize: "13px", color: "#888" }}
-            >
-              Get prep tips in your inbox
-            </p>
-            {submitted ? (
-              <p style={{ fontSize: "13px", color: "#FFD600" }}>
-                ✓ You're in — check your inbox soon.
-              </p>
-            ) : (
-              <form onSubmit={handleSubmit} className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{
-                    background: "#1a1a1a",
-                    border: "1px solid #333",
-                    borderRadius: "6px",
-                    padding: "9px 14px",
-                    fontSize: "13px",
-                    color: "white",
-                    outline: "none",
-                    width: "220px",
-                  }}
-                />
-                <button
-                  type="submit"
-                  style={{
-                    background: "#FFD600",
-                    color: "#111",
-                    fontWeight: 700,
-                    fontSize: "13px",
-                    padding: "9px 18px",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Submit
-                </button>
-              </form>
-            )}
-
-            {/* Social icons */}
-            <div className="flex items-center gap-3 mt-4">
+            {/* Social */}
+            <div className="flex items-center gap-2 mt-5">
               {[
-                { icon: <Linkedin size={14} />, href: "https://linkedin.com", label: "LinkedIn" },
-                { icon: <Instagram size={14} />, href: "https://instagram.com", label: "Instagram" },
+                { icon: <Linkedin size={14} />, href: "https://linkedin.com/company/qued-in", label: "LinkedIn" },
+                { icon: <Instagram size={14} />, href: "https://instagram.com/qued.in", label: "Instagram" },
               ].map((s) => (
                 <Link
                   key={s.label}
@@ -114,84 +90,76 @@ export function FooterHero() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={s.label}
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    border: "1px solid #333",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#666",
-                  }}
-                  className="hover:border-gray-500 hover:text-white transition-colors"
+                  className="hover:border-[#555] hover:text-white transition-colors"
+                  style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #2A2A2A", display: "flex", alignItems: "center", justifyContent: "center", color: "#555" }}
                 >
                   {s.icon}
                 </Link>
               ))}
             </div>
           </div>
+
+          {/* Newsletter */}
+          <div>
+            <p className="font-bold mb-1" style={{ fontSize: "13px", color: "#888" }}>
+              Get placement prep tips in your inbox
+            </p>
+            <p style={{ fontSize: "12px", color: "#444", marginBottom: 12 }}>
+              Weekly — interview tips, DSA patterns, company-specific insights.
+            </p>
+            {submitted ? (
+              <p style={{ fontSize: "13px", color: "#FFD600" }}>✓ You're in — check your inbox soon.</p>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ background: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "white", outline: "none", width: 220 }}
+                />
+                <button
+                  type="submit"
+                  style={{ background: "#FFD600", color: "#111", fontWeight: 800, fontSize: 13, padding: "9px 18px", borderRadius: 8, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  Subscribe
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
-        {/* Link columns */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-12"
-          style={{ borderBottom: "1px solid #222222" }}
+        {/* ── Link columns ── */}
+        <div
+          className="grid grid-cols-2 md:grid-cols-4 gap-8 py-12"
+          style={{ borderBottom: "1px solid #1E1E1E" }}
         >
-          {[
-            {
-              title: "Practice",
-              links: [
-                { label: "Mock Interview", href: "/mock" },
-                { label: "DSA Practice", href: "/dsa" },
-                { label: "Company Prep", href: "/cheat-sheet" },
-                { label: "Skill Passport", href: "/passport" },
-              ],
-            },
-            {
-              title: "Quick Links",
-              links: [
-                { label: "Home", href: "/" },
-                { label: "Pricing", href: "/pricing" },
-                { label: "About", href: "/about" },
-                { label: "Contact", href: "/contact" },
-              ],
-            },
-            {
-              title: "Features",
-              links: [
-                { label: "Real-time coaching", href: "/features" },
-                { label: "AI scoring", href: "/features" },
-                { label: "Voice interview", href: "/features" },
-                { label: "Progress tracking", href: "/features" },
-              ],
-            },
-            {
-              title: "Company",
-              links: [
-                { label: "About us", href: "/about" },
-                { label: "Contact", href: "/contact" },
-                { label: "Privacy Policy", href: "/privacy" },
-                { label: "Terms of Service", href: "/terms" },
-              ],
-            },
-          ].map((col) => (
+          {FOOTER_LINKS.map((col) => (
             <div key={col.title}>
-              <h4
-                className="font-bold mb-4"
-                style={{ fontSize: "13px", color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" }}
-              >
+              <h4 style={{ fontSize: 11, fontWeight: 800, color: "#444", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 }}>
                 {col.title}
               </h4>
-              <ul className="space-y-3">
+              <ul className="space-y-2.5">
                 {col.links.map((link) => (
-                  <li key={link.label}>
+                  <li key={link.label} className="flex items-center gap-2">
                     <Link
                       href={link.href}
-                      style={{ fontSize: "13px", color: "#555" }}
+                      style={{ fontSize: 13, color: "#555" }}
                       className="hover:text-white transition-colors"
                     >
                       {link.label}
                     </Link>
+                    {(link as any).badge && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 800,
+                        background: (link as any).badge === "Free" ? "#FFD600" : "#6366F1",
+                        color: (link as any).badge === "Free" ? "#7A6000" : "white",
+                        padding: "1px 5px", borderRadius: 99,
+                      }}>
+                        {(link as any).badge}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -199,38 +167,30 @@ export function FooterHero() {
           ))}
         </div>
 
-        {/* Bottom bar */}
+        {/* ── Bottom bar ── */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8">
-          <p style={{ fontSize: "12px", color: "#444" }}>
+          <p style={{ fontSize: 12, color: "#333" }}>
             © 2026 Qued. Built for India's engineering students.
           </p>
           <div className="flex gap-6">
-            <Link href="/contact" style={{ fontSize: "12px", color: "#444" }} className="hover:text-white transition-colors">
-              Contact
-            </Link>
-            <Link href="/terms" style={{ fontSize: "12px", color: "#444" }} className="hover:text-white transition-colors">
-              Terms
-            </Link>
-            <Link href="/privacy" style={{ fontSize: "12px", color: "#444" }} className="hover:text-white transition-colors">
-              Privacy
-            </Link>
+            {[
+              { label: "Privacy", href: "/privacy" },
+              { label: "Terms",   href: "/terms" },
+              { label: "Contact", href: "/contact" },
+            ].map(({ label, href }) => (
+              <Link key={label} href={href} style={{ fontSize: 12, color: "#333" }} className="hover:text-white transition-colors">
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Giant QUED text at bottom */}
-      <div
-        aria-hidden
-        className="pointer-events-none flex justify-center overflow-hidden"
-        style={{ marginTop: "-16px" }}
-      >
+      {/* Giant QUED watermark */}
+      <div aria-hidden className="pointer-events-none flex justify-center overflow-hidden" style={{ marginTop: "-16px" }}>
         <span
-          className="select-none font-black leading-none tracking-tighter"
-          style={{
-            fontSize: "clamp(80px, 20vw, 220px)",
-            color: "rgba(255,255,255,0.04)",
-            letterSpacing: "-4px",
-          }}
+          className="select-none font-black leading-none"
+          style={{ fontSize: "clamp(80px, 20vw, 220px)", color: "rgba(255,255,255,0.03)", letterSpacing: "-4px" }}
         >
           QUED
         </span>

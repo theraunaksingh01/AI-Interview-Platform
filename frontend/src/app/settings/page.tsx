@@ -73,8 +73,8 @@ function planBadgeClass(plan: Plan) {
 }
 
 function nextTier(plan: Plan): { name: string; price: string } | null {
-  if (plan === "free") return { name: "Pro", price: "₹149/month" };
-  if (plan === "pro") return { name: "Max", price: "₹299/month" };
+  if (plan === "free") return { name: "Pro", price: "₹299/month" };
+  if (plan === "pro") return { name: "Max", price: "₹699/month" };
   return null;
 }
 
