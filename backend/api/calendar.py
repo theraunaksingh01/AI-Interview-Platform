@@ -197,8 +197,8 @@ def set_calendar(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    if interview_date < date.today():
-        raise HTTPException(status_code=400, detail="Interview date must be in the future.")
+    if interview_date < date.today() and interview_date != date.today():
+        raise HTTPException(status_code=400, detail="Interview date must be today or in the future.")
 
     days = _days_remaining(interview_date)
     company_key = payload.company.lower().replace(" ", "")
@@ -268,8 +268,11 @@ def get_my_calendar(
         return {"exists": False}
 
     interview_date = row["interview_date"]
+    today = date.today()
     days = _days_remaining(interview_date)
-
+    is_today = interview_date == today
+    is_past = interview_date < today
+    
     # Recalculate days_remaining daily
     db.execute(
         text("UPDATE interview_calendar SET days_remaining = :d WHERE user_id = :uid"),
@@ -297,7 +300,8 @@ def get_my_calendar(
         "plan": plan,
         "today_task": today_task,
         "coach_note": row["coach_note"],
-        "is_past": days == 0,
+        "is_today": interview_date == date.today(),
+        "is_past":  interview_date < date.today(),
     }
 
 

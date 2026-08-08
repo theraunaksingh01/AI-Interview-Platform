@@ -447,6 +447,15 @@ export default function MockDashboardPage() {
       {
         day: "Day 2",
         icon: "📅",
+        title: "Add your interview date",
+        sub: "Tell Qued when your TCS, Infosys or any company interview is — get a day-by-day prep plan built around your timeline.",
+        cta: "Set interview date →",
+        href: "/calendar",
+        highlight: false,
+      },
+      {
+        day: "Day 3",
+        icon: "📅",
         title: "Answer the daily challenge",
         sub: "One question a day. 2 minutes. Builds your streak and your confidence.",
         cta: "Today's question →",
@@ -454,7 +463,7 @@ export default function MockDashboardPage() {
         highlight: false,
       },
       {
-        day: "Day 3",
+        day: "Day 4",
         icon: "💻",
         title: "Try DSA practice",
         sub: "185 problems across Easy, Medium, Hard. Python, Java, C++ supported.",
@@ -463,7 +472,7 @@ export default function MockDashboardPage() {
         highlight: false,
       },
       {
-        day: "Day 4",
+        day: "Day 5",
         icon: "🔁",
         title: "Do a second mock session",
         sub: "Read your Day 1 report first. Focus on the one specific fix it gives you.",
@@ -901,7 +910,7 @@ export default function MockDashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#F9FAFB] px-4 pb-16 pt-28 sm:px-8">
-      <div className="mx-auto max-w-[1100px] space-y-8">
+      <div className="mx-auto max-w-[1100px] space-y-6">
 
         {/* ── Header ── */}
         <div className="space-y-6">
@@ -930,8 +939,6 @@ export default function MockDashboardPage() {
         </div>
 
         {/* ── Top stats bar ── */}
-        <CalendarWidget />
-
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard
             label="Total Sessions"
@@ -981,10 +988,12 @@ export default function MockDashboardPage() {
         </div>
 
         {/* ── DSA Practice widget ── */}
-        <DSAPracticeWidget />
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-5">
+            <DSAPracticeWidget />
 
-        {/* ── Score trend chart ── */}
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+          {/* ── Score trend chart ── */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
           <h2 className="mb-1 text-[15px] font-bold text-[#111]">Score Trend</h2>
           <p className="mb-4 text-[12px] text-[#9CA3AF]">
             Overall score per session over time
@@ -1038,49 +1047,49 @@ export default function MockDashboardPage() {
           )}
         </div>
 
-        {/* ── Weak spots ── */}
-        {data?.weak_spots && data.weak_spots.length > 0 && (
-          <div className="rounded-2xl border border-amber-100 bg-[#FFFBEB] p-5">
-            <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-amber-700">
-              Weak Spots to Focus On
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {data.weak_spots.map((w) => (
-                <span
-                  key={w}
-                  className="rounded-full bg-amber-100 px-3 py-1 text-[13px] text-amber-800"
-                >
-                  {w}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Milestones ── */}
-        {Boolean(data?.milestones?.length) && (
-          <div>
-            <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-[#111]">
-              <Trophy className="h-4 w-4 text-amber-500" /> Achievements
-            </h2>
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {data?.milestones.map((m, idx) => (
-                <div
-                  key={`${m.session_id}-${idx}`}
-                  className="min-w-[200px] rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3"
-                >
-                  <div className="text-sm font-medium text-[#111]">⭐ {m.message}</div>
-                  <div className="mt-1 text-xs text-[#9CA3AF]">
-                    {formatDate(m.achieved_at)}
-                  </div>
+            {/* ── Weak spots ── */}
+            {data?.weak_spots && data.weak_spots.length > 0 && (
+              <div className="rounded-2xl border border-amber-100 bg-[#FFFBEB] p-5">
+                <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-amber-700">
+                  Weak Spots to Focus On
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {data.weak_spots.map((w) => (
+                    <span
+                      key={w}
+                      className="rounded-full bg-amber-100 px-3 py-1 text-[13px] text-amber-800"
+                    >
+                      {w}
+                    </span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* ── Session history table ── */}
-        <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
+            {/* ── Milestones ── */}
+            {Boolean(data?.milestones?.length) && (
+              <div>
+                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-[#111]">
+                  <Trophy className="h-4 w-4 text-amber-500" /> Achievements
+                </h2>
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {data?.milestones.map((m, idx) => (
+                    <div
+                      key={`${m.session_id}-${idx}`}
+                      className="min-w-[200px] rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3"
+                    >
+                      <div className="text-sm font-medium text-[#111]">⭐ {m.message}</div>
+                      <div className="mt-1 text-xs text-[#9CA3AF]">
+                        {formatDate(m.achieved_at)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          {/* ── Session history table ── */}
+          <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
           <div className="border-b border-[#E5E7EB] px-5 py-4 flex items-center justify-between">
             <h2 className="text-[15px] font-bold text-[#111]">Session History</h2>
             <span className="text-[12px] text-[#9CA3AF]">{data?.total_sessions} total</span>
@@ -1168,18 +1177,18 @@ export default function MockDashboardPage() {
           </div>
         </div>
 
-        {/* ── Diagnostics card ── */}
-        {(latestAssessment || latestOA) && (
-          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[12px] font-black uppercase tracking-widest text-[#9CA3AF]">
-                Your Diagnostics
-              </p>
-              <Link href="/assessment" className="text-[12px] font-bold text-[#374151] hover:text-[#111] transition">
-                Take assessment →
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* ── Diagnostics card ── */}
+            {(latestAssessment || latestOA) && (
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[12px] font-black uppercase tracking-widest text-[#9CA3AF]">
+                    Your Diagnostics
+                  </p>
+                  <Link href="/assessment" className="text-[12px] font-bold text-[#374151] hover:text-[#111] transition">
+                    Take assessment →
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
               {/* Assessment result */}
               {latestAssessment ? (
@@ -1259,49 +1268,82 @@ export default function MockDashboardPage() {
           </div>
         )}
 
-        {/* Show diagnostics CTA if neither exists */}
-        {!latestAssessment && !latestOA && (
-          <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-white p-5">
-            <div className="flex items-start gap-4">
-              <span className="text-[28px] mt-0.5">📊</span>
-              <div className="flex-1">
-                <p className="text-[14px] font-black text-[#111] mb-1">Know where you stand</p>
-                <p className="text-[12px] text-[#6B7280] mb-3 leading-relaxed">
-                  Take the free Placement Readiness Assessment — 30 minutes, 5 sections,
-                  honest score. No login needed to take it.
-                </p>
-                <Link href="/assessment">
-                  <button className="rounded-xl bg-[#111] px-4 py-2 text-[12px] font-black text-white hover:bg-[#333] transition">
-                    Start assessment →
-                  </button>
-                </Link>
+            {/* Show diagnostics CTA if neither exists */}
+            {!latestAssessment && !latestOA && (
+              <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-white p-5">
+                <div className="flex items-start gap-4">
+                  <span className="text-[28px] mt-0.5">📊</span>
+                  <div className="flex-1">
+                    <p className="text-[14px] font-black text-[#111] mb-1">Know where you stand</p>
+                    <p className="text-[12px] text-[#6B7280] mb-3 leading-relaxed">
+                      Take the free Placement Readiness Assessment — 30 minutes, 5 sections,
+                      honest score. No login needed to take it.
+                    </p>
+                    <Link href="/assessment">
+                      <button className="rounded-xl bg-[#111] px-4 py-2 text-[12px] font-black text-white hover:bg-[#333] transition">
+                        Start assessment →
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── CHANGE 4b: CTA with Contribute link ── */}
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white px-5 py-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="text-[17px] font-semibold text-[#111]">
+                    Ready for your next session?
+                  </div>
+                  <div className="mt-1 text-sm text-[#6B7280]">Keep the streak going</div>
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <Link
+                    href="/submit-question"
+                    className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB] transition"
+                  >
+                    ⚡ Contribute a question
+                  </Link>
+                  <Link
+                    href="/mock"
+                    className="rounded-xl bg-[#111] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#333] transition"
+                  >
+                    Start Mock Interview →
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
-        )}
-
-        {/* ── CHANGE 4b: CTA with Contribute link ── */}
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white px-5 py-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-[17px] font-semibold text-[#111]">
-                Ready for your next session?
-              </div>
-              <div className="mt-1 text-sm text-[#6B7280]">Keep the streak going</div>
+          <div className="space-y-4">
+            <CalendarWidget />
+            <div className="rounded-2xl bg-[#111] p-5">
+              <p className="text-[14px] font-black text-white mb-1">
+                While you&apos;re here
+              </p>
+              <p className="text-[12px] mb-4" style={{ color: "#555" }}>
+                Answer today&apos;s daily question — it takes 2 minutes and builds your streak.
+              </p>
+              <Link href="/daily" className="block w-full rounded-xl bg-yellow-400 py-2.5 text-center text-[13px] font-black text-[#111] hover:bg-yellow-300 transition">
+                Today&apos;s question →
+              </Link>
             </div>
-            <div className="flex gap-3 flex-wrap">
-              <Link
-                href="/submit-question"
-                className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#F9FAFB] transition"
-              >
-                ⚡ Contribute a question
-              </Link>
-              <Link
-                href="/mock"
-                className="rounded-xl bg-[#111] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#333] transition"
-              >
-                Start Mock Interview →
-              </Link>
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Quick links</p>
+              <div className="space-y-2">
+                <Link href="/assessment" className="flex items-center gap-2 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] px-3 py-2.5 hover:border-[#111] transition">
+                  <span className="text-[16px]">📊</span>
+                  <span className="text-[12px] font-bold text-[#111]">Readiness Assessment</span>
+                </Link>
+                <Link href="/oa-practice" className="flex items-center gap-2 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] px-3 py-2.5 hover:border-[#111] transition">
+                  <span className="text-[16px]">📝</span>
+                  <span className="text-[12px] font-bold text-[#111]">OA Practice Tests</span>
+                </Link>
+                <Link href="/topic-practice" className="flex items-center gap-2 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] px-3 py-2.5 hover:border-[#111] transition">
+                  <span className="text-[16px]">📊</span>
+                  <span className="text-[12px] font-bold text-[#111]">Topic Practice</span>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
