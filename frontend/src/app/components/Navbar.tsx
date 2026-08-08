@@ -11,12 +11,13 @@ import { useAuth } from "@/context/AuthContext";
 // ── Dropdown configs ──────────────────────────────────────────────────────────
 
 const PRACTICE_ITEMS = [
-  { name: "Mock Interview",  href: "/mock",          icon: "🎤", desc: "Full interview simulation, scored" },
-  { name: "Topic Practice",  href: "/topic-practice", icon: "📊", desc: "Drill one subject deep" },
-  { name: "Quick Prep",      href: "/quick-prep",     icon: "☕", desc: "Rapid revision before interview" },
-  { name: "Resume Prep",     href: "/resume-prep",    icon: "📄", desc: "Questions from YOUR resume" },
-  { name: "DSA Practice",    href: "/dsa",            icon: "💻", desc: "185 problems, company-focused" },
-  { name: "Peer Practice",   href: "/peer",           icon: "⚔️", desc: "Challenge a friend, compare scores" },
+  { name: "Mock Interview", href: "/mock", icon: "🎤", desc: "Full interview simulation, scored" },
+  { name: "Topic Practice", href: "/topic-practice", icon: "📊", desc: "Drill one subject deep" },
+  { name: "Quick Prep", href: "/quick-prep", icon: "☕", desc: "Rapid revision before interview" },
+  { name: "Resume Prep", href: "/resume-prep", icon: "📄", desc: "Questions from YOUR resume" },
+  { name: "DSA Practice", href: "/dsa", icon: "💻", desc: "185 problems, company-focused" },
+  { name: "SQL Practice", href: "/sql-practice", icon: "🗄️", desc: "Write and run SQL queries — JOINs, subqueries" },
+  { name: "Peer Practice", href: "/peer", icon: "⚔️", desc: "Challenge a friend, compare scores" },
 ];
 
 const DIAGNOSTICS_ITEMS = [
@@ -61,23 +62,23 @@ const DIAGNOSTICS_ITEMS = [
 // Top-level nav for logged-in users
 const APP_NAV = [
   { name: "Dashboard", href: "/mock/dashboard" },
-  { name: "Pricing",   href: "/pricing" },
-  { name: "Contact",   href: "/contact" },
+  { name: "Pricing", href: "/pricing" },
+  { name: "Contact", href: "/contact" },
 ];
 
 // Public nav
 const PUBLIC_NAV = [
   { name: "Features", href: "/features" },
-  { name: "Pricing",  href: "/pricing" },
-  { name: "About",    href: "/about" },
-  { name: "Contact",  href: "/contact" },
+  { name: "Pricing", href: "/pricing" },
+  { name: "About", href: "/about" },
+  { name: "Contact", href: "/contact" },
 ];
 
 // Items moved to avatar dropdown
 const USER_MENU_EXTRAS = [
-  { name: "Daily Challenge", href: "/daily",     icon: Zap },
-  { name: "Calendar",        href: "/calendar",  icon: Calendar },
-  { name: "Skill Passport",  href: "/passport",  icon: Award },
+  { name: "Daily Challenge", href: "/daily", icon: Zap },
+  { name: "Calendar", href: "/calendar", icon: Calendar },
+  { name: "Skill Passport", href: "/passport", icon: Award },
 ];
 
 const ALL_PRACTICE_HREFS = PRACTICE_ITEMS.map(p => p.href);
@@ -176,29 +177,29 @@ function Chevron({ open }: { open: boolean }) {
 // ── Main Navbar ───────────────────────────────────────────────────────────────
 
 export function Navbar() {
-  const [menuState,      setMenuState]      = React.useState(false);
-  const [isScrolled,     setIsScrolled]     = React.useState(false);
-  const [userMenuOpen,   setUserMenuOpen]   = React.useState(false);
-  const [practiceOpen,   setPracticeOpen]   = React.useState(false);
-  const [prepareOpen,       setPrepareOpen]       = React.useState(false);
+  const [menuState, setMenuState] = React.useState(false);
+  const [isScrolled, setIsScrolled] = React.useState(false);
+  const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const [practiceOpen, setPracticeOpen] = React.useState(false);
+  const [prepareOpen, setPrepareOpen] = React.useState(false);
 
-  const userMenuRef  = React.useRef<HTMLDivElement>(null);
-  const practiceRef  = React.useRef<HTMLLIElement>(null);
-  const prepareRef      = React.useRef<HTMLLIElement>(null);
-  const pathname     = usePathname();
-  const router       = useRouter();
+  const userMenuRef = React.useRef<HTMLDivElement>(null);
+  const practiceRef = React.useRef<HTMLLIElement>(null);
+  const prepareRef = React.useRef<HTMLLIElement>(null);
+  const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, loading } = useAuth();
 
   const isLoggedIn = !!user;
-  const userPlan   = user?.plan ?? "free";
+  const userPlan = user?.plan ?? "free";
   const userInitial = user ? (user.full_name || user.email || "U")[0].toUpperCase() : "U";
 
-  const practiceActive     = ALL_PRACTICE_HREFS.some(h => pathname === h || pathname.startsWith(h + "/"));
-  const prepareActive  = ALL_PREPARE_HREFS.some(h => pathname === h || pathname.startsWith(h + "/"));
+  const practiceActive = ALL_PRACTICE_HREFS.some(h => pathname === h || pathname.startsWith(h + "/"));
+  const prepareActive = ALL_PREPARE_HREFS.some(h => pathname === h || pathname.startsWith(h + "/"));
 
   // Close both dropdowns when other opens
   const openPractice = () => { setPracticeOpen(true); setPrepareOpen(false); };
-  const openPrepare     = () => { setPrepareOpen(true); setPracticeOpen(false); };
+  const openPrepare = () => { setPrepareOpen(true); setPracticeOpen(false); };
 
   React.useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 50);

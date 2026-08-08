@@ -73,21 +73,21 @@ const TOPIC_FILTERS = [
 ];
 
 const TOPIC_META: Record<string, { color: string; bg: string; icon: string }> = {
-  DBMS:       { color: "#5b21b6", bg: "#ede9fe", icon: "🗄️" },
-  OS:         { color: "#92400e", bg: "#fef3c7", icon: "⚙️" },
+  DBMS: { color: "#5b21b6", bg: "#ede9fe", icon: "🗄️" },
+  OS: { color: "#92400e", bg: "#fef3c7", icon: "⚙️" },
   Behavioral: { color: "#065f46", bg: "#d1fae5", icon: "🎭" },
 };
 
 const DIFFICULTY_STYLE: Record<string, { bg: string; color: string }> = {
-  easy:   { bg: "#D1FAE5", color: "#065F46" },
+  easy: { bg: "#D1FAE5", color: "#065F46" },
   medium: { bg: "#FEF3C7", color: "#92400E" },
-  hard:   { bg: "#FEE2E2", color: "#991B1B" },
+  hard: { bg: "#FEE2E2", color: "#991B1B" },
 };
 
 const DEPTH_META: Record<string, { label: string; color: string; bg: string; pct: number }> = {
-  basic:        { label: "Basic",        color: "#F59E0B", bg: "#FFFBEB", pct: 33  },
-  intermediate: { label: "Intermediate", color: "#3B82F6", bg: "#EFF6FF", pct: 66  },
-  advanced:     { label: "Advanced",     color: "#10B981", bg: "#F0FDF4", pct: 100 },
+  basic: { label: "Basic", color: "#F59E0B", bg: "#FFFBEB", pct: 33 },
+  intermediate: { label: "Intermediate", color: "#3B82F6", bg: "#EFF6FF", pct: 66 },
+  advanced: { label: "Advanced", color: "#10B981", bg: "#F0FDF4", pct: 100 },
 };
 
 // ─── Static concept cards for browsing ────────────────────────────────────────
@@ -95,62 +95,98 @@ const DEPTH_META: Record<string, { label: string; color: string; bg: string; pct
 
 const BROWSE_CARDS = [
   // DBMS
-  { topic: "DBMS", subtopic: "Transactions", concept_name: "ACID Properties",
+  {
+    topic: "DBMS", subtopic: "Transactions", concept_name: "ACID Properties",
     title: "Explain the ACID properties of transactions", difficulty: "easy",
-    desc: "Walk through Atomicity, Consistency, Isolation, and Durability with a real-world example for each." },
-  { topic: "DBMS", subtopic: "Schema Design", concept_name: "Normalization",
+    desc: "Walk through Atomicity, Consistency, Isolation, and Durability with a real-world example for each."
+  },
+  {
+    topic: "DBMS", subtopic: "Schema Design", concept_name: "Normalization",
     title: "What is database normalization and why does it matter?", difficulty: "medium",
-    desc: "Explain 1NF through BCNF with examples. What anomalies does normalization prevent?" },
-  { topic: "DBMS", subtopic: "SQL", concept_name: "Joins",
+    desc: "Explain 1NF through BCNF with examples. What anomalies does normalization prevent?"
+  },
+  {
+    topic: "DBMS", subtopic: "SQL", concept_name: "Joins",
     title: "Explain the different types of SQL joins", difficulty: "easy",
-    desc: "When would you use INNER vs LEFT vs FULL OUTER JOIN? Give a practical example for each." },
-  { topic: "DBMS", subtopic: "Performance", concept_name: "Indexing",
+    desc: "When would you use INNER vs LEFT vs FULL OUTER JOIN? Give a practical example for each."
+  },
+  {
+    topic: "DBMS", subtopic: "Performance", concept_name: "Indexing",
     title: "How does database indexing work?", difficulty: "medium",
-    desc: "Explain B-tree indexes, when to use them, and the read vs write performance tradeoff." },
-  { topic: "DBMS", subtopic: "Scaling", concept_name: "Sharding",
+    desc: "Explain B-tree indexes, when to use them, and the read vs write performance tradeoff."
+  },
+  {
+    topic: "DBMS", subtopic: "Scaling", concept_name: "Sharding",
     title: "What is database sharding and what are the challenges?", difficulty: "hard",
-    desc: "How do you split data across servers? What makes a good shard key, and what goes wrong?" },
-  { topic: "DBMS", subtopic: "Transactions", concept_name: "Isolation Levels",
+    desc: "How do you split data across servers? What makes a good shard key, and what goes wrong?"
+  },
+  {
+    topic: "DBMS", subtopic: "Transactions", concept_name: "Isolation Levels",
     title: "Explain transaction isolation levels", difficulty: "hard",
-    desc: "What are dirty reads, non-repeatable reads, and phantom reads? How does each level prevent them?" },
+    desc: "What are dirty reads, non-repeatable reads, and phantom reads? How does each level prevent them?"
+  },
   // OS
-  { topic: "OS", subtopic: "Processes", concept_name: "Process vs Thread",
+  {
+    topic: "OS", subtopic: "Processes", concept_name: "Process vs Thread",
     title: "What is the difference between a process and a thread?", difficulty: "easy",
-    desc: "How do they differ in memory, creation cost, and communication? When would you use each?" },
-  { topic: "OS", subtopic: "Concurrency", concept_name: "Deadlock",
+    desc: "How do they differ in memory, creation cost, and communication? When would you use each?"
+  },
+  {
+    topic: "OS", subtopic: "Concurrency", concept_name: "Deadlock",
     title: "What is a deadlock? What are the four conditions for it?", difficulty: "medium",
-    desc: "Name the Coffman conditions and explain how removing any one of them prevents deadlock." },
-  { topic: "OS", subtopic: "Memory Management", concept_name: "Paging",
+    desc: "Name the Coffman conditions and explain how removing any one of them prevents deadlock."
+  },
+  {
+    topic: "OS", subtopic: "Memory Management", concept_name: "Paging",
     title: "Explain virtual memory and how paging works", difficulty: "hard",
-    desc: "What happens on a page fault? What is thrashing and why does it occur?" },
-  { topic: "OS", subtopic: "Scheduling", concept_name: "CPU Scheduling",
+    desc: "What happens on a page fault? What is thrashing and why does it occur?"
+  },
+  {
+    topic: "OS", subtopic: "Scheduling", concept_name: "CPU Scheduling",
     title: "Compare CPU scheduling algorithms", difficulty: "medium",
-    desc: "Explain FCFS, SJF, Round Robin, and Priority Scheduling. What are the tradeoffs of each?" },
-  { topic: "OS", subtopic: "Concurrency", concept_name: "Mutex vs Semaphore",
+    desc: "Explain FCFS, SJF, Round Robin, and Priority Scheduling. What are the tradeoffs of each?"
+  },
+  {
+    topic: "OS", subtopic: "Concurrency", concept_name: "Mutex vs Semaphore",
     title: "What is the difference between a mutex and a semaphore?", difficulty: "medium",
-    desc: "When would you use each? What does ownership mean in the context of a mutex?" },
-  { topic: "OS", subtopic: "Processes", concept_name: "Context Switching",
+    desc: "When would you use each? What does ownership mean in the context of a mutex?"
+  },
+  {
+    topic: "OS", subtopic: "Processes", concept_name: "Context Switching",
     title: "What is context switching and what is the overhead?", difficulty: "medium",
-    desc: "What gets saved and restored? Why is switching between processes more expensive than threads?" },
+    desc: "What gets saved and restored? Why is switching between processes more expensive than threads?"
+  },
   // Behavioral
-  { topic: "Behavioral", subtopic: "Introduction", concept_name: "Tell Me About Yourself",
+  {
+    topic: "Behavioral", subtopic: "Introduction", concept_name: "Tell Me About Yourself",
     title: "Tell me about yourself", difficulty: "medium",
-    desc: "Structure a 60-90 second intro: current context, key strength, one concrete project, why this role." },
-  { topic: "Behavioral", subtopic: "STAR Method Stories", concept_name: "STAR Method",
+    desc: "Structure a 60-90 second intro: current context, key strength, one concrete project, why this role."
+  },
+  {
+    topic: "Behavioral", subtopic: "STAR Method Stories", concept_name: "STAR Method",
     title: "Tell me about a significant technical challenge you faced", difficulty: "medium",
-    desc: "Use the STAR method. Which part should be longest? What does 'we did this' signal to an interviewer?" },
-  { topic: "Behavioral", subtopic: "Motivation Questions", concept_name: "Why This Company",
+    desc: "Use the STAR method. Which part should be longest? What does 'we did this' signal to an interviewer?"
+  },
+  {
+    topic: "Behavioral", subtopic: "Motivation Questions", concept_name: "Why This Company",
     title: "Why do you want to work here specifically?", difficulty: "easy",
-    desc: "What should you never say? How do you answer this honestly for a service company like TCS?" },
-  { topic: "Behavioral", subtopic: "Self Assessment", concept_name: "Strengths and Weaknesses",
+    desc: "What should you never say? How do you answer this honestly for a service company like TCS?"
+  },
+  {
+    topic: "Behavioral", subtopic: "Self Assessment", concept_name: "Strengths and Weaknesses",
     title: "What is your greatest strength and weakness?", difficulty: "easy",
-    desc: "What makes a weakness answer good vs. bad? What must every weakness answer include?" },
-  { topic: "Behavioral", subtopic: "Leadership", concept_name: "Leadership and Initiative",
+    desc: "What makes a weakness answer good vs. bad? What must every weakness answer include?"
+  },
+  {
+    topic: "Behavioral", subtopic: "Leadership", concept_name: "Leadership and Initiative",
     title: "Tell me about a time you showed leadership without a formal role", difficulty: "medium",
-    desc: "What counts as leadership for students? What makes a strong leadership story at this stage?" },
-  { topic: "Behavioral", subtopic: "Motivation Questions", concept_name: "Career Goals",
+    desc: "What counts as leadership for students? What makes a strong leadership story at this stage?"
+  },
+  {
+    topic: "Behavioral", subtopic: "Motivation Questions", concept_name: "Career Goals",
     title: "Where do you see yourself in 3-5 years?", difficulty: "easy",
-    desc: "How specific should you be? What should you never say even if it's true?" },
+    desc: "How specific should you be? What should you never say even if it's true?"
+  },
 ];
 
 // ─── Browse screen ─────────────────────────────────────────────────────────────
@@ -165,7 +201,6 @@ function BrowseScreen({
   error: string | null;
 }) {
   const [activeFilter, setActiveFilter] = useState("all");
-  const [selectedCard, setSelectedCard] = useState<typeof BROWSE_CARDS[0] | null>(null);
 
   const filtered = activeFilter === "all"
     ? BROWSE_CARDS
@@ -210,6 +245,7 @@ function BrowseScreen({
                 fontWeight: activeFilter === f.key ? 700 : 500,
                 background: activeFilter === f.key ? "#111" : "transparent",
                 color: activeFilter === f.key ? "white" : "#555",
+                cursor: "pointer",
               }}
             >
               {f.key !== "all" && <span>{TOPIC_META[f.key]?.icon}</span>}
@@ -238,7 +274,6 @@ function BrowseScreen({
             {filtered.map((card, i) => {
               const meta = TOPIC_META[card.topic] || { color: "#374151", bg: "#f3f4f6", icon: "📝" };
               const diff = DIFFICULTY_STYLE[card.difficulty] || DIFFICULTY_STYLE.medium;
-              const isSelected = selectedCard?.concept_name === card.concept_name;
 
               return (
                 <motion.div
@@ -247,13 +282,14 @@ function BrowseScreen({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                   whileHover={{ y: -4, transition: { duration: 0.15 } }}
-                  className="flex flex-col cursor-pointer"
-                  onClick={() => setSelectedCard(isSelected ? null : card)}
+                  className="flex flex-col"
+                  onClick={() => onStart(card.topic, card.subtopic || "all", 5)}
                   style={{
                     background: "white",
-                    border: isSelected ? "2px solid #111" : "1px solid #E8E8E0",
+                    border: "1px solid #E8E8E0",
                     borderRadius: "20px",
                     padding: "24px",
+                    cursor: "pointer",
                   }}
                 >
                   {/* Top row */}
@@ -308,29 +344,18 @@ function BrowseScreen({
                       {card.difficulty}
                     </span>
 
-                    {isSelected ? (
-                      <div className="flex gap-2">
-                        {[5, 7, 10].map(n => (
-                          <button
-                            key={n}
-                            onClick={e => { e.stopPropagation(); onStart(card.topic, card.subtopic || "all", n); }}
-                            disabled={loading}
-                            className="rounded-xl px-3 py-1.5 text-[12px] font-black transition-all"
-                            style={{ background: "#111", color: "white" }}
-                          >
-                            {loading ? "..." : `${n} Qs`}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={e => { e.stopPropagation(); setSelectedCard(card); }}
-                        className="text-sm font-bold transition-all hover:gap-2"
-                        style={{ color: "#111", display: "flex", alignItems: "center", gap: "4px" }}
-                      >
-                        Practice <span>→</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={e => { e.stopPropagation(); onStart(card.topic, card.subtopic || "all", 5); }}
+                      disabled={loading}
+                      className="rounded-xl px-4 py-1.5 text-[12px] font-black transition-all"
+                      style={{
+                        background: "#111",
+                        color: "white",
+                        cursor: loading ? "wait" : "pointer",
+                      }}
+                    >
+                      {loading ? "Starting..." : "Practice →"}
+                    </button>
                   </div>
                 </motion.div>
               );
@@ -339,32 +364,38 @@ function BrowseScreen({
         </AnimatePresence>
 
         {/* Bottom CTA — start full topic session */}
-        <div className="mt-10 rounded-2xl border border-[#E5E7EB] bg-white p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <p className="text-[15px] font-black text-[#111]">Want a full mixed session?</p>
-            <p className="text-[13px] text-[#9CA3AF] mt-0.5">
-              Pick a topic and get 7 questions across all subtopics — best for a comprehensive drill.
-            </p>
-          </div>
-          <div className="flex gap-2 flex-shrink-0">
-            {[
-              { topic: "DBMS", label: "DBMS session" },
-              { topic: "OS", label: "OS session" },
-              { topic: "Behavioral", label: "Behavioral session" },
-            ].map(({ topic, label }) => {
-              const meta = TOPIC_META[topic];
-              return (
+        <div className="mt-10 rounded-2xl overflow-hidden" style={{ border: "1.5px solid #E5E7EB" }}>
+          <div className="px-6 py-5 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-[15px] font-black text-[#111] mb-0.5">Full topic drill</p>
+              <p className="text-[13px] text-[#9CA3AF]">
+                7 questions mixed across all subtopics — best for a comprehensive session.
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap flex-shrink-0">
+              {[
+                { topic: "DBMS", label: "DBMS", icon: "🗄️" },
+                { topic: "OS", label: "OS", icon: "⚙️" },
+                { topic: "Behavioral", label: "Behavioral", icon: "🎭" },
+              ].map(({ topic, label, icon }) => (
                 <button
                   key={topic}
                   onClick={() => onStart(topic, "all", 7)}
                   disabled={loading}
-                  className="rounded-xl px-4 py-2.5 text-[13px] font-bold border transition-all hover:border-[#111]"
-                  style={{ borderColor: "#E5E7EB", color: "#374151" }}
+                  className="rounded-xl px-4 py-2.5 text-[13px] font-bold transition-all hover:scale-105"
+                  style={{
+                    background: TOPIC_META[topic]?.bg || "#F3F4F6",
+                    color: TOPIC_META[topic]?.color || "#374151",
+                    border: "1.5px solid transparent",
+                    cursor: loading ? "wait" : "pointer",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.border = `1.5px solid ${TOPIC_META[topic]?.color || "#374151"}`; }}
+                  onMouseLeave={e => { e.currentTarget.style.border = "1.5px solid transparent"; }}
                 >
-                  {meta.icon} {label}
+                  {icon} {label} session
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -389,9 +420,14 @@ function ActiveSession({
   const [evaluation, setEvaluation] = useState<EvalResult | null>(null);
   const [elapsedSecs, setElapsedSecs] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [showRefresher, setShowRefresher] = useState(false);
 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>("");
+  const transcribingRef = useRef<boolean>(false);
   const startTimeRef = useRef(Date.now());
 
   const question = session.questions[index];
@@ -412,37 +448,175 @@ function ActiveSession({
     setShowRefresher(false);
   }, [index]);
 
-  function startListening() {
+  async function startListening() {
     setPhase("listening");
     setTranscript("");
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognitionRef.current = recognition;
-    let finalText = "";
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += t + " ";
-        else interim += t;
+    transcriptRef.current = "";
+    transcribingRef.current = false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(250);
+      (mediaRecorderRef.current as any)._stream = stream;
+
+      // Run SpeechRecognition in parallel for live display only
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-IN";
+        recognitionRef.current = recognition;
+        let accumulated = "";
+        recognition.onresult = (event: any) => {
+          let interim = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const t = event.results[i][0].transcript;
+            if (event.results[i].isFinal) accumulated += t + " ";
+            else interim += t;
+          }
+          setTranscript((accumulated + interim).trim());
+        };
+        // Restart recognition when it ends (Chrome stops after silence)
+        recognition.onend = () => {
+          if (mediaRecorderRef.current !== null) {
+            // MediaRecorder still active — restart speech recognition for live display
+            try { recognition.start(); } catch { /* ignore */ }
+          }
+        };
+        recognition.onerror = (e: any) => {
+          console.log("SpeechRecognition error:", e.error);
+        };
+        recognition.onerror = () => { };
+        recognition.start();
       }
-      setTranscript((finalText + interim).trim());
-    };
-    recognition.onerror = () => {};
-    recognition.start();
+    } catch {
+      // Fallback
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-IN";
+      recognitionRef.current = recognition;
+      let finalText = "";
+      recognition.onresult = (event: any) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalText += t + " ";
+          else interim += t;
+        }
+        setTranscript((finalText + interim).trim());
+        transcriptRef.current = (finalText + interim).trim();
+      };
+      recognition.onerror = () => { };
+      recognition.start();
+    }
+  }
+
+  async function stopAndTranscribe(): Promise<string> {
+    // Stop speech recognition fallback
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+
+    }
+
+    // Stop MediaRecorder — manually collect final chunk
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      return transcriptRef.current;
+    }
+
+    // Stop tracks first to flush final chunk
+    const stream = (recorder as any)._stream;
+
+    // Collect any remaining data
+    return new Promise<string>((resolve) => {
+      recorder.addEventListener("dataavailable", (e: BlobEvent) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      }, { once: true });
+
+      recorder.addEventListener("stop", async () => {
+        if (stream) stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+        mediaRecorderRef.current = null;
+
+        if (audioChunksRef.current.length === 0) {
+          resolve("");
+          return;
+        }
+
+        const mimeType = recorder.mimeType;
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        console.log("Sending blob:", blob.size, "bytes");
+
+        if (blob.size < 1000) {
+          resolve("");
+          return;
+        }
+
+        setTranscribing(true);
+        transcribingRef.current = true;
+        try {
+          const formData = new FormData();
+          formData.append("file", blob, "audio.webm");
+          const res = await fetch(`${API_BASE}/api/topic-practice/transcribe`, {
+            method: "POST",
+            headers: { ...authHeader() },
+            body: formData,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const text = data.transcript || data.text || "";
+            console.log("Transcript:", text);
+            transcriptRef.current = text;
+            setTranscript(text);
+            resolve(text);
+          } else {
+            console.log("Transcribe failed:", res.status);
+            resolve("");
+          }
+        } catch (err) {
+          console.error("Transcribe error:", err);
+          resolve("");
+        } finally {
+          setTranscribing(false);
+          transcribingRef.current = false;
+        }
+      }, { once: true });
+
+      recorder.stop();
+    });
   }
 
   function stopListening() {
-    if (recognitionRef.current) { recognitionRef.current.stop(); recognitionRef.current = null; }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
   }
 
   async function submitAnswer(skip = false) {
-    stopListening();
+    console.log("submitAnswer called, skip:", skip, "mediaRecorder state:", mediaRecorderRef.current?.state, "chunks:", audioChunksRef.current.length);
+
     setSubmitting(true);
+    let finalTranscript = "";
+    if (!skip) {
+      finalTranscript = await stopAndTranscribe();
+    } else {
+      stopListening();
+    }
     try {
       const res = await fetch(`${API_BASE}/api/topic-practice/respond`, {
         method: "POST",
@@ -451,7 +625,7 @@ function ActiveSession({
           session_id: session.session_id,
           concept_id: question.concept_id,
           question_text: question.question_text,
-          transcript: skip ? "" : transcript,
+          transcript: finalTranscript,
           topic: session.topic,
           subtopic: question.subtopic,
         }),
@@ -463,7 +637,7 @@ function ActiveSession({
     finally { setSubmitting(false); }
   }
 
-  function advance() {
+  async function advance() {
     stopListening();
     if (isLast) onFinish();
     else setIndex(i => i + 1);
@@ -538,8 +712,25 @@ function ActiveSession({
               {phase === "listening" && (
                 <div>
                   <p className="text-[12px] text-[#9CA3AF] mb-3 text-center">{question.concept_name}</p>
-                  <div className="rounded-2xl bg-white border border-[#E5E7EB] p-4 mb-3 text-[13px] text-[#374151] leading-relaxed min-h-[80px]">
-                    {transcript || <span className="text-[#D1D5DB] italic">Start speaking...</span>}
+                  <div className="rounded-2xl bg-white border border-[#E5E7EB] p-4 mb-3 min-h-[80px]">
+                    {transcribing ? (
+                      <div className="flex items-center gap-2 text-[13px] text-[#9CA3AF]">
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-[#9CA3AF] border-t-transparent" />
+                        Transcribing with Whisper...
+                      </div>
+                    ) : transcript ? (
+                      <p className="text-[13px] text-[#374151] leading-relaxed">{transcript}</p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-[13px] font-medium text-[#374151]">Recording your answer...</span>
+                        </div>
+                        <p className="text-[11px] text-[#9CA3AF]">
+                          Speak clearly. Transcript will appear when you click Done.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-end justify-center gap-0.5 h-8 mb-5">
                     {Array.from({ length: 28 }).map((_, i) => (
@@ -555,8 +746,14 @@ function ActiveSession({
                       }} />
                     ))}
                   </div>
+                  {transcribing && (
+                    <div className="flex items-center justify-center gap-2 mb-3 text-[12px] text-[#9CA3AF]">
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-[#9CA3AF] border-t-transparent" />
+                      Transcribing with Whisper...
+                    </div>
+                  )}
                   <style>{`@keyframes tpPulse { from { opacity: 0.2; } to { opacity: 1; } }`}</style>
-                  <button onClick={() => submitAnswer(false)} disabled={submitting}
+                  <button onClick={() => submitAnswer(false)} disabled={submitting || transcribing}
                     className="w-full rounded-2xl bg-[#111] py-4 text-[14px] font-black text-white hover:bg-[#333] transition disabled:opacity-50">
                     {submitting ? "Evaluating..." : "Done — evaluate my answer →"}
                   </button>
@@ -566,23 +763,34 @@ function ActiveSession({
               {phase === "feedback" && evaluation && (
                 <div>
                   <div className="flex items-center justify-center gap-3 mb-5">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-2xl text-[18px] font-black ${
-                      evaluation.result === "solid" ? "bg-emerald-100 text-emerald-700" :
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-2xl text-[18px] font-black ${evaluation.result === "solid" ? "bg-emerald-100 text-emerald-700" :
                       evaluation.result === "skipped" ? "bg-[#F3F4F6] text-[#9CA3AF]" :
-                      "bg-amber-100 text-amber-700"
-                    }`}>
+                        "bg-amber-100 text-amber-700"
+                      }`}>
                       {evaluation.result === "solid" ? "✓" : evaluation.result === "skipped" ? "→" : Math.round(evaluation.score)}
                     </div>
                     <div>
                       <p className="text-[14px] font-black text-[#111]">
                         {evaluation.result === "solid" ? "Solid answer" :
-                         evaluation.result === "skipped" ? "Skipped" : "Needs work"}
+                          evaluation.result === "skipped" ? "Skipped" : "Needs work"}
                       </p>
                       {evaluation.result !== "skipped" && (
                         <p className="text-[11px] text-[#9CA3AF]">{Math.round(evaluation.score)}/10</p>
                       )}
                     </div>
                   </div>
+
+                  {/* Show Transcript in feedback */}
+                  {transcriptRef.current && (
+                    <div className="rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] p-4 mb-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
+                        What you said
+                      </p>
+                      <p className="text-[13px] text-[#374151] leading-relaxed italic">
+                        "{transcriptRef.current}"
+                      </p>
+                    </div>
+                  )}
 
                   {evaluation.feedback && (
                     <div className="rounded-2xl bg-white border border-[#E5E7EB] p-4 mb-3">
@@ -639,10 +847,9 @@ function ActiveSession({
               const isDone = i < index;
               const isCurrent = i === index;
               return (
-                <div key={i} className={`rounded-xl px-3 py-2.5 ${
-                  isCurrent ? "bg-yellow-50 border border-yellow-200" :
+                <div key={i} className={`rounded-xl px-3 py-2.5 ${isCurrent ? "bg-yellow-50 border border-yellow-200" :
                   isDone ? "bg-[#F9FAFB] opacity-60" : "bg-[#F9FAFB]"
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className={`text-[10px] font-black ${isCurrent ? "text-yellow-700" : isDone ? "text-[#9CA3AF]" : "text-[#D1D5DB]"}`}>
                       Q{i + 1}

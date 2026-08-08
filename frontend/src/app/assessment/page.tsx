@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAntiCheat } from "@/hooks/useAntiCheat";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
@@ -109,6 +110,15 @@ export default function AssessmentPage() {
   const [answers, setAnswers] = useState<Record<number, Answer>>({});
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
 
+  const { addFlag, flags } = useAntiCheat({
+    blockPaste: false,
+    blockCopy: false,
+    blockContextMenu: false,
+    detectDevTools: false,
+  });
+  const [lastFlag, setLastFlag] = useState("");
+  const [showFlagWarning, setShowFlagWarning] = useState(false);
+
   // Timer
   const [timeLeft, setTimeLeft] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
@@ -193,6 +203,20 @@ export default function AssessmentPage() {
     setQuestionStartTime(Date.now());
     setSelectedOption(null);
   }, [currentQIndex, currentSection]);
+
+  useEffect(() => {
+    if (flags.length === 0) return;
+    const latest = flags[flags.length - 1];
+    const messages: Record<string, string> = {
+      "tab-switch": "Tab switch detected. In the real OA, switching tabs ends your attempt.",
+      "window-blur": "You left this window. Stay focused — the real exam tracks this.",
+      "paste": "Paste detected. Assessment results are only useful if they reflect your actual knowledge.",
+      "copy": "Copy detected.",
+    };
+    setLastFlag(messages[latest] || `Flagged: ${latest}`);
+    setShowFlagWarning(true);
+    setTimeout(() => setShowFlagWarning(false), 4000);
+  }, [flags.length]);
 
   useEffect(() => {
     return () => {
@@ -483,6 +507,24 @@ export default function AssessmentPage() {
   return (
     <main className="min-h-screen pt-20 pb-16 px-4" style={{ background: "#FAFAF8" }}>
       <div className="mx-auto max-w-[680px]">
+
+        {showFlagWarning && (
+          <div className="fixed top-20 left-1/2 z-50 -translate-x-1/2 w-[90vw] max-w-[520px]">
+            <div
+              className="rounded-2xl px-5 py-4 flex items-start gap-3"
+              style={{ background: "#111", border: "1.5px solid #333", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}
+            >
+              <span className="text-[20px]">⚠️</span>
+              <div className="flex-1">
+                <p className="text-[13px] font-bold text-white leading-relaxed">{lastFlag}</p>
+                <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  {flags.length} flag{flags.length !== 1 ? "s" : ""} recorded this session
+                </p>
+              </div>
+              <button onClick={() => setShowFlagWarning(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 18 }}>×</button>
+            </div>
+          </div>
+        )}
 
         {/* Progress bar */}
         <div className="mb-6">

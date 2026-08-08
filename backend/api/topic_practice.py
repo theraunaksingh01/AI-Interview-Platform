@@ -26,6 +26,10 @@ from sqlalchemy.orm import Session
 from api.deps import get_current_user
 from db.session import SessionLocal
 
+import tempfile, os
+from fastapi import UploadFile, File
+from services.asr_service import model as _whisper
+
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/topic-practice", tags=["topic-practice"])
@@ -318,6 +322,66 @@ def get_topics() -> dict:
     return {"topics": TOPIC_TREE}
 
 
+@router.post("/transcribe")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    # current_user=Depends(get_current_user),
+):
+    """Transcribe audio blob for topic practice — no session or upload ID needed."""
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        return {"transcript": ""}
+
+    # Write to temp file
+    suffix = ".webm" if "webm" in (file.content_type or "") else ".mp4"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    try:
+        # Convert to 16k mono WAV with ffmpeg
+        import subprocess
+        wav_path = tmp_path + ".wav"
+        cmd = [
+            "ffmpeg", "-y", "-i", tmp_path,
+            "-vn", "-acodec", "pcm_s16le",
+            "-ac", "1", "-ar", "16000",
+            wav_path,
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        target = wav_path if (result.returncode == 0 and os.path.exists(wav_path)) else tmp_path
+
+        # Run Faster Whisper
+        segments, _ = _whisper.transcribe(
+            target,
+            language="en",
+            vad_filter=False,
+            condition_on_previous_text=False,
+            beam_size=5,
+        )
+        transcript = " ".join(s.text.strip() for s in segments).strip()
+        print(f"WHISPER RESULT: '{transcript}'")
+        
+        # After writing tmp file:
+        print(f"Audio file size: {os.path.getsize(tmp_path)} bytes, suffix: {suffix}")
+        # After ffmpeg:
+        print(f"ffmpeg returncode: {result.returncode}")
+        print(f"ffmpeg stderr: {result.stderr.decode()[:200]}")
+        print(f"WAV exists: {os.path.exists(wav_path)}, size: {os.path.getsize(wav_path) if os.path.exists(wav_path) else 0}")
+
+        return {"transcript": transcript}
+
+    except Exception as e:
+        return {"transcript": "", "error": str(e)}
+    finally:
+        for path in [tmp_path, tmp_path + ".wav"]:
+            try:
+                os.unlink(path)
+            except:
+                pass
+            
+
 @router.post("/start")
 def start_session(
     payload: StartRequest,
@@ -337,20 +401,28 @@ def start_session(
     topic = payload.topic
     subtopic = payload.subtopic
     count = min(payload.question_count, 10)
-
     # Validate topic
     if topic not in TOPIC_TREE:
         raise HTTPException(status_code=400, detail="invalid_topic")
-
     is_behavioral = topic == "Behavioral"
-
-    # Fetch concepts
+    # Fetch concepts — if subtopic doesn't have enough, fall back to full topic
     concepts = _fetch_concepts(
         db, topic, subtopic, count,
         exclude_recent=True,
         user_id=current_user.id,
     )
-
+    # Not enough from subtopic — pull remaining from full topic pool
+    if len(concepts) < count and subtopic and subtopic != "all":
+        existing_ids = {c["id"] for c in concepts}
+        extra = _fetch_concepts(
+            db, topic, "all", count - len(concepts),
+            exclude_recent=True,
+            user_id=current_user.id,
+        )
+        for c in extra:
+            if c["id"] not in existing_ids:
+                concepts.append(c)
+                existing_ids.add(c["id"])
     if not concepts:
         raise HTTPException(
             status_code=404,

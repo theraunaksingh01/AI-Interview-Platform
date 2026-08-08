@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
+import { useAntiCheat } from "@/hooks/useAntiCheat";
 import Editor from "@monaco-editor/react";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
@@ -104,6 +105,13 @@ export default function DSAIdePage() {
     const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
     const [hintsRevealed, setHintsRevealed] = useState(0);
     const [elapsedSecs, setElapsedSecs] = useState(0);
+    const { addFlag } = useAntiCheat({
+        blockPaste: false,
+        blockCopy: false,
+        blockContextMenu: false,
+        detectDevTools: false,
+    });
+    const [pasteWarning, setPasteWarning] = useState(false);
     const startTimeRef = useRef(Date.now());
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -239,6 +247,20 @@ export default function DSAIdePage() {
 
     return (
         <div className="flex flex-col bg-[#1E1E2E]" style={{ height: "calc(100vh - 64px)", marginTop: "64px" }}>
+
+            {pasteWarning && (
+                <div className="fixed top-20 left-1/2 z-50 -translate-x-1/2 w-[90vw] max-w-[520px]">
+                    <div
+                        className="rounded-2xl px-5 py-4 flex items-start gap-3"
+                        style={{ background: "#111", border: "1.5px solid #333", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}
+                    >
+                        <span className="text-[20px]">⚠️</span>
+                        <p className="text-[13px] font-bold text-white leading-relaxed">
+                            Code paste detected. In the real coding round, pasting won't help you think faster. Try solving from scratch — that's how interviews work.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Top bar */}
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#252537] border-b border-[#333352] flex-shrink-0">        <div className="flex items-center gap-3">
@@ -549,6 +571,13 @@ export default function DSAIdePage() {
                             language={LANG_MONACO[language]}
                             value={code}
                             onChange={val => setCode(val || "")}
+                            onMount={(editor) => {
+                                editor.onDidPaste(() => {
+                                    addFlag("paste");
+                                    setPasteWarning(true);
+                                    setTimeout(() => setPasteWarning(false), 4000);
+                                });
+                            }}
                             theme="vs-dark"
                             options={{
                                 fontSize: 14,

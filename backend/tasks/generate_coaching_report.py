@@ -75,7 +75,18 @@ def _parse_json_safe(raw: str) -> Optional[Dict[str, Any]]:
 # Per-question: "what could they have said"
 # ---------------------------------------------------------------------------
 
-BETTER_ANSWER_PROMPT = """You are coaching an engineering student preparing for campus placements in India.
+BETTER_ANSWER_PROMPT = """TRANSCRIPTION NOTICE: This student response was captured via automatic speech recognition (ASR) and may contain transcription errors — wrong words, garbled technical terms (e.g. "mutex" → "music", "normalisation" → "normaliz ation", "polymorphism" → "poly morphism"), missing words, or Indian English accent misrecognitions. The marker [unclear] indicates low-confidence words.
+
+Your evaluation rules:
+- Judge the INTENT and CONTENT of the answer, not exact wording
+- If a technical term appears garbled, infer from context what the student likely said
+- Do NOT penalise for transcription artifacts — only penalise for genuine conceptual gaps
+- Be generous (+1 on any 10-point scale) when content is clearly correct but phrasing seems off due to ASR
+- Only flag filler words you are CERTAIN about (um, uh, basically, like, you know) — do NOT count garbled words as fillers
+
+TRANSCRIPTION NOTICE: This answer was captured via ASR (automatic speech recognition) and may contain transcription errors — wrong words, garbled technical terms (e.g. "mutex" → "music", "normalisation" → "normaliz ation"), or missing words. Judge the INTENT and CONTENT of the answer, not exact wording. If a technical term appears garbled, infer from context. Do NOT penalise transcription artifacts. Be generous (+1 on scoring) when content is clearly correct but phrasing seems off.
+
+You are coaching an engineering student preparing for campus placements in India.
 
 Question asked in the interview:
 "{question_text}"
@@ -121,7 +132,18 @@ def _generate_better_answer(
 # Session level: one specific fix
 # ---------------------------------------------------------------------------
 
-SESSION_FIX_PROMPT = """You are reviewing a student's mock interview performance for campus placements.
+SESSION_FIX_PROMPT = """TRANSCRIPTION NOTICE: This student response was captured via automatic speech recognition (ASR) and may contain transcription errors — wrong words, garbled technical terms (e.g. "mutex" → "music", "normalisation" → "normaliz ation", "polymorphism" → "poly morphism"), missing words, or Indian English accent misrecognitions. The marker [unclear] indicates low-confidence words.
+
+Your evaluation rules:
+- Judge the INTENT and CONTENT of the answer, not exact wording
+- If a technical term appears garbled, infer from context what the student likely said
+- Do NOT penalise for transcription artifacts — only penalise for genuine conceptual gaps
+- Be generous (+1 on any 10-point scale) when content is clearly correct but phrasing seems off due to ASR
+- Only flag filler words you are CERTAIN about (um, uh, basically, like, you know) — do NOT count garbled words as fillers
+
+TRANSCRIPTION NOTICE: This session was captured via ASR and may contain transcription errors. Judge intent and content, not exact wording. Infer garbled technical terms from context. Do not penalise transcription artifacts.
+
+You are reviewing a student's mock interview performance for campus placements.
 
 Role they practiced for: {role_target}
 
@@ -273,7 +295,18 @@ def _generate_coach_note(
 
         session_history = "\n".join(history_parts)
 
-        prompt = f"""You are a personal interview coach for an Indian engineering student.
+        prompt = f"""TRANSCRIPTION NOTICE: This student response was captured via automatic speech recognition (ASR) and may contain transcription errors — wrong words, garbled technical terms (e.g. "mutex" → "music", "normalisation" → "normaliz ation", "polymorphism" → "poly morphism"), missing words, or Indian English accent misrecognitions. The marker [unclear] indicates low-confidence words.
+
+    Your evaluation rules:
+    - Judge the INTENT and CONTENT of the answer, not exact wording
+    - If a technical term appears garbled, infer from context what the student likely said
+    - Do NOT penalise for transcription artifacts — only penalise for genuine conceptual gaps
+    - Be generous (+1 on any 10-point scale) when content is clearly correct but phrasing seems off due to ASR
+    - Only flag filler words you are CERTAIN about (um, uh, basically, like, you know) — do NOT count garbled words as fillers
+
+    TRANSCRIPTION NOTICE: Content captured via ASR — may have transcription errors. Judge intent not exact words. Infer garbled technical terms from context.
+
+        You are a personal interview coach for an Indian engineering student.
 
 Student profile:
 - Role target: {role_target}
