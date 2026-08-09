@@ -23,12 +23,13 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.deps import get_current_user
+from api.rate_limit import code_execution_rate_limit
 from db.session import SessionLocal
 from core.code_safety import validate_code
 
@@ -625,7 +626,9 @@ def run_code(
 
 
 @router.post("/submit/{question_id}")
+@code_execution_rate_limit()
 def submit_code(
+    request: Request,
     question_id: int,
     payload: SubmitRequest,
     db: Session = Depends(_get_db),

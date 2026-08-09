@@ -4,11 +4,12 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from api.rate_limit import login_rate_limit
 from db.session import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -96,7 +97,9 @@ def send_reset_email(to_email: str, reset_url: str, full_name: str | None) -> bo
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/forgot-password")
+@login_rate_limit()
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):

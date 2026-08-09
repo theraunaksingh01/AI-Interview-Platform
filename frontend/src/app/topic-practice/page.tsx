@@ -491,7 +491,7 @@ function ActiveSession({
           }
         };
         recognition.onerror = (e: any) => {
-          console.log("SpeechRecognition error:", e.error);
+          
         };
         recognition.onerror = () => { };
         recognition.start();
@@ -555,7 +555,7 @@ function ActiveSession({
 
         const mimeType = recorder.mimeType;
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        console.log("Sending blob:", blob.size, "bytes");
+        
 
         if (blob.size < 1000) {
           resolve("");
@@ -575,12 +575,12 @@ function ActiveSession({
           if (res.ok) {
             const data = await res.json();
             const text = data.transcript || data.text || "";
-            console.log("Transcript:", text);
+            
             transcriptRef.current = text;
             setTranscript(text);
             resolve(text);
           } else {
-            console.log("Transcribe failed:", res.status);
+            
             resolve("");
           }
         } catch (err) {
@@ -608,7 +608,6 @@ function ActiveSession({
   }
 
   async function submitAnswer(skip = false) {
-    console.log("submitAnswer called, skip:", skip, "mediaRecorder state:", mediaRecorderRef.current?.state, "chunks:", audioChunksRef.current.length);
 
     setSubmitting(true);
     let finalTranscript = "";

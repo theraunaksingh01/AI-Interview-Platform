@@ -8,8 +8,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { token, login } = useAuth();
-  const [email, setEmail] = useState("test@example.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);

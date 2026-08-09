@@ -7,13 +7,14 @@ import secrets
 from typing import Optional
 
 import anthropic
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from db.session import get_db
 from api.deps import get_current_user
+from api.rate_limit import assessment_rate_limit
 
 router = APIRouter(prefix="/api/assessment", tags=["assessment"])
 
@@ -66,7 +67,8 @@ class ClaimAttemptRequest(BaseModel):
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
 @router.post("/start")
-def start_assessment(db: Session = Depends(get_db)):
+@assessment_rate_limit()
+def start_assessment(request: Request, db: Session = Depends(get_db)):
     """
     Start a new assessment attempt — no auth required.
     Returns a guest_token stored in localStorage, and the question set.

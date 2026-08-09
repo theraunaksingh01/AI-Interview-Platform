@@ -67,8 +67,7 @@ from api import transcribe
 from api import uploads_me, uploads
 from api import transcribe_upload
 from api import score
-from api import interview
-from api import runner
+from api import interview 
 from api import resumes
 from api import interview_link
 from api import interview_generate
@@ -132,8 +131,6 @@ app.include_router(interview.router)
 app.include_router(uploads.router)
 
 app.include_router(uploads_me.router)
-
-app.include_router(runner.router)
 
 app.include_router(resumes.router)
 

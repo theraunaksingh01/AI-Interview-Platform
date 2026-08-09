@@ -2,19 +2,18 @@
 from datetime import timedelta
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api import deps
+from api.rate_limit import login_rate_limit
 from core import security
 from core.config import settings
 from db import models as db_models
 from models.user import UserOut  
-from datetime import timedelta
-from fastapi import Request
 from core.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -89,7 +88,7 @@ def _authenticate(db: Session, email: str, password: str) -> db_models.User:
 
 # ---------- Endpoints ----------
 @router.post("/login", response_model=Token)
-@limiter.limit("5/minute")
+@login_rate_limit()
 def login_form(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
