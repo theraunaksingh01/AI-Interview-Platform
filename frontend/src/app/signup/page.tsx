@@ -1,914 +1,518 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
-).replace(/\/$/, "");
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Step = "account" | "about" | "goal" | "roles" | "level";
-
-interface OnboardingData {
-  college: string;
-  year_of_study: string;
-  branch: string;
-  placement_goal: string;
-  target_roles: string[];
-  self_level: string;
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const STEPS: Step[] = ["account", "about", "goal", "roles", "level"];
-
-const YEARS = [
-  { value: "1st", label: "1st Year" },
-  { value: "2nd", label: "2nd Year" },
-  { value: "3rd", label: "3rd Year" },
-  { value: "final", label: "Final Year" },
-  { value: "graduated", label: "Graduated" },
-];
-
-const BRANCHES = [
-  { value: "cs", label: "Computer Science" },
-  { value: "it", label: "Information Technology" },
-  { value: "ece", label: "Electronics (ECE)" },
-  { value: "other", label: "Other" },
-];
-
-const GOALS = [
-  {
-    value: "campus",
-    label: "On-campus placement",
-    sub: "TCS, Infosys, Wipro, Cognizant",
-    icon: "🎓",
-  },
-  {
-    value: "product",
-    label: "Product company",
-    sub: "Amazon, Flipkart, Razorpay, startup",
-    icon: "🚀",
-  },
-  {
-    value: "faang",
-    label: "FAANG / top tier",
-    sub: "Google, Meta, Microsoft, Apple",
-    icon: "⚡",
-  },
-  {
-    value: "exploring",
-    label: "Just exploring",
-    sub: "Not sure yet, figuring it out",
-    icon: "🧭",
-  },
-];
+const STEPS = ["account", "college", "role", "companies"] as const;
+type Step = (typeof STEPS)[number];
 
 const ROLES = [
-  { value: "Backend Engineer", label: "Backend", icon: "⬡" },
-  { value: "Frontend Engineer", label: "Frontend", icon: "◈" },
-  { value: "Full Stack Engineer", label: "Full Stack", icon: "⌁" },
-  { value: "AI Engineer", label: "AI / ML", icon: "◆" },
-  { value: "Data Engineer", label: "Data", icon: "◉" },
-  { value: "System Design", label: "System Design", icon: "⌂" },
+  "Software Engineer (SDE)", "Data Engineer", "Full Stack Developer",
+  "Backend Developer", "Frontend Developer", "DevOps / Cloud Engineer",
+  "Data Scientist / ML Engineer", "Product Manager", "Business Analyst",
 ];
 
-const LEVELS = [
-  {
-    value: "beginner",
-    label: "Still learning",
-    sub: "Can't solve most DSA problems yet, learning the basics",
-    emoji: "🌱",
-  },
-  {
-    value: "intermediate",
-    label: "Know the basics",
-    sub: "Understand concepts but struggle to explain clearly in interviews",
-    emoji: "📈",
-  },
-  {
-    value: "ready",
-    label: "Interview ready",
-    sub: "Solid fundamentals, need mock practice to build confidence",
-    emoji: "🎯",
-  },
+const COMPANY_OPTIONS = [
+  "TCS", "Infosys", "Wipro", "Cognizant", "Accenture",
+  "HCL", "Tech Mahindra", "Capgemini",
+  "Amazon", "Microsoft", "Google", "Meta",
+  "Flipkart", "Razorpay", "Zerodha", "Swiggy", "Zomato",
 ];
 
-// ─── Progress bar ─────────────────────────────────────────────────────────────
+const FEATURE_SLIDES = [
+  {
+    icon: "🎤",
+    title: "Mock interviews with live coaching",
+    desc: "Answer by voice. Get scored on technical accuracy and communication — instantly.",
+  },
+  {
+    icon: "📊",
+    title: "Free placement readiness assessment",
+    desc: "30-minute diagnostic across aptitude, CS, DSA and communication. Know your gaps.",
+  },
+  {
+    icon: "📝",
+    title: "OA practice with locked timers",
+    desc: "TCS NQT, Infosys SE, Wipro NLTH — exact format. Locked timers, no going back.",
+  },
+  {
+    icon: "💻",
+    title: "DSA practice with a real IDE",
+    desc: "185 problems in Python, Java, C++. See the optimal solution after you submit.",
+  },
+];
 
 function ProgressDots({ current }: { current: number }) {
-  // current is 0-indexed step index (0=account shown differently)
-  const onboardingSteps = 4; // about, goal, roles, level
-  const onboardingIndex = current - 1; // 0-3
-
-  if (current === 0) return null;
-
   return (
-    <div className="flex items-center gap-2 mb-8">
-      {Array.from({ length: onboardingSteps }).map((_, i) => (
+    <div className="flex items-center gap-2 mb-6">
+      {STEPS.map((_, i) => (
         <div
           key={i}
-          className={`h-1 rounded-full transition-all duration-500 ${
-            i < onboardingIndex
-              ? "bg-[#111] w-6"
-              : i === onboardingIndex
-              ? "bg-yellow-400 w-8"
-              : "bg-[#E5E7EB] w-4"
-          }`}
+          className="transition-all duration-300 rounded-full"
+          style={{
+            width: i === current ? 22 : 7,
+            height: 7,
+            background: i <= current ? "#111" : "#E5E7EB",
+          }}
         />
       ))}
-      <span className="ml-2 text-[12px] text-[#9CA3AF]">
-        {onboardingIndex + 1} / {onboardingSteps}
+      <span className="ml-1 text-[11px] font-medium text-[#9CA3AF]">
+        Step {current + 1} of {STEPS.length}
       </span>
     </div>
   );
 }
 
-// ─── Animated container ───────────────────────────────────────────────────────
-
-function SlideIn({
-  children,
-  stepKey,
-}: {
-  children: React.ReactNode;
-  stepKey: string;
-}) {
-  const [visible, setVisible] = useState(false);
-  const prevKey = useRef(stepKey);
-
-  useEffect(() => {
-    setVisible(false);
-    const t = setTimeout(() => {
-      setVisible(true);
-      prevKey.current = stepKey;
-    }, 60);
-    return () => clearTimeout(t);
-  }, [stepKey]);
-
+function SlideIn({ children, stepKey }: { children: React.ReactNode; stepKey: string }) {
   return (
-    <div
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(12px)",
-        transition: "opacity 280ms ease, transform 280ms ease",
-      }}
-    >
-      {children}
-    </div>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={stepKey}
+        initial={{ opacity: 0, x: 14 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -14 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
-// ─── Option pill ──────────────────────────────────────────────────────────────
-
-function Pill({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl border px-4 py-2.5 text-[13px] font-medium transition-all duration-150 ${
-        selected
-          ? "border-[#111] bg-[#111] text-white"
-          : "border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111] hover:bg-[#F9FAFB]"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-
-export default function SignUpPage() {
+export default function SignupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuth();
   const refCode = searchParams.get("ref");
-  const [step, setStep] = useState<Step>("account");
-  const stepIndex = STEPS.indexOf(step);
 
-  // Account fields
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showPw, setShowPw] = useState(false);
-
-  // Onboarding fields
-  const [data, setData] = useState<OnboardingData>({
-    college: "",
-    year_of_study: "",
-    branch: "",
-    placement_goal: "",
-    target_roles: [],
-    self_level: "",
-  });
-
-  const [msg, setMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [referralValidation, setReferralValidation] = useState<{
     valid: boolean; message: string; name: string;
   } | null>(null);
 
-  function set<K extends keyof OnboardingData>(key: K, val: OnboardingData[K]) {
-    setData((prev) => ({ ...prev, [key]: val }));
-  }
-
-  function toggleRole(role: string) {
-    setData((prev) => ({
-      ...prev,
-      target_roles: prev.target_roles.includes(role)
-        ? prev.target_roles.filter((r) => r !== role)
-        : prev.target_roles.length < 2
-        ? [...prev.target_roles, role]
-        : prev.target_roles,
-    }));
-  }
-
   useEffect(() => {
     if (!refCode) return;
-    (async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/referral/validate/${refCode}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setReferralValidation({
-            valid: Boolean(data?.valid),
-            message: data?.message || "",
-            name: data?.name || data?.referred_by_name || "",
-          });
-        }
-      } catch {}
-    })();
+    fetch(`${API_BASE}/api/referral/validate/${refCode}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.valid) setReferralValidation(d); })
+      .catch(() => {});
   }, [refCode]);
 
-  // ── Step 1: Create account ──────────────────────────────────────────────────
-  async function handleCreateAccount(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg(null);
-    if (pw !== confirm) { setMsg("Passwords don't match."); return; }
-    if (pw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+  // Feature slide rotation
+  const [slideIdx, setSlideIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSlideIdx(v => (v + 1) % FEATURE_SLIDES.length), 4000);
+    return () => clearInterval(id);
+  }, []);
 
+  const [step, setStep]           = useState<Step>("account");
+  const stepIndex                 = STEPS.indexOf(step);
+  const [fullName, setFullName]   = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [confirmPassword, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [college, setCollege]     = useState("");
+  const [year, setYear]           = useState("");
+  const [branch, setBranch]       = useState("");
+  const [targetRole, setTargetRole] = useState("");
+  const [targetCompanies, setTargetCompanies] = useState<string[]>([]);
+  const [selfLevel, setSelfLevel] = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
+
+  function toggleCompany(c: string) {
+    setTargetCompanies(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  }
+
+  async function handleAccountNext() {
+    setError("");
+    if (!fullName.trim()) { setError("Please enter your name"); return; }
+    if (!email.trim() || !email.includes("@")) { setError("Please enter a valid email"); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
+    if (password !== confirmPassword) { setError("Passwords don't match"); return; }
+    setStep("college");
+  }
+
+  function handleCollegeNext() {
+    setError("");
+    if (!college.trim()) { setError("Please enter your college name"); return; }
+    if (!year) { setError("Please select your year of study"); return; }
+    setStep("role");
+  }
+
+  function handleRoleNext() {
+    setError("");
+    if (!targetRole) { setError("Please select a target role"); return; }
+    setStep("companies");
+  }
+
+  async function handleFinalSubmit() {
     setLoading(true);
+    setError("");
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
+      const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: pw, full_name: name }),
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          college: college.trim(),
+          year_of_study: parseInt(year),
+          branch: branch.trim(),
+          target_role: targetRole,
+          target_companies: targetCompanies,
+          self_level: selfLevel,
+        }),
       });
-      const body = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) {
-        setMsg(body?.detail || "Registration failed.");
+        setError(data.detail || "Signup failed. Please try again.");
+        setLoading(false);
         return;
       }
-
-      // Store token for subsequent onboarding calls
-      const accessToken = body.access_token;
-      localStorage.setItem("access_token", accessToken);
-      localStorage.setItem("API_TOKEN", accessToken);
-      setToken(accessToken);
-
-      if (refCode) {
+      const token = data.access_token;
+      await login(email.trim().toLowerCase(), password);
+      if (refCode && token) {
         try {
           await fetch(`${API_BASE}/api/referral/claim`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ referral_code: refCode }),
           });
-        } catch {
-          // Referral is nice-to-have, not critical.
-        }
+        } catch { /* silent */ }
       }
-
-      setStep("about");
+      router.push("/mock/dashboard");
     } catch {
-      setMsg("Network error. Try again.");
-    } finally {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
 
-  // ── Save onboarding + redirect ──────────────────────────────────────────────
-  async function finishOnboarding() {
-    setLoading(true);
-    try {
-      const t = token || localStorage.getItem("access_token");
-      await fetch(`${API_BASE}/auth/onboarding`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(t ? { Authorization: `Bearer ${t}` } : {}),
-        },
-        body: JSON.stringify(data),
-      });
-      // Store onboarding selections so mock page can pre-fill
-      if (data.target_roles.length > 0) {
-        localStorage.setItem("onboarding_role", data.target_roles[0]);
-      }
-      if (data.self_level) {
-        localStorage.setItem("onboarding_level", data.self_level);
-      }
-      if (data.placement_goal) {
-        localStorage.setItem("onboarding_goal", data.placement_goal);
-      }
-    } catch {
-      // Non-fatal — onboarding data is nice-to-have
-    } finally {
-      router.push("/mock");
-    }
-  }
-
-  async function skipOnboarding() {
-    router.push("/mock");
-  }
-
-  // ── Step navigation ─────────────────────────────────────────────────────────
-  function next() {
-    const nextStep = STEPS[stepIndex + 1];
-    if (nextStep) setStep(nextStep);
-  }
-
-  // ── Testimonials rotation ───────────────────────────────────────────────────
-  const testimonials = [
-    { text: "Improved my system design score from 4.2 to 8.6 in 6 sessions", author: "Priya, IIT Bombay" },
-    { text: "The coaching overlay caught 14 filler words I didn't know I was saying", author: "Rohan, NIT Trichy" },
-    { text: "Got placed at Amazon after 3 weeks of mock practice", author: "Aditya, BITS Pilani" },
-  ];
-  const [tIdx, setTIdx] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTIdx((v) => (v + 1) % 3), 3500);
-    return () => clearInterval(id);
-  }, []);
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-screen bg-white lg:grid lg:grid-cols-2">
+    <div
+      className="min-h-screen flex items-center justify-center p-3 pt-24 sm:p-6 sm:pt-28"
+      style={{ background: "#F3F1E9" }}
+    >
+      <div
+        className="w-full flex flex-col lg:flex-row overflow-hidden"
+        style={{
+          maxWidth: 1100,
+          minHeight: "min(760px, 92vh)",
+          borderRadius: 28,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.08)",
+        }}
+      >
+        {/* ── LEFT: brand panel ── */}
+        <div
+          className="hidden lg:flex flex-col justify-between relative overflow-hidden"
+          style={{ width: 420, flexShrink: 0, background: "#111" }}
+        >
+          {/* Back link */}
+          <div className="relative z-10 px-8 pt-8">
+            <Link href="/" className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition"
+              style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>
+              &larr; Back to home
+            </Link>
+          </div>
 
-      {/* ── Left: form panel ── */}
-      <div className="flex min-h-screen flex-col justify-center px-6 py-12 sm:px-10 lg:px-14">
-        <div className="mx-auto w-full max-w-110">
+          {/* Decorative glow */}
+          <div
+            aria-hidden
+            className="absolute pointer-events-none"
+            style={{
+              top: "-10%", right: "-30%",
+              width: 400, height: 400, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(255,214,0,0.15) 0%, transparent 70%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="absolute pointer-events-none"
+            style={{
+              bottom: "-15%", left: "-20%",
+              width: 300, height: 300, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)",
+            }}
+          />
 
-          
+          {/* Middle: logo + headline */}
+          <div className="relative z-10 px-8">
+            <div className="mb-8">
+              <span className="text-[24px] font-black tracking-tight">
+                <span style={{ background: "#FFD600", color: "#111", padding: "1px 7px", borderRadius: 5 }}>Qu</span>
+                <span style={{ color: "white" }}>ed</span>
+              </span>
+            </div>
+            <h1 className="text-[30px] font-black text-white leading-tight mb-3" style={{ letterSpacing: "-0.5px" }}>
+              Your placement season{" "}
+              <span style={{ color: "#FFD600" }}>starts here.</span>
+            </h1>
+            <p className="text-[13px] leading-relaxed" style={{ color: "#777" }}>
+              Built for Indian engineering students preparing for campus drives and off-campus applications.
+            </p>
+          </div>
 
-          {/* Progress */}
-          <ProgressDots current={stepIndex} />
-
-          <SlideIn stepKey={step}>
-
-            {referralValidation?.valid && (
-              <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3">
-                <span className="text-[20px]">🎁</span>
-                <div>
-                  <p className="text-[13px] font-black text-[#111]">
-                    {referralValidation.name} invited you!
-                  </p>
-                  <p className="text-[12px] text-[#6B7280]">
-                    {referralValidation.message}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 1: Account ── */}
-            {step === "account" && (
-              <form onSubmit={handleCreateAccount} className="space-y-5">
-                <div>
-                  <h1 className="text-[28px] font-black tracking-tight text-[#111]">
-                    Create your account
-                  </h1>
-                  <p className="mt-1 text-[14px] text-[#9CA3AF]">
-                    Your AI interview coach is waiting.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-1.5">
-                    Full name
-                  </label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Qued Op"
-                    className="h-11 w-full rounded-xl border border-[#E5E7EB] px-4 text-[14px] text-[#111] placeholder:text-[#D1D5DB] focus:border-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-1.5">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@college.edu"
-                    className="h-11 w-full rounded-xl border border-[#E5E7EB] px-4 text-[14px] text-[#111] placeholder:text-[#D1D5DB] focus:border-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPw ? "text" : "password"}
-                      required
-                      value={pw}
-                      onChange={(e) => setPw(e.target.value)}
-                      placeholder="Min 6 characters"
-                      className="h-11 w-full rounded-xl border border-[#E5E7EB] px-4 pr-12 text-[14px] text-[#111] placeholder:text-[#D1D5DB] focus:border-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]/10 transition"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[#9CA3AF] hover:text-[#111]"
-                    >
-                      {showPw ? "Hide" : "Show"}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-1.5">
-                    Confirm password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="••••••••"
-                    className="h-11 w-full rounded-xl border border-[#E5E7EB] px-4 text-[14px] text-[#111] placeholder:text-[#D1D5DB] focus:border-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]/10 transition"
-                  />
-                </div>
-
-                {msg && (
-                  <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
-                    {msg}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading || !email || !pw}
-                  className="h-12 w-full rounded-xl bg-[#111] text-[14px] font-black text-white transition hover:bg-[#333] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] disabled:cursor-not-allowed"
-                >
-                  {loading ? "Creating account..." : "Continue →"}
-                </button>
-
-                <p className="text-center text-[13px] text-[#9CA3AF]">
-                  Already have an account?{" "}
-                  <Link href="/login" className="font-bold text-[#111] hover:underline">
-                    Sign in
-                  </Link>
+          {/* Bottom: rotating feature card */}
+          <div className="relative z-10 px-8 pb-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={slideIdx}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="rounded-2xl p-5"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <span className="text-[24px] block mb-3">{FEATURE_SLIDES[slideIdx].icon}</span>
+                <p className="text-[14px] font-black text-white mb-1.5 leading-snug">
+                  {FEATURE_SLIDES[slideIdx].title}
                 </p>
-              </form>
-            )}
+                <p className="text-[12px] leading-relaxed" style={{ color: "#777" }}>
+                  {FEATURE_SLIDES[slideIdx].desc}
+                </p>
+              </motion.div>
+            </AnimatePresence>
 
-            {/* ── STEP 2: About you ── */}
-            {step === "about" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-[26px] font-black tracking-tight text-[#111]">
-                    Tell us about yourself
-                  </h2>
-                  <p className="mt-1 text-[14px] text-[#9CA3AF]">
-                    So we can tailor your prep.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-2">
-                    College / University
-                  </label>
-                  <input
-                    value={data.college}
-                    onChange={(e) => set("college", e.target.value)}
-                    placeholder="IIT Kanpur, NIT Trichy, BITS..."
-                    className="h-11 w-full rounded-xl border border-[#E5E7EB] px-4 text-[14px] text-[#111] placeholder:text-[#D1D5DB] focus:border-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-2">
-                    Year of study
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {YEARS.map((y) => (
-                      <Pill
-                        key={y.value}
-                        selected={data.year_of_study === y.value}
-                        onClick={() => set("year_of_study", y.value)}
-                      >
-                        {y.label}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-bold uppercase tracking-wide text-[#374151] mb-2">
-                    Branch
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {BRANCHES.map((b) => (
-                      <Pill
-                        key={b.value}
-                        selected={data.branch === b.value}
-                        onClick={() => set("branch", b.value)}
-                      >
-                        {b.label}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={next}
-                    disabled={!data.year_of_study || !data.branch}
-                    className="h-12 flex-1 rounded-xl bg-[#111] text-[14px] font-black text-white transition hover:bg-[#333] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] disabled:cursor-not-allowed"
-                  >
-                    Continue →
-                  </button>
-                  <button
-                    onClick={skipOnboarding}
-                    className="h-12 rounded-xl border border-[#E5E7EB] px-5 text-[13px] font-medium text-[#9CA3AF] hover:text-[#111] transition"
-                  >
-                    Skip
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 3: Goal ── */}
-            {step === "goal" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-[26px] font-black tracking-tight text-[#111]">
-                    What's your goal?
-                  </h2>
-                  <p className="mt-1 text-[14px] text-[#9CA3AF]">
-                    We'll focus your prep on the right companies.
-                  </p>
-                </div>
-
-                <div className="space-y-2.5">
-                  {GOALS.map((g) => {
-                    const selected = data.placement_goal === g.value;
-                    return (
-                      <button
-                        key={g.value}
-                        type="button"
-                        onClick={() => set("placement_goal", g.value)}
-                        className={`w-full rounded-xl border px-4 py-3.5 text-left transition-all duration-150 ${
-                          selected
-                            ? "border-[#111] bg-[#111] text-white"
-                            : "border-[#E5E7EB] bg-white hover:border-[#111] hover:bg-[#F9FAFB]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-[20px]">{g.icon}</span>
-                          <div>
-                            <p className={`text-[14px] font-bold ${selected ? "text-white" : "text-[#111]"}`}>
-                              {g.label}
-                            </p>
-                            <p className={`text-[12px] ${selected ? "text-[#9CA3AF]" : "text-[#9CA3AF]"}`}>
-                              {g.sub}
-                            </p>
-                          </div>
-                          {selected && (
-                            <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-yellow-400 text-[10px] font-black text-[#111]">
-                              ✓
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={next}
-                    disabled={!data.placement_goal}
-                    className="h-12 flex-1 rounded-xl bg-[#111] text-[14px] font-black text-white transition hover:bg-[#333] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] disabled:cursor-not-allowed"
-                  >
-                    Continue →
-                  </button>
-                  <button
-                    onClick={skipOnboarding}
-                    className="h-12 rounded-xl border border-[#E5E7EB] px-5 text-[13px] font-medium text-[#9CA3AF] hover:text-[#111] transition"
-                  >
-                    Skip
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 4: Roles ── */}
-            {step === "roles" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-[26px] font-black tracking-tight text-[#111]">
-                    Which roles?
-                  </h2>
-                  <p className="mt-1 text-[14px] text-[#9CA3AF]">
-                    Pick up to 2. We'll prioritise these questions.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  {ROLES.map((r) => {
-                    const selected = data.target_roles.includes(r.value);
-                    const maxed = data.target_roles.length >= 2 && !selected;
-                    return (
-                      <button
-                        key={r.value}
-                        type="button"
-                        onClick={() => !maxed && toggleRole(r.value)}
-                        className={`relative rounded-xl border px-4 py-3.5 text-left transition-all duration-150 ${
-                          selected
-                            ? "border-[#111] bg-[#111] text-white"
-                            : maxed
-                            ? "border-[#F3F4F6] bg-[#F9FAFB] opacity-40 cursor-not-allowed"
-                            : "border-[#E5E7EB] bg-white hover:border-[#111] hover:bg-[#F9FAFB]"
-                        }`}
-                      >
-                        <span className="text-[18px] block mb-1">{r.icon}</span>
-                        <span className={`text-[13px] font-bold block ${selected ? "text-white" : "text-[#111]"}`}>
-                          {r.label}
-                        </span>
-                        {selected && (
-                          <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-400 text-[9px] font-black text-[#111]">
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {data.target_roles.length === 2 && (
-                  <p className="text-[12px] text-[#9CA3AF] text-center">
-                    Max 2 roles selected — deselect one to change
-                  </p>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={next}
-                    disabled={data.target_roles.length === 0}
-                    className="h-12 flex-1 rounded-xl bg-[#111] text-[14px] font-black text-white transition hover:bg-[#333] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] disabled:cursor-not-allowed"
-                  >
-                    Continue →
-                  </button>
-                  <button
-                    onClick={skipOnboarding}
-                    className="h-12 rounded-xl border border-[#E5E7EB] px-5 text-[13px] font-medium text-[#9CA3AF] hover:text-[#111] transition"
-                  >
-                    Skip
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 5: Level ── */}
-            {step === "level" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-[26px] font-black tracking-tight text-[#111]">
-                    Be honest with yourself.
-                  </h2>
-                  <p className="mt-1 text-[14px] text-[#9CA3AF]">
-                    We'll set the right starting difficulty.
-                  </p>
-                </div>
-
-                <div className="space-y-2.5">
-                  {LEVELS.map((l) => {
-                    const selected = data.self_level === l.value;
-                    return (
-                      <button
-                        key={l.value}
-                        type="button"
-                        onClick={() => set("self_level", l.value)}
-                        className={`w-full rounded-xl border px-4 py-4 text-left transition-all duration-150 ${
-                          selected
-                            ? "border-[#111] bg-[#111]"
-                            : "border-[#E5E7EB] bg-white hover:border-[#111] hover:bg-[#F9FAFB]"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="text-[22px] mt-0.5">{l.emoji}</span>
-                          <div className="flex-1">
-                            <p className={`text-[14px] font-bold ${selected ? "text-white" : "text-[#111]"}`}>
-                              {l.label}
-                            </p>
-                            <p className={`text-[12px] mt-0.5 leading-snug ${selected ? "text-[#9CA3AF]" : "text-[#9CA3AF]"}`}>
-                              {l.sub}
-                            </p>
-                          </div>
-                          {selected && (
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-[10px] font-black text-[#111] mt-0.5">
-                              ✓
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={finishOnboarding}
-                  disabled={!data.self_level || loading}
-                  className="h-12 w-full rounded-xl bg-[#111] text-[14px] font-black text-white transition hover:bg-[#333] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] disabled:cursor-not-allowed"
-                >
-                  {loading ? "Setting up your account..." : "Start practising →"}
-                </button>
-              </div>
-            )}
-
-          </SlideIn>
+            <div className="flex gap-1.5 mt-4">
+              {FEATURE_SLIDES.map((_, i) => (
+                <span
+                  key={i}
+                  className="rounded-full transition-all"
+                  style={{
+                    height: 4,
+                    width: i === slideIdx ? 20 : 4,
+                    background: i === slideIdx ? "#FFD600" : "rgba(255,255,255,0.15)",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* ── Right: visual panel ── */}
-      <div className="hidden bg-[#F9FAFB] lg:flex lg:flex-col lg:items-center lg:justify-center px-12 py-16 border-l border-[#E5E7EB]">
-        <div className="w-full max-w-105">
+        {/* ── RIGHT: form panel ── */}
+        <div
+          className="flex-1 flex flex-col justify-center overflow-y-auto"
+          style={{ background: "white", padding: "40px 44px" }}
+        >
+          <div className="w-full max-w-[380px] mx-auto">
 
-          {/* Dynamic right panel content based on step */}
-          <SlideIn stepKey={`right-${step}`}>
-            {step === "account" && (
-              <>
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-6">
-                  What you're getting
-                </p>
-                <div className="space-y-4 mb-10">
-                  {[
-                    { icon: "🎯", title: "Live coaching", sub: "Real-time feedback while you speak" },
-                    { icon: "📊", title: "Per-question breakdown", sub: "What you said, what was missing, what to say" },
-                    { icon: "💡", title: "Model answers", sub: "AI shows you the ideal response after each answer" },
-                    { icon: "📈", title: "Progress tracking", sub: "Watch your scores improve session by session" },
-                  ].map(({ icon, title, sub }) => (
-                    <div key={title} className="flex items-start gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-[#E5E7EB] text-[16px]">
-                        {icon}
+            {/* Mobile logo (shown only when left panel hidden) */}
+            <div className="lg:hidden mb-6">
+              <Link href="/">
+                <span className="text-[20px] font-black tracking-tight">
+                  <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: 4 }}>Qu</span>ed
+                </span>
+              </Link>
+            </div>
+
+            {/* Referral banner */}
+            {referralValidation?.valid && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-5 flex items-center gap-3 rounded-2xl px-4 py-3"
+                style={{ background: "#F0FDF4", border: "1px solid #BBF7D0" }}
+              >
+                <span className="text-[18px]">&#127873;</span>
+                <div>
+                  <p className="text-[12px] font-black" style={{ color: "#065F46" }}>
+                    {referralValidation.name} invited you
+                  </p>
+                  <p className="text-[11px]" style={{ color: "#6B7280" }}>
+                    You&apos;ll get 2 bonus sessions when you sign up
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            <ProgressDots current={stepIndex} />
+
+            <SlideIn stepKey={step}>
+              {/* Step 1: Account */}
+              {step === "account" && (
+                <div>
+                  <h2 className="text-[24px] font-black text-[#111] mb-1" style={{ letterSpacing: "-0.5px" }}>
+                    Create your account
+                  </h2>
+                  <p className="text-[13px] text-[#9CA3AF] mb-6">Your AI interview coach is waiting.</p>
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Full name</label>
+                      <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+                        placeholder="Rahul Kumar"
+                        className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Email</label>
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                        placeholder="you@college.edu"
+                        className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Password</label>
+                      <div className="relative">
+                        <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
+                          placeholder="Min 6 characters"
+                          className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 pr-14 text-[13px] text-[#111] outline-none focus:border-[#111] transition" />
+                        <button type="button" onClick={() => setShowPassword(p => !p)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#9CA3AF] hover:text-[#111] transition">
+                          {showPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Confirm password</label>
+                      <input type="password" value={confirmPassword} onChange={e => setConfirm(e.target.value)}
+                        placeholder="Re-enter password"
+                        className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition"
+                        onKeyDown={e => e.key === "Enter" && handleAccountNext()} />
+                    </div>
+                  </div>
+                  {error && <p className="mt-3 text-[12px] text-red-500">{error}</p>}
+                  <button onClick={handleAccountNext}
+                    className="mt-5 w-full rounded-xl bg-[#111] py-3 text-[13px] font-black text-white hover:bg-[#333] transition">
+                    Continue &rarr;
+                  </button>
+                  <p className="mt-4 text-center text-[12px] text-[#9CA3AF]">
+                    Already have an account?{" "}
+                    <Link href="/login" className="font-bold text-[#111] hover:underline">Sign in</Link>
+                  </p>
+                </div>
+              )}
+
+              {/* Step 2: College */}
+              {step === "college" && (
+                <div>
+                  <h2 className="text-[24px] font-black text-[#111] mb-1" style={{ letterSpacing: "-0.5px" }}>Your college</h2>
+                  <p className="text-[13px] text-[#9CA3AF] mb-6">We use this to personalise your prep.</p>
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#374151] mb-1.5">College name</label>
+                      <input type="text" value={college} onChange={e => setCollege(e.target.value)}
+                        placeholder="e.g. LDRP Institute of Technology"
+                        className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Year</label>
+                        <select value={year} onChange={e => setYear(e.target.value)}
+                          className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition">
+                          <option value="">Select</option>
+                          {["1st year","2nd year","3rd year","4th year","5th year"].map((y,i) => (
+                            <option key={y} value={String(i+1)}>{y}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
-                        <p className="text-[14px] font-bold text-[#111]">{title}</p>
-                        <p className="text-[12px] text-[#9CA3AF]">{sub}</p>
+                        <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Branch</label>
+                        <input type="text" value={branch} onChange={e => setBranch(e.target.value)}
+                          placeholder="CSE, IT, ECE"
+                          className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition" />
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  {error && <p className="mt-3 text-[12px] text-red-500">{error}</p>}
+                  <button onClick={handleCollegeNext}
+                    className="mt-5 w-full rounded-xl bg-[#111] py-3 text-[13px] font-black text-white hover:bg-[#333] transition">
+                    Continue &rarr;
+                  </button>
+                  <button onClick={() => setStep("account")}
+                    className="mt-2 w-full text-center text-[12px] text-[#9CA3AF] hover:text-[#111] transition">
+                    &larr; Back
+                  </button>
                 </div>
+              )}
 
-                {/* Testimonial */}
-                <div
-                  key={tIdx}
-                  style={{ animation: "fadeUp 400ms ease both" }}
-                  className="rounded-2xl bg-white border border-[#E5E7EB] p-5"
-                >
-                  <p className="text-[14px] text-[#374151] leading-relaxed mb-3">
-                    &ldquo;{testimonials[tIdx].text}&rdquo;
-                  </p>
-                  <p className="text-[12px] font-bold text-[#9CA3AF]">
-                    — {testimonials[tIdx].author}
-                  </p>
-                </div>
-                <div className="mt-3 flex gap-1.5 justify-center">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className={`rounded-full transition-all ${
-                        i === tIdx ? "w-5 h-1.5 bg-[#111]" : "w-1.5 h-1.5 bg-[#E5E7EB]"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {step === "about" && (
-              <>
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-                  Why we ask
-                </p>
-                <h3 className="text-[22px] font-black text-[#111] mb-3 leading-snug">
-                  Prep that knows your context.
-                </h3>
-                <p className="text-[14px] text-[#6B7280] leading-relaxed mb-6">
-                  A final-year student at NIT targeting TCS needs different prep than someone at IIT targeting Google. We use your profile to prioritise the right questions.
-                </p>
-                <div className="rounded-2xl bg-white border border-[#E5E7EB] p-5">
-                  <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wide mb-3">Example</p>
-                  <p className="text-[14px] text-[#374151] leading-relaxed">
-                    Final year · CS · Campus placement → We'll start with TCS NQT-style questions at Beginner difficulty and increase as you improve.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {step === "goal" && (
-              <>
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-                  What changes based on your goal
-                </p>
-                <div className="space-y-3">
-                  {[
-                    { label: "Question bank", desc: data.placement_goal === "campus" ? "TCS NQT, Infosys InfyTQ style questions" : data.placement_goal === "product" ? "DSA + system design + behavioural mix" : data.placement_goal === "faang" ? "Hard DSA, system design, leadership principles" : "General questions across all topics" },
-                    { label: "Difficulty default", desc: data.placement_goal === "campus" ? "Beginner to Intermediate" : data.placement_goal === "product" ? "Intermediate" : data.placement_goal === "faang" ? "Advanced" : "Based on your level" },
-                    { label: "Company prep", desc: data.placement_goal === "campus" ? "TCS, Infosys, Wipro, Cognizant" : data.placement_goal === "product" ? "Amazon, Flipkart, Razorpay, Swiggy" : data.placement_goal === "faang" ? "Google, Meta, Microsoft, Apple" : "All companies" },
-                  ].map(({ label, desc }) => (
-                    <div key={label} className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-                      <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">{label}</p>
-                      <p className="text-[14px] font-semibold text-[#111]">{desc}</p>
+              {/* Step 3: Role */}
+              {step === "role" && (
+                <div>
+                  <h2 className="text-[24px] font-black text-[#111] mb-1" style={{ letterSpacing: "-0.5px" }}>Target role</h2>
+                  <p className="text-[13px] text-[#9CA3AF] mb-5">Questions weighted toward this role.</p>
+                  <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+                    {ROLES.map(role => (
+                      <button key={role} type="button" onClick={() => setTargetRole(role)}
+                        className="w-full flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-[12px] font-medium transition"
+                        style={{
+                          borderColor: targetRole === role ? "#111" : "#E5E7EB",
+                          background: targetRole === role ? "#111" : "white",
+                          color: targetRole === role ? "white" : "#374151",
+                        }}>
+                        {role}
+                        {targetRole === role && <span>&#10003;</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-[11px] font-bold text-[#374151] mb-2">Rate yourself</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[{val:"beginner",label:"Beginner"},{val:"intermediate",label:"Intermediate"},{val:"advanced",label:"Advanced"}].map(({val,label}) => (
+                        <button key={val} type="button" onClick={() => setSelfLevel(val)}
+                          className="rounded-xl border py-2 text-[11px] font-bold transition"
+                          style={{
+                            borderColor: selfLevel === val ? "#111" : "#E5E7EB",
+                            background: selfLevel === val ? "#FFFDF0" : "white",
+                            color: selfLevel === val ? "#111" : "#6B7280",
+                          }}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                  {error && <p className="mt-3 text-[12px] text-red-500">{error}</p>}
+                  <button onClick={handleRoleNext}
+                    className="mt-5 w-full rounded-xl bg-[#111] py-3 text-[13px] font-black text-white hover:bg-[#333] transition">
+                    Continue &rarr;
+                  </button>
+                  <button onClick={() => setStep("college")}
+                    className="mt-2 w-full text-center text-[12px] text-[#9CA3AF] hover:text-[#111] transition">
+                    &larr; Back
+                  </button>
                 </div>
-                {!data.placement_goal && (
-                  <p className="mt-4 text-[13px] text-[#D1D5DB] text-center">Select a goal to see your tailored prep</p>
-                )}
-              </>
-            )}
+              )}
 
-            {step === "roles" && (
-              <>
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-                  Your selection
-                </p>
-                {data.target_roles.length === 0 ? (
-                  <p className="text-[14px] text-[#D1D5DB]">No roles selected yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {data.target_roles.map((r) => {
-                      const role = ROLES.find((x) => x.value === r);
+              {/* Step 4: Companies */}
+              {step === "companies" && (
+                <div>
+                  <h2 className="text-[24px] font-black text-[#111] mb-1" style={{ letterSpacing: "-0.5px" }}>Target companies</h2>
+                  <p className="text-[13px] text-[#9CA3AF] mb-5">Pick all that apply.</p>
+                  <div className="flex flex-wrap gap-1.5 mb-4 max-h-[220px] overflow-y-auto">
+                    {COMPANY_OPTIONS.map(company => {
+                      const selected = targetCompanies.includes(company);
                       return (
-                        <div key={r} className="flex items-center gap-3 rounded-xl border border-[#111] bg-[#111] px-4 py-3">
-                          <span className="text-[18px]">{role?.icon}</span>
-                          <span className="text-[14px] font-bold text-white">{role?.label}</span>
-                        </div>
+                        <button key={company} type="button" onClick={() => toggleCompany(company)}
+                          className="rounded-full border px-3.5 py-1.5 text-[11px] font-semibold transition"
+                          style={{
+                            borderColor: selected ? "#111" : "#E5E7EB",
+                            background: selected ? "#111" : "white",
+                            color: selected ? "white" : "#374151",
+                          }}>
+                          {company}
+                        </button>
                       );
                     })}
                   </div>
-                )}
-                <p className="mt-4 text-[13px] text-[#9CA3AF]">
-                  Questions will be weighted toward your selected roles. You can always change this later.
-                </p>
-              </>
-            )}
-
-            {step === "level" && (
-              <>
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-                  How level affects your session
-                </p>
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-                    <p className="text-[13px] font-bold text-[#111] mb-1">🌱 Still learning</p>
-                    <p className="text-[12px] text-[#9CA3AF]">Difficulty 1-2 questions. Fundamental concepts only. More hints during session.</p>
-                  </div>
-                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-                    <p className="text-[13px] font-bold text-[#111] mb-1">📈 Know the basics</p>
-                    <p className="text-[12px] text-[#9CA3AF]">Difficulty 2-3 questions. Mix of concept and application. Standard coaching.</p>
-                  </div>
-                  <div className="rounded-xl border border-[#111] bg-[#111] p-4">
-                    <p className="text-[13px] font-bold text-white mb-1">🎯 Interview ready</p>
-                    <p className="text-[12px] text-[#9CA3AF]">Difficulty 3-4 questions. Deep follow-ups. Strict scoring calibration.</p>
-                  </div>
+                  {error && <p className="mb-3 text-[12px] text-red-500">{error}</p>}
+                  <button onClick={handleFinalSubmit} disabled={loading}
+                    className="w-full rounded-xl bg-[#111] py-3 text-[13px] font-black text-white hover:bg-[#333] transition disabled:opacity-60">
+                    {loading ? "Creating account..." : "Start preparing \u2192"}
+                  </button>
+                  <button onClick={() => setStep("role")}
+                    className="mt-2 w-full text-center text-[12px] text-[#9CA3AF] hover:text-[#111] transition">
+                    &larr; Back
+                  </button>
                 </div>
-              </>
-            )}
-          </SlideIn>
+              )}
+            </SlideIn>
+          </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
