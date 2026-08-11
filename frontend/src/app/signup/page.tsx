@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -191,6 +192,8 @@ function Pill({
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref");
   const [step, setStep] = useState<Step>("account");
   const stepIndex = STEPS.indexOf(step);
 
@@ -214,6 +217,9 @@ export default function SignUpPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [referralValidation, setReferralValidation] = useState<{
+    valid: boolean; message: string; name: string;
+  } | null>(null);
 
   function set<K extends keyof OnboardingData>(key: K, val: OnboardingData[K]) {
     setData((prev) => ({ ...prev, [key]: val }));
@@ -229,6 +235,25 @@ export default function SignUpPage() {
         : prev.target_roles,
     }));
   }
+
+  useEffect(() => {
+    if (!refCode) return;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/referral/validate/${refCode}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setReferralValidation({
+            valid: Boolean(data?.valid),
+            message: data?.message || "",
+            name: data?.name || data?.referred_by_name || "",
+          });
+        }
+      } catch {}
+    })();
+  }, [refCode]);
 
   // ── Step 1: Create account ──────────────────────────────────────────────────
   async function handleCreateAccount(e: React.FormEvent) {
@@ -251,9 +276,26 @@ export default function SignUpPage() {
       }
 
       // Store token for subsequent onboarding calls
-      localStorage.setItem("access_token", body.access_token);
-      localStorage.setItem("API_TOKEN", body.access_token);
-      setToken(body.access_token);
+      const accessToken = body.access_token;
+      localStorage.setItem("access_token", accessToken);
+      localStorage.setItem("API_TOKEN", accessToken);
+      setToken(accessToken);
+
+      if (refCode) {
+        try {
+          await fetch(`${API_BASE}/api/referral/claim`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ referral_code: refCode }),
+          });
+        } catch {
+          // Referral is nice-to-have, not critical.
+        }
+      }
+
       setStep("about");
     } catch {
       setMsg("Network error. Try again.");
@@ -323,17 +365,26 @@ export default function SignUpPage() {
       <div className="flex min-h-screen flex-col justify-center px-6 py-12 sm:px-10 lg:px-14">
         <div className="mx-auto w-full max-w-110">
 
-          {/* Logo */}
-          <Link href="/" className="mb-8 inline-block">
-            <span className="text-[20px] font-black tracking-tight">
-              Qu<span className="bg-yellow-400 px-1 rounded-sm text-black">ed</span>
-            </span>
-          </Link>
+          
 
           {/* Progress */}
           <ProgressDots current={stepIndex} />
 
           <SlideIn stepKey={step}>
+
+            {referralValidation?.valid && (
+              <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3">
+                <span className="text-[20px]">🎁</span>
+                <div>
+                  <p className="text-[13px] font-black text-[#111]">
+                    {referralValidation.name} invited you!
+                  </p>
+                  <p className="text-[12px] text-[#6B7280]">
+                    {referralValidation.message}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* ── STEP 1: Account ── */}
             {step === "account" && (

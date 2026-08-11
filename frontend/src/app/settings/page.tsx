@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ReferralCard } from "@/app/components/ReferralCard";
 
 type Plan = "free" | "pro" | "max";
-type SectionKey = "profile" | "account" | "plan" | "privacy";
+type SectionKey = "profile" | "account" | "plan" | "privacy" | "referral";
 
 type MeResponse = {
   id: number;
@@ -47,6 +48,7 @@ const SECTIONS: { id: SectionKey; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "account", label: "Account" },
   { id: "plan", label: "Plan & Usage" },
+  { id: "referral", label: "Referral & Credits" },
   { id: "privacy", label: "Privacy & Notifications" },
 ];
 
@@ -112,6 +114,8 @@ export default function SettingsPage() {
   const [password, setPassword] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_NOTIFICATIONS);
 
+  const [referralData, setReferralData] = useState<any>(null);
+
   useEffect(() => {
     const raw = localStorage.getItem("settings_notifications");
     if (!raw) return;
@@ -121,6 +125,18 @@ export default function SettingsPage() {
     } catch {
       // keep defaults
     }
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN");
+    if (!token) return;
+    const base = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
+    fetch(`${base}/api/referral/my`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setReferralData(d); })
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -318,11 +334,10 @@ export default function SettingsPage() {
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`whitespace-nowrap rounded-2xl px-4 py-3 text-left text-sm transition lg:border-l-4 lg:pl-4 ${
-                      active
-                        ? "border-black bg-gray-50 font-bold text-black lg:rounded-r-2xl lg:rounded-l-xl lg:border-l-black"
-                        : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-black lg:rounded-r-2xl lg:rounded-l-xl"
-                    }`}
+                    className={`whitespace-nowrap rounded-2xl px-4 py-3 text-left text-sm transition lg:border-l-4 lg:pl-4 ${active
+                      ? "border-black bg-gray-50 font-bold text-black lg:rounded-r-2xl lg:rounded-l-xl lg:border-l-black"
+                      : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-black lg:rounded-r-2xl lg:rounded-l-xl"
+                      }`}
                   >
                     {section.label}
                   </button>
@@ -548,6 +563,13 @@ export default function SettingsPage() {
                     </Link>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeSection === "referral" && (
+              <div className="space-y-8">
+                <h2 className="mb-6 text-lg font-bold text-gray-900">Referral & Credits</h2>
+                <ReferralCard prefetchedData={referralData} />
               </div>
             )}
           </section>
