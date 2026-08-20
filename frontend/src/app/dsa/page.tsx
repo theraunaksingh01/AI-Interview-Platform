@@ -29,18 +29,18 @@ type Stats = {
 };
 
 const ACCENT_COLORS: Record<string, string> = {
-  "Arrays":                   "#1D4ED8",
-  "Strings":                  "#065F46",
-  "Linked List":              "#92400E",
-  "Binary Trees":             "#166534",
-  "BST":                      "#5B21B6",
-  "Graph":                    "#9D174D",
-  "Dynamic Programming":      "#1E40AF",
-  "Stack & Queue":            "#7C2D12",
-  "Heaps":                    "#064E3B",
-  "Binary Search":            "#4C1D95",
+  "Arrays": "#1D4ED8",
+  "Strings": "#065F46",
+  "Linked List": "#92400E",
+  "Binary Trees": "#166534",
+  "BST": "#5B21B6",
+  "Graph": "#9D174D",
+  "Dynamic Programming": "#1E40AF",
+  "Stack & Queue": "#7C2D12",
+  "Heaps": "#064E3B",
+  "Binary Search": "#4C1D95",
   "Recursion & Backtracking": "#831843",
-  "Trie":                     "#1D4ED8",
+  "Trie": "#1D4ED8",
 };
 
 export default function DSATopicsPage() {
@@ -100,6 +100,26 @@ export default function DSATopicsPage() {
               {totalProblems} problems across {topics.length} topics — curated for campus placements
             </p>
           </div>
+
+          {/* ── First-time nudge — only shows when user has zero solved ── */}
+          {totalSolved === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl p-5 mb-6 flex items-center gap-4"
+              style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}
+            >
+              <span className="text-[28px]">💻</span>
+              <div className="flex-1">
+                <p className="text-[14px] font-black text-[#111]">Start with an Easy problem</p>
+                <p className="text-[12px] text-[#92400E] mt-0.5">
+                  185 problems are waiting. Most students start with Arrays or Strings — pick any topic below to begin.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Stats strip (like the image's top cards) ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8"></div>
 
           {/* ── Stats strip (like the image's top cards) ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
@@ -229,7 +249,7 @@ export default function DSATopicsPage() {
                             <p className="text-[10px] text-[#9CA3AF]">{pct}%</p>
                           </div>
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M6 12l4-4-4-4" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M6 12l4-4-4-4" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </div>
                       </div>

@@ -4,34 +4,35 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
+import { ConsentModal } from "@/app/components/ConsentModal";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROLES = [
-  { value: "Backend Engineer",      label: "Backend",        icon: "⬡", tag: "APIs · Systems · Scale" },
-  { value: "Frontend Engineer",     label: "Frontend",       icon: "◈", tag: "UI · Performance · State" },
-  { value: "Full Stack Engineer",   label: "Full Stack",     icon: "✌", tag: "End-to-end product" },
-  { value: "AI Engineer",           label: "AI Engineer",    icon: "◆", tag: "ML · LLMs · Infra" },
-  { value: "Data Engineer",         label: "Data",           icon: "◉", tag: "Pipelines · Warehouses" },
-  { value: "System Design",         label: "System Design",  icon: "✂", tag: "Architecture · Trade-offs" },
+  { value: "Backend Engineer", label: "SDE", icon: "⬡", tag: "APIs · Systems · Scale", comingSoon: false },
+  { value: "AI Engineer", label: "AI / ML", icon: "◆", tag: "ML · LLMs · Infra", comingSoon: false },
+  { value: "Data Engineer", label: "Data", icon: "◉", tag: "Pipelines · Warehouses", comingSoon: false },
+  { value: "Frontend Engineer", label: "Frontend", icon: "◈", tag: "UI · Performance · State", comingSoon: true },
+  { value: "Full Stack Engineer", label: "Full Stack", icon: "✌", tag: "End-to-end product", comingSoon: true },
+  { value: "System Design", label: "System Design", icon: "✂", tag: "Architecture · Trade-offs", comingSoon: true },
 ] as const;
 
 const COMPANIES = [
-  { value: "",          label: "General prep",  tag: "Any company" },
-  { value: "tcs",       label: "TCS",           tag: "Campus placement" },
-  { value: "infosys",   label: "Infosys",       tag: "Campus placement" },
-  { value: "wipro",     label: "Wipro",         tag: "Campus placement" },
-  { value: "amazon",    label: "Amazon",        tag: "FAANG style" },
-  { value: "microsoft", label: "Microsoft",     tag: "FAANG style" },
-  { value: "startup",   label: "Startup",       tag: "Product focused" },
+  { value: "", label: "General prep", tag: "Any company" },
+  { value: "tcs", label: "TCS", tag: "Campus placement" },
+  { value: "infosys", label: "Infosys", tag: "Campus placement" },
+  { value: "wipro", label: "Wipro", tag: "Campus placement" },
+  { value: "amazon", label: "Amazon", tag: "FAANG style" },
+  { value: "microsoft", label: "Microsoft", tag: "FAANG style" },
+  { value: "startup", label: "Startup", tag: "Product focused" },
 ] as const;
 
 const DIFFICULTY = [
-  { value: "beginner",     label: "Beginner",      sub: "Fresher / 0 yr" },
-  { value: "intermediate", label: "Intermediate",  sub: "1–2 yrs / placed" },
-  { value: "advanced",     label: "Advanced",      sub: "3+ yrs experience" },
+  { value: "beginner", label: "Beginner", sub: "Fresher / 0 yr" },
+  { value: "intermediate", label: "Intermediate", sub: "1–2 yrs / placed" },
+  { value: "advanced", label: "Advanced", sub: "3+ yrs experience" },
 ] as const;
 
 const VALID_ROLES = ROLES.map((r) => r.value);
@@ -49,10 +50,10 @@ const DSA_ROLES = new Set([
 ]);
 
 const LANGUAGES = [
-  { value: "python", label: "Python"        },
-  { value: "java",   label: "Java"          },
-  { value: "cpp",    label: "C++"           },
-  { value: "",       label: "No preference" },
+  { value: "python", label: "Python" },
+  { value: "java", label: "Java" },
+  { value: "cpp", label: "C++" },
+  { value: "", label: "No preference" },
 ] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -146,9 +147,8 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-2.5 mb-3">
             {(["pro", "max"] as const).map((plan) => (
               <button key={plan} onClick={() => setSelected(plan)}
-                className={`relative rounded-2xl border-2 px-4 py-3 text-left transition-all ${
-                  selected === plan ? "border-[#111] bg-[#111]" : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
-                }`}>
+                className={`relative rounded-2xl border-2 px-4 py-3 text-left transition-all ${selected === plan ? "border-[#111] bg-[#111]" : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
+                  }`}>
                 {plan === "max" && (
                   <span className="absolute -top-2 left-3 rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-[#111]">
                     BEST VALUE
@@ -227,17 +227,19 @@ export default function MockLandingPage() {
     return VALID_DIFFICULTIES.includes(p) ? p : "";
   })();
 
-  const [role,     setRole]     = useState(initialRole);
-  const [company,  setCompany]  = useState("");
+  const [role, setRole] = useState(initialRole);
+  const [company, setCompany] = useState("");
   const [difficulty, setDifficulty] = useState(initialDifficulty);
-  const [language,  setLanguage]  = useState("");  // preferred coding language
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [language, setLanguage] = useState("");  // preferred coding language
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+  const [hasConsented, setHasConsented] = useState<boolean | null>(null);
 
   // Onboarding prefill (localStorage) — only runs once, doesn't override URL params
   useEffect(() => {
-    const onboardingRole  = localStorage.getItem("onboarding_role");
+    const onboardingRole = localStorage.getItem("onboarding_role");
     const onboardingLevel = localStorage.getItem("onboarding_level");
 
     if (onboardingRole && !role) {
@@ -246,23 +248,41 @@ export default function MockLandingPage() {
     }
     if (onboardingLevel && !difficulty) {
       const levelMap: Record<string, string> = {
-        beginner:     "beginner",
+        beginner: "beginner",
         intermediate: "intermediate",
-        ready:        "advanced",
+        ready: "advanced",
       };
       setDifficulty(levelMap[onboardingLevel] || onboardingLevel);
       localStorage.removeItem("onboarding_level");
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const token = localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN");
+    if (!token) return;
+    fetch(`${API_BASE}/auth/me/consent`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : { consent: false })
+      .then(d => setHasConsented(d.consent))
+      .catch(() => setHasConsented(false));
+  }, []);
+
   // Mic
   const [micStatus, setMicStatus] = useState<"idle" | "testing" | "ready" | "blocked">("idle");
-  const [micUrl,    setMicUrl]    = useState<string | null>(null);
+  const [micUrl, setMicUrl] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [cameraStatus, setCameraStatus] = useState<"idle" | "testing" | "ready" | "blocked">("idle");
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const canStart = Boolean(role && difficulty);
+  const canStart = Boolean(role && difficulty && micStatus === "ready" && cameraStatus === "ready");
 
   async function testMic() {
+    if (hasConsented === false) {
+      setShowConsent(true);
+      return;
+    }
     setMicStatus("testing");
     setMicUrl(null);
     try {
@@ -286,6 +306,21 @@ export default function MockLandingPage() {
     }
   }
 
+  async function testCamera() {
+    if (hasConsented === false) {
+      setShowConsent(true);
+      return;
+    }
+    setCameraStatus("testing");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+      setCameraStatus("ready");
+    } catch {
+      setCameraStatus("blocked");
+    }
+  }
+
   async function startSession() {
     if (!canStart) return;
     setLoading(true);
@@ -299,12 +334,12 @@ export default function MockLandingPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          role_target:      role,
-          seniority:        difficulty,
-          company_type:     company || null,
-          focus_area:       "mixed",
-          duration_mins:    questionCount * 3,
-          resume_uploaded:  false,
+          role_target: role,
+          seniority: difficulty,
+          company_type: company || null,
+          focus_area: "mixed",
+          duration_mins: questionCount * 3,
+          resume_uploaded: false,
         }),
       });
 
@@ -335,7 +370,21 @@ export default function MockLandingPage() {
     return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
   }, []);
 
-  const selectedRole    = ROLES.find((r) => r.value === role);
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream, cameraStatus]);
+
+  const selectedRole = ROLES.find((r) => r.value === role);
   const selectedCompany = COMPANIES.find((c) => c.value === company);
 
   return (
@@ -369,20 +418,30 @@ export default function MockLandingPage() {
                 {ROLES.map((r) => {
                   const selected = role === r.value;
                   return (
-                    <button key={r.value} onClick={() => setRole(r.value)}
-                      className={`group relative text-left rounded-xl border px-4 py-3.5 transition-all ${
-                        selected
+                    <button
+                      key={r.value}
+                      onClick={() => !r.comingSoon && setRole(r.value)}
+                      disabled={r.comingSoon}
+                      className={`group relative text-left rounded-xl border px-4 py-3.5 transition-all ${r.comingSoon
+                        ? "border-[#F3F4F6] bg-[#FAFAF8] cursor-not-allowed opacity-60"
+                        : selected
                           ? "border-[#111] bg-[#111] text-white"
                           : "border-[#E5E7EB] bg-white hover:border-[#111] hover:bg-[#F9FAFB]"
-                      }`}>
+                        }`}
+                    >
                       <span className="text-[20px] block mb-1.5">{r.icon}</span>
-                      <span className={`block text-[13px] font-bold ${selected ? "text-white" : "text-[#111]"}`}>
+                      <span className={`block text-[13px] font-bold ${r.comingSoon ? "text-[#9CA3AF]" : selected ? "text-white" : "text-[#111]"}`}>
                         {r.label}
                       </span>
-                      <span className={`block text-[11px] mt-0.5 ${selected ? "text-[#9CA3AF]" : "text-[#9CA3AF]"}`}>
+                      <span className="block text-[11px] mt-0.5 text-[#9CA3AF]">
                         {r.tag}
                       </span>
-                      {selected && (
+                      {r.comingSoon && (
+                        <span className="absolute top-2.5 right-2.5 rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[9px] font-black text-[#9CA3AF]">
+                          Coming soon
+                        </span>
+                      )}
+                      {selected && !r.comingSoon && (
                         <span className="absolute top-2.5 right-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-400 text-[9px] font-black text-[#111]">
                           ✓
                         </span>
@@ -410,13 +469,12 @@ export default function MockLandingPage() {
                   const locked = userPlan === "free" && c.value !== "";
                   return (
                     <button key={c.value} onClick={() => !locked && setCompany(c.value)}
-                      className={`rounded-xl border px-4 py-2 text-[13px] font-medium transition ${
-                        selected
-                          ? "border-[#111] bg-[#111] text-white"
-                          : locked
+                      className={`rounded-xl border px-4 py-2 text-[13px] font-medium transition ${selected
+                        ? "border-[#111] bg-[#111] text-white"
+                        : locked
                           ? "border-[#F3F4F6] bg-[#F9FAFB] text-[#D1D5DB] cursor-not-allowed"
                           : "border-[#E5E7EB] text-[#374151] hover:border-[#111] hover:bg-[#F9FAFB]"
-                      }`}>
+                        }`}>
                       {c.label}
                       {locked && <span className="ml-1 text-[10px]">🔒</span>}
                     </button>
@@ -434,11 +492,10 @@ export default function MockLandingPage() {
                   const selected = difficulty === d.value;
                   return (
                     <button key={d.value} onClick={() => setDifficulty(d.value)}
-                      className={`rounded-xl border px-4 py-3 text-center transition ${
-                        selected
-                          ? "border-[#111] bg-[#111] text-white"
-                          : "border-[#E5E7EB] hover:border-[#111] hover:bg-[#F9FAFB]"
-                      }`}>
+                      className={`rounded-xl border px-4 py-3 text-center transition ${selected
+                        ? "border-[#111] bg-[#111] text-white"
+                        : "border-[#E5E7EB] hover:border-[#111] hover:bg-[#F9FAFB]"
+                        }`}>
                       <span className={`block text-[13px] font-bold ${selected ? "text-white" : "text-[#111]"}`}>
                         {d.label}
                       </span>
@@ -467,8 +524,8 @@ export default function MockLandingPage() {
                         onClick={() => setLanguage(l.value)}
                         className="rounded-xl border px-4 py-2 text-[13px] font-medium transition"
                         style={{
-                          background:  selected ? "#111" : "white",
-                          color:       selected ? "white" : "#374151",
+                          background: selected ? "#111" : "white",
+                          color: selected ? "white" : "#374151",
                           borderColor: selected ? "#111" : "#E5E7EB",
                         }}
                       >
@@ -481,32 +538,96 @@ export default function MockLandingPage() {
               </div>
             )}
 
-            {/* Mic check */}
             <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className={`h-2 w-2 rounded-full ${
-                    micStatus === "ready"   ? "bg-emerald-400 animate-pulse" :
-                    micStatus === "blocked" ? "bg-rose-400" :
-                    micStatus === "testing" ? "bg-amber-400 animate-pulse" :
-                    "bg-gray-300"
-                  }`} />
-                  <span className="text-[13px] text-[#374151]">
-                    {micStatus === "ready"   ? "Microphone ready" :
-                     micStatus === "blocked" ? "Microphone blocked — check browser permissions" :
-                     micStatus === "testing" ? "Testing mic..." :
-                     "Microphone not tested"}
-                  </span>
-                </div>
-                <button onClick={testMic} disabled={micStatus === "testing"}
-                  className="text-[12px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-50">
-                  {micStatus === "testing" ? "Testing..." : "Test mic →"}
+              <p className="text-[13px] font-bold text-[#111] mb-0.5">Camera & Microphone</p>
+              <p className="text-[12px] text-[#9CA3AF] mb-4">Required to start your session</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={testMic}
+                  disabled={micStatus === "testing"}
+                  className="rounded-xl border px-4 py-3.5 text-left transition-all"
+                  style={{
+                    borderColor: micStatus === "ready" ? "#10B981" : "#E5E7EB",
+                    background: micStatus === "ready" ? "#F0FDF4" : "white",
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[18px]">🎤</span>
+                    {micStatus === "ready" && (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-black text-white">✓</span>
+                    )}
+                    {micStatus === "blocked" && (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white">!</span>
+                    )}
+                  </div>
+                  <p className="text-[12px] font-bold text-[#111]">
+                    {micStatus === "ready" ? "Mic enabled" :
+                      micStatus === "blocked" ? "Mic blocked" :
+                        micStatus === "testing" ? "Enabling..." :
+                          "Enable mic"}
+                  </p>
+                  <p className="text-[10px] text-[#9CA3AF] mt-0.5">
+                    {micStatus === "blocked" ? "Check browser settings" : "Click to allow access"}
+                  </p>
+                </button>
+
+                <button
+                  onClick={testCamera}
+                  disabled={cameraStatus === "testing"}
+                  className="rounded-xl border px-4 py-3.5 text-left transition-all"
+                  style={{
+                    borderColor: cameraStatus === "ready" ? "#10B981" : "#E5E7EB",
+                    background: cameraStatus === "ready" ? "#F0FDF4" : "white",
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[18px]">📹</span>
+                    {cameraStatus === "ready" && (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-black text-white">✓</span>
+                    )}
+                    {cameraStatus === "blocked" && (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white">!</span>
+                    )}
+                  </div>
+                  <p className="text-[12px] font-bold text-[#111]">
+                    {cameraStatus === "ready" ? "Camera enabled" :
+                      cameraStatus === "blocked" ? "Camera blocked" :
+                        cameraStatus === "testing" ? "Enabling..." :
+                          "Enable camera"}
+                  </p>
+                  <p className="text-[10px] text-[#9CA3AF] mt-0.5">
+                    {cameraStatus === "blocked" ? "Check browser settings" : "Click to allow access"}
+                  </p>
                 </button>
               </div>
-              {micUrl && (
-                <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
-                  <p className="text-[11px] text-[#9CA3AF] mb-2 uppercase tracking-wide font-bold">Playback</p>
-                  <audio controls className="w-full h-8" src={micUrl} />
+
+              {(cameraStatus === "ready" || micStatus === "ready") && (
+                <div className="mt-4 pt-4 border-t border-[#F3F4F6]">
+                  <div className="grid grid-cols-2 gap-3 items-start">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#9CA3AF] mb-1.5">Microphone</p>
+                      {micStatus === "ready" && micUrl ? (
+                        <div className="rounded-xl bg-[#FAFAF8] border border-[#F3F4F6] p-3 h-full flex flex-col justify-center">
+                          <audio controls className="w-full h-8" src={micUrl} />
+                        </div>
+                      ) : (
+                        <div className="w-full rounded-xl bg-[#F3F4F6] aspect-video flex items-center justify-center">
+                          <span className="text-[11px] text-[#D1D5DB]">Not enabled</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#9CA3AF] mb-1.5">Camera preview</p>
+                      {cameraStatus === "ready" ? (
+                        <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-xl bg-black aspect-video object-cover" />
+                      ) : (
+                        <div className="w-full rounded-xl bg-[#F3F4F6] aspect-video flex items-center justify-center">
+                          <span className="text-[11px] text-[#D1D5DB]">Not enabled</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -514,11 +635,10 @@ export default function MockLandingPage() {
             {/* Start CTA */}
             <div>
               <button onClick={startSession} disabled={loading || !canStart}
-                className={`w-full rounded-2xl py-4 text-[15px] font-black tracking-tight transition-all ${
-                  canStart && !loading
-                    ? "bg-[#111] text-white hover:bg-[#333] active:scale-[0.99]"
-                    : "bg-[#F3F4F6] text-[#9CA3AF] cursor-not-allowed"
-                }`}>
+                className={`w-full rounded-2xl py-4 text-[15px] font-black tracking-tight transition-all ${canStart && !loading
+                  ? "bg-[#111] text-white hover:bg-[#333] active:scale-[0.99]"
+                  : "bg-[#F3F4F6] text-[#9CA3AF] cursor-not-allowed"
+                  }`}>
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
                     <LoaderSpinner />
@@ -526,8 +646,12 @@ export default function MockLandingPage() {
                   </span>
                 ) : canStart ? (
                   `Start ${selectedRole?.label ?? ""} Session →`
-                ) : (
+                ) : !role || !difficulty ? (
                   "Select role + difficulty to begin"
+                ) : micStatus !== "ready" ? (
+                  "Enable microphone to continue"
+                ) : (
+                  "Enable camera to continue"
                 )}
               </button>
 
@@ -588,11 +712,10 @@ export default function MockLandingPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-[#6B7280]">Your plan</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-black ${
-                    userPlan === "max" ? "bg-[#111] text-white" :
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-black ${userPlan === "max" ? "bg-[#111] text-white" :
                     userPlan === "pro" ? "bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]" :
-                    "bg-[#F9FAFB] text-[#9CA3AF] border border-[#E5E7EB]"
-                  }`}>
+                      "bg-[#F9FAFB] text-[#9CA3AF] border border-[#E5E7EB]"
+                    }`}>
                     {PLAN_LABEL[userPlan] ?? "Free"}
                   </span>
                 </div>
@@ -608,31 +731,45 @@ export default function MockLandingPage() {
             </div>
 
             {/* What you get */}
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-                What you get
-              </p>
-              <div className="space-y-3.5">
+            <div className="rounded-2xl overflow-hidden" style={{ background: "#111" }}>
+              <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid #222" }}>
+                <p className="text-[11px] font-black uppercase tracking-widest mb-1" style={{ color: "#FFD600" }}>
+                  What you get
+                </p>
+                <p className="text-[13px] font-bold text-white">Every session includes</p>
+              </div>
+              <div className="p-5 space-y-4">
                 {[
-                  { icon: "🎯", label: "Live coaching overlay",      sub: "WPM, filler words, silence nudges" },
-                  { icon: "✦",  label: "AI scoring after each answer", sub: "Technical, communication, depth" },
-                  { icon: "📄", label: "Full transcript + report",   sub: "Per-question breakdown" },
+                  { icon: "🎯", label: "Live coaching overlay", sub: "WPM, filler words, silence nudges — while you speak" },
+                  { icon: "✦", label: "AI scoring after each answer", sub: "Technical accuracy, communication, depth" },
+                  { icon: "📄", label: "Full transcript + report", sub: "Per-question breakdown of what you said" },
                   ...(userPlan !== "free"
-                    ? [{ icon: "💡", label: "Model answers",         sub: "What you could have said instead" }]
-                    : [{ icon: "🔒", label: "Model answers",         sub: "Pro plan — unlock ideal answers" }]
+                    ? [{ icon: "💡", label: "Model answers", sub: "What a strong candidate would have said" }]
+                    : [{ icon: "🔒", label: "Model answers", sub: "Unlock with Pro — see the ideal answer" }]
                   ),
                 ].map(({ icon, label, sub }) => (
                   <div key={label} className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] text-[15px]">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[15px]"
+                      style={{ background: "rgba(255,255,255,0.06)" }}>
                       {icon}
                     </div>
                     <div>
-                      <p className="text-[13px] font-semibold text-[#111]">{label}</p>
-                      <p className="text-[11px] text-[#9CA3AF]">{sub}</p>
+                      <p className="text-[13px] font-bold text-white">{label}</p>
+                      <p className="text-[11px]" style={{ color: "#666" }}>{sub}</p>
                     </div>
                   </div>
                 ))}
               </div>
+              {userPlan === "free" && (
+                <div className="px-5 py-4" style={{ borderTop: "1px solid #222", background: "rgba(255,214,0,0.04)" }}>
+                  <p className="text-[11px] mb-2" style={{ color: "#888" }}>
+                    Free plan: 3 sessions/month · 5 questions/session
+                  </p>
+                  <a href="/pricing" className="text-[12px] font-black" style={{ color: "#FFD600" }}>
+                    Upgrade for unlimited sessions →
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Sample question preview */}
@@ -646,12 +783,12 @@ export default function MockLandingPage() {
                     {selectedRole?.label}
                   </span>
                   <p className="text-[13px] text-[#374151] leading-relaxed">
-                    {role === "Backend Engineer"    && "Explain database indexing and when you'd choose a composite index over a single-column one."}
-                    {role === "Frontend Engineer"   && "How does React reconciliation work, and how would you optimise a slow render?"}
+                    {role === "Backend Engineer" && "Explain database indexing and when you'd choose a composite index over a single-column one."}
+                    {role === "Frontend Engineer" && "How does React reconciliation work, and how would you optimise a slow render?"}
                     {role === "Full Stack Engineer" && "Walk me through a recent feature you built end-to-end — what trade-offs did you make?"}
-                    {role === "AI Engineer"         && "How would you evaluate the quality of an LLM-generated response at scale?"}
-                    {role === "Data Engineer"       && "Design a pipeline that ingests 10M events/day with exactly-once semantics."}
-                    {role === "System Design"       && "Design a URL shortener like bit.ly. Walk through your approach."}
+                    {role === "AI Engineer" && "How would you evaluate the quality of an LLM-generated response at scale?"}
+                    {role === "Data Engineer" && "Design a pipeline that ingests 10M events/day with exactly-once semantics."}
+                    {role === "System Design" && "Design a URL shortener like bit.ly. Walk through your approach."}
                   </p>
                 </div>
               </div>
@@ -665,6 +802,16 @@ export default function MockLandingPage() {
             <SessionLimitModal onClose={() => setShowLimitModal(false)} />
           )}
         </AnimatePresence>
+
+        {showConsent && (
+          <ConsentModal
+            onAccept={() => {
+              setHasConsented(true);
+              setShowConsent(false);
+            }}
+            onDecline={() => setShowConsent(false)}
+          />
+        )}
 
       </div>
     </main>

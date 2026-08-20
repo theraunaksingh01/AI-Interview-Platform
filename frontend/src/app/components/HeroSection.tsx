@@ -150,9 +150,9 @@ export function HeroSection() {
               lineHeight: 1.65,
             }}
           >
-            Mock interviews with the same questions TCS, Infosys, and Amazon
-            actually ask — at campus drives and off-campus applications. Speak
-            your answer. Get scored instantly. See what you should have said.
+            Mock interviews with the questions TCS, Infosys, and Amazon
+            actually ask. Speak your answer, get scored instantly, and see
+            exactly what you should have said.
           </motion.p>
 
           {/* Two-line social proof strip below subtext */}
@@ -218,7 +218,7 @@ export function HeroSection() {
           </motion.div>
 
           {/* Trusted by — added "& self-preparing students" to signal off-campus audience */}
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.65 }}
@@ -238,9 +238,21 @@ export function HeroSection() {
             <span style={{ fontSize: "12px", color: "#ddd", fontWeight: 500 }}>
               & students from 50+ colleges preparing independently
             </span>
+          </motion.div> */}
+
+          {/* instead of above trusted by section */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.65 }}
+            className="mt-6 flex items-center justify-center gap-2 flex-wrap px-6 pb-2"
+          >
+            <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>
+              Free to start &middot; No credit card required &middot; 3 sessions/month on the house
+            </span>
           </motion.div>
 
-          {/* Product screenshot — unchanged */}
+          {/* Product screenshot */}
           <AnimatedGroup
             variants={{
               container: {

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from api.deps import get_current_user
+from api.rate_limit import rate_limit
+from fastapi import Request
 
 router = APIRouter(prefix="/api/oa", tags=["oa_practice"])
 
@@ -154,7 +156,9 @@ def list_oa_companies():
 
 
 @router.post("/start")
+@rate_limit(max_requests=10, window_seconds=3600)
 def start_oa(
+    request: Request,
     payload: StartOARequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -231,7 +235,9 @@ def start_oa(
 
 
 @router.post("/submit")
+@rate_limit(max_requests=30, window_seconds=3600)
 def submit_oa(
+    request: Request,
     payload: SubmitOARequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),

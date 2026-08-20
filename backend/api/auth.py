@@ -15,6 +15,9 @@ from core.config import settings
 from db import models as db_models
 from models.user import UserOut  
 from core.rate_limit import limiter
+from fastapi import BackgroundTasks
+import logging
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,6 +46,7 @@ class OnboardingPayload(BaseModel):
     branch: Optional[str] = None
     placement_goal: Optional[str] = None
     target_roles: Optional[list] = None
+    target_companies: Optional[list] = None
     self_level: Optional[str] = None
 
 
@@ -62,6 +66,197 @@ class TokenOut(Token):
     pass
 
 
+# CONSENT ENDPOINT
+class ConsentPayload(BaseModel):
+    consent: bool
+
+
+@router.post("/me/consent")
+def record_consent(
+    payload: ConsentPayload,
+    db: Session = Depends(deps.get_db),
+    current_user: db_models.User = Depends(deps.get_current_user),
+):
+    """
+    Record the user's consent for voice/audio processing during mock interviews.
+    Called once before their first mic access — persisted so they aren't asked again.
+    """
+    db.execute(
+        text("""
+            UPDATE users
+            SET consent_audio_processing = :consent,
+                consent_date = CASE WHEN :consent THEN NOW() ELSE consent_date END
+            WHERE id = :uid
+        """),
+        {"consent": payload.consent, "uid": current_user.id},
+    )
+    db.commit()
+    return {"ok": True, "consent": payload.consent}
+
+
+@router.get("/me/consent")
+def get_consent(
+    db: Session = Depends(deps.get_db),
+    current_user: db_models.User = Depends(deps.get_current_user),
+):
+    """Check if the user has already given consent — used to skip the modal on repeat visits."""
+    row = db.execute(
+        text("SELECT consent_audio_processing FROM users WHERE id = :uid"),
+        {"uid": current_user.id},
+    ).first()
+    return {"consent": bool(row[0]) if row else False}
+
+
+class DeleteAccountPayload(BaseModel):
+    confirm_email: str  # student must type their email to confirm
+ 
+ 
+@router.delete("/me")
+def delete_account(
+    payload: DeleteAccountPayload,
+    db: Session = Depends(deps.get_db),
+    current_user: db_models.User = Depends(deps.get_current_user),
+):
+    """
+    Permanently delete the current user's account and all associated data.
+    Requires typing the exact email as confirmation.
+ 
+    Deletion order matters — tables without ON DELETE CASCADE on user_id
+    must be cleaned up manually before the user row itself is deleted.
+    """
+    if payload.confirm_email.strip().lower() != current_user.email.strip().lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Email confirmation does not match. Account not deleted.",
+        )
+ 
+    user_id = current_user.id
+    user_email = current_user.email
+ 
+    try:
+        # ── Step 1: Delete mock_sessions explicitly (no auto-cascade from users) ──
+        # This will cascade further into: communication_reports, multi_agent_sessions,
+        # session_feedback (all ON DELETE CASCADE from mock_sessions)
+        # candidate_question_history and interviews.mock_session_id will SET NULL automatically
+        db.execute(
+            text("DELETE FROM mock_sessions WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 2: Delete referral_events where this user is involved ──
+        # (referred_id has UNIQUE + CASCADE per our earlier migration, but referrer_id
+        #  rows where THIS user was the referrer also need cleanup)
+        db.execute(
+            text("DELETE FROM referral_events WHERE referrer_id = :uid OR referred_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 3: Delete topic_practice_sessions and results ──
+        db.execute(
+            text("""
+                DELETE FROM topic_practice_results
+                WHERE session_id IN (
+                    SELECT id FROM topic_practice_sessions WHERE user_id = :uid
+                )
+            """),
+            {"uid": user_id},
+        )
+        db.execute(
+            text("DELETE FROM topic_practice_sessions WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 4: Delete quick_prep sessions and results ──
+        db.execute(
+            text("""
+                DELETE FROM quick_prep_concept_results
+                WHERE session_id IN (
+                    SELECT id FROM quick_prep_sessions WHERE user_id = :uid
+                )
+            """),
+            {"uid": user_id},
+        )
+        db.execute(
+            text("DELETE FROM quick_prep_sessions WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 5: Delete resume_prep_sessions ──
+        db.execute(
+            text("DELETE FROM resume_prep_sessions WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 6: Delete DSA attempts ──
+        db.execute(
+            text("DELETE FROM dsa_attempts WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 7: Delete OA attempts (has SET NULL, but let's fully remove for privacy) ──
+        db.execute(
+            text("DELETE FROM oa_attempts WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 8: Delete assessment attempts (has SET NULL, fully remove for privacy) ──
+        db.execute(
+            text("DELETE FROM assessment_attempts WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 9: Delete peer practice data ──
+        db.execute(
+            text("DELETE FROM peer_attempts WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+        db.execute(
+            text("DELETE FROM peer_stats WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+        # Peer rooms created by this user — set creator to null or delete if no other participant
+        db.execute(
+            text("DELETE FROM peer_rooms WHERE created_by = :uid"),
+            {"uid": user_id},
+        )
+ 
+        # ── Step 10: Delete daily answers, submitted questions ──
+        # (both have ON DELETE CASCADE already, but explicit delete is fine too — safe no-op if already gone)
+ 
+        # ── Step 11: Delete uploads (files should also be cleaned from local storage) ──
+        upload_keys = db.execute(
+            text("SELECT key FROM uploads WHERE user_id = :uid"),
+            {"uid": user_id},
+        ).fetchall()
+        # Note: actual file deletion from disk/S3 should happen here if uploads are stored.
+        # Since we confirmed resume-prep and mock interview don't use S3, this is likely a no-op,
+        # but any orphaned files in /agent_audio or local upload dirs tied to this user's
+        # sessions should be cleaned by a periodic job, not inline here (keep deletion fast).
+ 
+        # ── Step 12: Finally, delete the user row itself ──
+        # This will CASCADE into: interview_calendar, interviews, daily_answers,
+        # submitted_questions, uploads, user_notifications, user_roles
+        db.execute(
+            text("DELETE FROM users WHERE id = :uid"),
+            {"uid": user_id},
+        )
+ 
+        db.commit()
+        log.info(f"[account_deletion] User {user_id} ({user_email}) account deleted successfully")
+ 
+    except Exception as e:
+        db.rollback()
+        log.exception(f"[account_deletion] Failed to delete user {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Account deletion failed. Please contact support — your account has not been altered.",
+        )
+ 
+    return {
+        "ok": True,
+        "message": "Your account and all associated data have been permanently deleted.",
+    }
+    
 
 # ---------- Helpers ----------
 def _issue_access_token(user: db_models.User) -> Token:
@@ -119,7 +314,8 @@ def login_json(payload: LoginJSON, db: Session = Depends(deps.get_db)) -> Any:
 
 
 @router.post("/register", response_model=Token)
-def register(payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> Any:
+@login_rate_limit()
+def register(request: Request, payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> Any:
     """
     Create a new user account and return an access token.
     """
@@ -134,6 +330,14 @@ def register(payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> An
         )
     # Create user
     hashed = security.get_password_hash(payload.password)
+
+    # Generate a unique referral code (required NOT NULL column)
+    import hashlib
+    from datetime import datetime as dt
+    referral_code = hashlib.md5(f"{payload.email}{dt.utcnow()}".encode()).hexdigest()[:8].upper()
+    while db.query(db_models.User).filter(db_models.User.referral_code == referral_code).first():
+        referral_code = hashlib.md5(f"{payload.email}{dt.utcnow()}{referral_code}".encode()).hexdigest()[:8].upper()
+
     user = db_models.User(
         email=payload.email,
         hashed_password=hashed,
@@ -141,6 +345,7 @@ def register(payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> An
         is_active=True,
         is_superuser=False,
         plan="free",
+        referral_code=referral_code,
     )
     db.add(user)
     db.commit()
@@ -171,6 +376,8 @@ def save_onboarding(
         updates["placement_goal"] = payload.placement_goal
     if payload.target_roles is not None:
         updates["target_roles"] = json.dumps(payload.target_roles)
+    if payload.target_companies is not None:              
+        updates["target_companies"] = payload.target_companies
     if payload.self_level is not None:
         updates["self_level"] = payload.self_level
 

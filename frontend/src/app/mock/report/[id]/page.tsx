@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import ContributeCard from "@/components/ContributeCard";
 import FlagQuestionButton from "@/components/FlagQuestionButton";
+import { AIDisclaimer } from "@/app/components/AIDisclaimer";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type QuestionData = {
@@ -510,7 +511,7 @@ export default function MockReportPage() {
   return (
     <main className="min-h-screen bg-[#FAFAFA] px-4 pb-16 pt-28 sm:px-8">
       <div className="mx-auto max-w-215 space-y-6">
-
+        <AIDisclaimer variant="compact" />
         {/* ── Header ── */}
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
@@ -532,6 +533,8 @@ export default function MockReportPage() {
             <p className="mt-1 text-[11px] text-[#9CA3AF]">Overall Score</p>
           </div>
         </div>
+
+        <AIDisclaimer variant="compact" />
 
         {isResumePrep && consistency?.has_data && (
           <div className="mb-5 rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden">

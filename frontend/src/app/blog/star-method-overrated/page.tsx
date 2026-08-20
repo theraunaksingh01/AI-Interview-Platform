@@ -19,13 +19,16 @@ export default function StarMethodPost() {
               STAR is a starting point, not a formula. Interviewers can tell when you're reciting a template. Here's how to answer behavioural questions in a way that actually sounds human.
             </p>
             <div className="mt-5 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#92400e] text-[11px] font-bold text-white">QD</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#92400e] text-[11px] font-bold text-white">R</div>
               <div>
-                <p className="text-[13px] font-semibold text-[#111]">Qued Team</p>
+                <p className="text-[13px] font-semibold text-[#111]">Raunak</p>
                 <p className="text-[11px] text-[#9CA3AF]">5 min read</p>
               </div>
             </div>
           </motion.div>
+
+           {/* Divider */}
+          <div className="my-8 h-px bg-[#E5E7EB]" />
 
           <div className="my-8 h-px bg-[#E5E7EB]" />
 

@@ -28,11 +28,11 @@ export default function BlogPost1() {
             <p className="mt-4 text-[16px] text-[#6B7280] leading-relaxed">
               Most candidates rehearse this answer until it sounds robotic. Here's a framework to structure it naturally — and why the first 30 seconds determine the interviewer's entire perception of you.
             </p>
-            <div className="mt-5 flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4f46e5] text-[11px] font-bold text-white">AM</div>
+            <div className="mt-5 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#000000] text-[11px] font-bold text-white">R</div>
               <div>
-                <p className="text-[13px] font-semibold text-[#111]">Aryan Mehta</p>
-                <p className="text-[11px] text-[#9CA3AF]">Ex-Google SDE · 6 min read</p>
+                <p className="text-[13px] font-semibold text-[#111]">Raunak</p>
+                <p className="text-[11px] text-[#9CA3AF]">6 min read</p>
               </div>
             </div>
           </motion.div>

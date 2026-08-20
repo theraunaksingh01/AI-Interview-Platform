@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
+import { AIDisclaimer } from "@/app/components/AIDisclaimer";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
@@ -883,6 +884,8 @@ function SummaryScreen({ summary, onRetry }: { summary: SummaryData; onRetry: ()
             {summary.questions_asked} questions · {summary.avg_score}/10 avg
           </p>
         </div>
+
+        <AIDisclaimer variant="compact" />
 
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 mb-5">
           <div className="flex items-center justify-between mb-3">

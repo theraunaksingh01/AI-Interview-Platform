@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { FooterHero } from "@/app/components/Footer";
+import { AIDisclaimer } from "@/app/components/AIDisclaimer";
 import DiagnosticsCard from "@/components/DiagnosticsCard";
 
 import {
@@ -227,6 +228,8 @@ function PassportCard({ data }: { data: PassportData }) {
           </div>
         </div>
 
+        <AIDisclaimer variant="compact" />
+
         {/* Topic scores row */}
         <div className="relative grid grid-cols-5 gap-3 mb-6">
           {Object.entries(data.topic_scores).map(([key, val]) => {
@@ -368,10 +371,26 @@ export default function PassportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FFFDF0] pt-24 flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-[#111]" />
-          <p className="text-[13px] text-[#9CA3AF]">Generating your passport…</p>
+      <div className="min-h-screen bg-[#FFFDF0] pt-24 px-6 pb-16">
+        <div className="mx-auto max-w-[680px] space-y-4">
+          <div className="rounded-3xl overflow-hidden" style={{ background: "#111" }}>
+            <div className="px-8 py-8 text-center">
+              <div className="h-3 w-40 mx-auto mb-4 rounded bg-white/10 animate-pulse" />
+              <div className="h-16 w-24 mx-auto mb-3 rounded-xl bg-white/10 animate-pulse" />
+              <div className="h-3 w-32 mx-auto rounded bg-white/10 animate-pulse" />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i}>
+                <div className="flex justify-between mb-2">
+                  <div className="h-3 w-28 rounded bg-gray-100 animate-pulse" />
+                  <div className="h-3 w-8 rounded bg-gray-100 animate-pulse" />
+                </div>
+                <div className="h-2 w-full rounded-full bg-gray-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

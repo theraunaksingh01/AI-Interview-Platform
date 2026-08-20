@@ -100,6 +100,8 @@ export default function SettingsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [plan, setPlan] = useState<Plan>("free");
   const [profile, setProfile] = useState<ProfileForm>({
     fullName: "",
@@ -276,6 +278,40 @@ export default function SettingsPage() {
     }
   }
 
+  async function deleteAccount() {
+    if (deleteConfirm.trim().toLowerCase() !== profile.email.trim().toLowerCase()) {
+      setDeleteError("Email doesn't match. Please type your exact email to confirm.");
+      return;
+    }
+    setDeletingAccount(true);
+    setDeleteError("");
+    try {
+      const token = localStorage.getItem("access_token") || localStorage.getItem("API_TOKEN");
+      const base = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/$/, "");
+      const res = await fetch(`${base}/auth/me`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ confirm_email: deleteConfirm.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteError(data.detail || "Failed to delete account. Please try again.");
+        setDeletingAccount(false);
+        return;
+      }
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("API_TOKEN");
+      document.cookie = "access_token=;path=/;max-age=0";
+      window.location.href = "/?deleted=true";
+    } catch {
+      setDeleteError("Network error. Please try again or contact support.");
+      setDeletingAccount(false);
+    }
+  }
+
   function handleUpgrade() {
     showToast("Coming soon");
   }
@@ -291,8 +327,25 @@ export default function SettingsPage() {
     return (
       <main className="min-h-screen bg-[#FFFDF0] px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center text-gray-500">
-            Loading settings...
+          <div className="mb-8">
+            <div className="h-3 w-16 rounded bg-gray-100 animate-pulse mb-3" />
+            <div className="h-8 w-48 rounded bg-gray-100 animate-pulse" />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 w-full rounded-xl bg-white border border-gray-100 animate-pulse" />
+              ))}
+            </div>
+            <div className="rounded-3xl border border-gray-200 bg-white p-8 space-y-5">
+              <div className="h-4 w-32 rounded bg-gray-100 animate-pulse" />
+              {[1, 2, 3].map((i) => (
+                <div key={i}>
+                  <div className="h-3 w-20 rounded bg-gray-100 animate-pulse mb-2" />
+                  <div className="h-11 w-full rounded-xl bg-gray-50 animate-pulse" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </main>
@@ -586,14 +639,25 @@ export default function SettingsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900">Delete account</h3>
-            <p className="mt-2 text-sm text-gray-600">This will permanently delete your account and all session data. Type DELETE to confirm.</p>
-            <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} className="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-black focus:ring-0" placeholder="Type DELETE" />
+            <p className="mt-2 text-sm text-gray-600">
+              This will permanently delete your account, all mock interview sessions, DSA progress,
+              assessment results, OA attempts, and referral data. This cannot be undone.
+            </p>
+            <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} className="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-black focus:ring-0" placeholder="Type your email to confirm" />
+
+            {deleteError && (
+              <p className="mt-2 text-xs text-red-600 font-medium">{deleteError}</p>
+            )}
             <div className="mt-5 flex gap-3">
               <button onClick={() => { setDeleteModalOpen(false); setDeleteConfirm(""); }} className="flex-1 rounded-xl border border-gray-200 px-4 py-3 font-bold text-gray-700 hover:border-black hover:text-black">
                 Cancel
               </button>
-              <button onClick={() => { showToast("Coming soon"); setDeleteModalOpen(false); setDeleteConfirm(""); }} disabled={deleteConfirm !== "DELETE"} className="flex-1 rounded-xl border border-red-300 px-4 py-3 font-bold text-red-600 hover:bg-red-50 disabled:opacity-50">
-                Delete
+              <button
+                onClick={deleteAccount}
+                disabled={deletingAccount || deleteConfirm.trim().toLowerCase() !== profile.email.trim().toLowerCase()}
+                className="rounded-xl bg-red-600 px-4 py-2.5 font-bold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                {deletingAccount ? "Deleting..." : "Permanently delete"}
               </button>
             </div>
           </div>

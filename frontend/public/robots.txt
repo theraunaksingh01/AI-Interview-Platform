@@ -1,0 +1,35 @@
+# frontend/public/robots.txt
+
+User-agent: *
+Allow: /
+
+# Don't index private/authenticated app pages
+Disallow: /mock/dashboard
+Disallow: /mock/session/
+Disallow: /mock/report/
+Disallow: /settings
+Disallow: /interview/
+Disallow: /dsa/
+Disallow: /topic-practice
+Disallow: /quick-prep
+Disallow: /peer
+Disallow: /resume-prep
+Disallow: /passport
+Disallow: /calendar
+Disallow: /daily
+Disallow: /assessment/results/
+Disallow: /oa-practice/results/
+Disallow: /oa-practice/*/
+Disallow: /api/
+
+# Allow public marketing + prep pages
+Allow: /assessment
+Allow: /oa-practice$
+Allow: /pricing
+Allow: /features
+Allow: /blog
+Allow: /companies
+Allow: /login
+Allow: /signup
+
+Sitemap: https://qued.in/sitemap.xml

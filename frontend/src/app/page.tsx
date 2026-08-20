@@ -6,22 +6,22 @@ import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 
 import { HeroSection } from "./components/HeroSection";
 import ChallangesSection from "./components/Challenges";
-import HowItWorks  from "./components/HowItWorks";
+import HowItWorks from "./components/HowItWorks";
 import { CompanyPrep } from "./components/CompanyPrep";
 import { FAQ } from "./components/FAQ";
 import FinalCTA from "./components/ui/cta-with-marquee";
 import { ProcessBento } from "./components/ui/process-bento";
 import { ProductDemo } from "./components/ProductDemo";
-import StatsSection from "./components/ui/stats";
-import { SocialProof } from "./components/ui/SocialProof";
-import SkillPassport  from "./components/PassportTeaser";
-import {Pricing} from "./components/Pricing";
-import { Testimonials } from "./components/ui/testimonials";
+// import StatsSection from "./components/ui/stats";
+// import { SocialProof } from "./components/ui/SocialProof";
+import SkillPassport from "./components/PassportTeaser";
+import { Pricing } from "./components/Pricing";
+// import { Testimonials } from "./components/ui/testimonials";
 import { FooterHero } from "./components/Footer";
-import BlogSection from "./components/BlogSection";
+// import BlogSection from "./components/BlogSection";
 import ComparisonSection from "./components/ComparisonSection";
 import { DailyQuestionTeaser } from "@/app/components/DailyQuestionTeaser";
-import {AssessmentFeature} from "./components/AssessmentFeature";
+import { AssessmentFeature } from "./components/AssessmentFeature";
 import { OAPracticeFeature } from "./components/OAPracticeFeature";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
@@ -31,18 +31,17 @@ export default function Page() {
 
   return (
     <div className={`${inter.className} min-h-screen overflow-x-hidden bg-white text-slate-900`}>
-      
-      <main className="pt-20">
-        {/* Hero Section */}
-        <HeroSection />  
 
-          {/* Challenges Section */}
+      <main className="pt-20">
+        
+        <HeroSection />
+        
         <ChallangesSection />
 
         <HowItWorks />
 
-        <SocialProof />
-        
+        {/* <SocialProof /> */}
+
         <ProcessBento />
 
         <CompanyPrep />
@@ -55,17 +54,22 @@ export default function Page() {
 
         <ComparisonSection />
 
-        <StatsSection />
+        {/* <StatsSection /> */}
 
-        
+
 
         <SkillPassport />
 
-        <Testimonials />
+        {/* <Testimonials /> */}
+
         <Pricing />
-        <BlogSection />
+
+        {/* <BlogSection /> */}
+
         <DailyQuestionTeaser />
+
         <FAQ />
+
         <FinalCTA />
 
       </main>

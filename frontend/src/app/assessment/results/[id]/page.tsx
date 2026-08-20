@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { AIDisclaimer } from "@/app/components/AIDisclaimer";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
@@ -44,23 +45,23 @@ type Results = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const SECTION_LABELS: Record<string, string> = {
-  aptitude:        "Aptitude",
+  aptitude: "Aptitude",
   cs_fundamentals: "CS Fundamentals",
   programming_dsa: "Programming & DSA",
-  communication:   "Communication",
+  communication: "Communication",
 };
 
 const SECTION_ICONS: Record<string, string> = {
-  aptitude:        "🧮",
+  aptitude: "🧮",
   cs_fundamentals: "💻",
   programming_dsa: "⚡",
-  communication:   "🎙️",
+  communication: "🎙️",
 };
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  on_track:    { bg: "#F0FDF4", color: "#065F46", label: "On track" },
-  borderline:  { bg: "#FFFBEB", color: "#92400E", label: "Borderline" },
-  needs_work:  { bg: "#FEF2F2", color: "#991B1B", label: "Needs work" },
+  on_track: { bg: "#F0FDF4", color: "#065F46", label: "On track" },
+  borderline: { bg: "#FFFBEB", color: "#92400E", label: "Borderline" },
+  needs_work: { bg: "#FEF2F2", color: "#991B1B", label: "Needs work" },
 };
 
 function ScoreBar({ score, color = "#111" }: { score: number; color?: string }) {
@@ -86,19 +87,19 @@ export default function AssessmentResultsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const [results, setResults]   = useState<Results | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [claimed, setClaimed]   = useState(false);
+  const [results, setResults] = useState<Results | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
 
   // ── Claim guest attempt after login ──────────────────────────────────────
 
   useEffect(() => {
     if (!user || claimed) return;
-    const storedToken   = localStorage.getItem("qued_assessment_guest_token")
-                          || sessionStorage.getItem("qued_assessment_guest_token");
+    const storedToken = localStorage.getItem("qued_assessment_guest_token")
+      || sessionStorage.getItem("qued_assessment_guest_token");
     const storedAttempt = localStorage.getItem("qued_assessment_attempt_id")
-                          || sessionStorage.getItem("qued_assessment_attempt_id");
+      || sessionStorage.getItem("qued_assessment_attempt_id");
     if (!storedToken || !storedAttempt) return;
 
     const token = localStorage.getItem("API_TOKEN") || localStorage.getItem("access_token") || localStorage.getItem("auth_token") || "";
@@ -110,7 +111,7 @@ export default function AssessmentResultsPage() {
       },
       body: JSON.stringify({
         guest_token: storedToken,
-        attempt_id:  parseInt(storedAttempt),
+        attempt_id: parseInt(storedAttempt),
       }),
     })
       .then(() => {
@@ -135,7 +136,7 @@ export default function AssessmentResultsPage() {
 
     const token = localStorage.getItem("API_TOKEN") || localStorage.getItem("access_token") || localStorage.getItem("auth_token") || "";
     const gt = localStorage.getItem("qued_assessment_guest_token")
-               || sessionStorage.getItem("qued_assessment_guest_token") || "";
+      || sessionStorage.getItem("qued_assessment_guest_token") || "";
     const gtParam = gt ? `?guest_token=${encodeURIComponent(gt)}` : "";
     fetch(`${API_BASE}/api/assessment/results/${id}${gtParam}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -169,10 +170,45 @@ export default function AssessmentResultsPage() {
 
   if (authLoading || loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ background: "#FAFAF8" }}>
-        <div className="text-center">
-          <div className="text-[48px] mb-3 animate-pulse">📊</div>
-          <p className="text-[14px] text-[#9CA3AF]">Loading your results...</p>
+      <main className="min-h-screen px-4 pb-16 pt-24" style={{ background: "#FAFAF8" }}>
+        <div className="mx-auto max-w-[680px] space-y-4">
+
+          <div className="rounded-3xl overflow-hidden" style={{ background: "#111" }}>
+            <div className="px-8 py-8 text-center">
+              <div className="h-3 w-40 mx-auto mb-4 rounded bg-white/10 animate-pulse" />
+              <div className="h-16 w-24 mx-auto mb-3 rounded-xl bg-white/10 animate-pulse" />
+              <div className="h-3 w-56 mx-auto rounded bg-white/10 animate-pulse" />
+            </div>
+            <div className="grid grid-cols-4 divide-x divide-[#222] border-t border-[#222]">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="py-3 text-center">
+                  <div className="h-2 w-8 mx-auto mb-2 rounded bg-white/10 animate-pulse" />
+                  <div className="h-5 w-6 mx-auto rounded bg-white/10 animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 space-y-4">
+            <div className="h-3 w-32 rounded bg-gray-100 animate-pulse mb-2" />
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i}>
+                <div className="flex justify-between mb-2">
+                  <div className="h-3 w-24 rounded bg-gray-100 animate-pulse" />
+                  <div className="h-3 w-8 rounded bg-gray-100 animate-pulse" />
+                </div>
+                <div className="h-2 w-full rounded-full bg-gray-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 space-y-3">
+            <div className="h-3 w-28 rounded bg-gray-100 animate-pulse mb-2" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 w-full rounded-xl bg-gray-50 animate-pulse" />
+            ))}
+          </div>
+
         </div>
       </main>
     );
@@ -245,6 +281,8 @@ export default function AssessmentResultsPage() {
           </div>
         </div>
 
+        <AIDisclaimer variant="compact" />
+
         {/* ── Detailed score breakdown ── */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
           <h2 className="text-[16px] font-black text-[#111] mb-5">Score breakdown</h2>
@@ -283,8 +321,8 @@ export default function AssessmentResultsPage() {
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Structure",     value: results.voice_evaluation.structure   },
-                  { label: "Clarity",       value: results.voice_evaluation.clarity     },
+                  { label: "Structure", value: results.voice_evaluation.structure },
+                  { label: "Clarity", value: results.voice_evaluation.clarity },
                 ].map(({ label, value }) => (
                   <div key={label} className="rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] px-4 py-3">
                     <p className="text-[11px] text-[#9CA3AF] mb-1">{label}</p>

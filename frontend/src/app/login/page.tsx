@@ -89,11 +89,15 @@ function LoginForm() {
           </div>
 
           <div aria-hidden className="absolute pointer-events-none"
-            style={{ top: "-10%", right: "-30%", width: 400, height: 400, borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(255,214,0,0.15) 0%, transparent 70%)" }} />
+            style={{
+              top: "-10%", right: "-30%", width: 400, height: 400, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(255,214,0,0.15) 0%, transparent 70%)"
+            }} />
           <div aria-hidden className="absolute pointer-events-none"
-            style={{ bottom: "-15%", left: "-20%", width: 300, height: 300, borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)" }} />
+            style={{
+              bottom: "-15%", left: "-20%", width: 300, height: 300, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)"
+            }} />
 
           <div className="relative z-10 px-8">
             <div className="mb-8">
@@ -184,12 +188,7 @@ function LoginForm() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[11px] font-bold text-[#374151]">Password</label>
-                  <a href="/forgot-password" className="text-[11px] font-bold text-[#9CA3AF] hover:text-[#111] transition">
-                    Forgot?
-                  </a>
-                </div>
+                <label className="block text-[11px] font-bold text-[#374151] mb-1.5">Password</label>
                 <div className="relative">
                   <input
                     type={show ? "text" : "password"}
@@ -209,15 +208,22 @@ function LoginForm() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-[12px] text-[#6B7280]">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={e => setRemember(e.target.checked)}
-                  className="rounded border-[#D1D5DB]"
-                />
-                Remember me
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-[12px] text-[#6B7280]">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={e => setRemember(e.target.checked)}
+                    className="rounded border-[#D1D5DB]"
+                  />
+                  Remember me
+                </label>
+                <a href="/forgot-password" className="text-[11px] font-bold text-[#9CA3AF] hover:text-[#111] transition">
+                  Forgot password?
+                </a>
+              </div>
+
+
 
               {err && (
                 <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[12px] text-red-600">

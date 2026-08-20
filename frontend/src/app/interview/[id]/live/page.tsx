@@ -14,8 +14,6 @@ import {
   Pause,
   CheckCircle2,
   AlertCircle,
-  User,
-  Shield,
   ShieldAlert,
 } from "lucide-react";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
@@ -546,10 +544,12 @@ export function InterviewRoom({
 
       if (msg.type === "live_signal") {
         setAnswerConfidence(msg.confidence);
-        // Only show Whisper fallback transcript when Web Speech is unavailable
-        if (!recognitionRef.current && msg.transcript) {
+        // Always prefer the longer/more complete transcript — Whisper catches what
+        // browser SpeechRecognition drops during its restart gaps
+        if (msg.transcript && msg.transcript.length > liveTranscriptRef.current.length) {
           setLiveTranscript(msg.transcript);
           liveTranscriptRef.current = msg.transcript;
+          finalTranscriptRef.current = msg.transcript + " ";
         }
         if (msg.transcript) {
           ingestTranscriptChunk(msg.transcript);
@@ -562,6 +562,14 @@ export function InterviewRoom({
           onAudioActivity();
           ingestTranscriptChunk(msg.transcript);
           onTranscriptChunk?.(msg.transcript);
+
+          // Also surface to the visible transcript if it adds new content
+          const combined = (finalTranscriptRef.current + " " + msg.transcript).trim();
+          if (combined.length > liveTranscriptRef.current.length) {
+            setLiveTranscript(combined);
+            liveTranscriptRef.current = combined;
+            finalTranscriptRef.current = combined + " ";
+          }
         }
       }
 
@@ -645,7 +653,7 @@ export function InterviewRoom({
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = "en-US";
+        recognition.lang = "en-IN";
         recognitionRef.current = recognition;
 
         recognition.onresult = (event: any) => {
@@ -681,27 +689,34 @@ export function InterviewRoom({
         };
 
         recognition.onerror = (event: any) => {
-          // 'aborted' is expected when recognition is intentionally stopped
-          // during submit/interrupt transitions; don't surface it as a UI error.
           if (event?.error === "aborted") {
             console.log('[speech] recognition aborted (expected during turn transitions)');
             return;
           }
-
-          console.error('[speech] recognition error:', event?.error, event?.message);
-          setAsrWarning(`Speech error: ${event?.error || 'unknown'} — using Whisper fallback.`);
+          if (event?.error === "no-speech") {
+            // Don't null the ref — let onend handle restart naturally
+            return;
+          }
+          console.warn('[speech] recognition error:', event?.error, event?.message);
+          setAsrWarning("");
           recognitionRef.current = null;
         };
 
         recognition.onend = () => {
           console.log('[speech] recognition ended, candidateSpeaking:', candidateSpeakingRef.current);
-          if (recognitionRef.current === recognition && candidateSpeakingRef.current && !interruptedRef.current) {
-            try {
-              recognition.start();
-              console.log('[speech] recognition restarted');
-            } catch (e) {
-              console.error('[speech] restart failed:', e);
-            }
+          if (candidateSpeakingRef.current && !interruptedRef.current) {
+            // Re-create a fresh instance instead of reusing the ended one — more reliable restart
+            setTimeout(() => {
+              if (candidateSpeakingRef.current && !interruptedRef.current) {
+                try {
+                  recognitionRef.current = recognition; // ensure ref points here
+                  recognition.start();
+                  console.log('[speech] recognition restarted');
+                } catch (e) {
+                  console.error('[speech] restart failed, will rely on Whisper fallback:', e);
+                }
+              }
+            }, 100);
           }
         };
 
@@ -782,7 +797,7 @@ export function InterviewRoom({
   }
 
   // ── Submit answer ─────────────────────────────────────────────────
-  function submitAnswer() {
+  async function submitAnswer() {
     const qid = currentQuestionIdRef.current;
     if (!qid || !wsRef.current) return;
 
@@ -819,7 +834,28 @@ export function InterviewRoom({
     setCandidateSpeaking(false);
     setAgentStatus("idle");
 
-    const transcript = finalTranscriptRef.current.trim() || liveTranscript || codeAnswer;
+    // Get high-quality final transcript from Whisper via finalize_pcm.
+    // Falls back to the client-accumulated transcript if the call fails.
+    let transcript = (liveTranscriptRef.current.length >= finalTranscriptRef.current.trim().length
+      ? liveTranscriptRef.current
+      : finalTranscriptRef.current.trim()) || codeAnswer;
+
+    if (questionType === "voice" && qid) {
+      try {
+        const finalizeRes = await fetch(
+          `${API_BASE}/api/interview/${interviewId}/finalize_pcm?question_id=${qid}`,
+          { method: "POST" }
+        );
+        if (finalizeRes.ok) {
+          const finalizeData = await finalizeRes.json();
+          if (finalizeData?.transcript && finalizeData.transcript.trim().length > 0) {
+            transcript = finalizeData.transcript.trim();
+          }
+        }
+      } catch {
+        // Final Whisper pass failed — fall back to the accumulated live transcript above
+      }
+    }
 
     // submit anti-cheat flags only in company mode
     if (isCompanyMode && !isMockMode) {
@@ -1000,14 +1036,14 @@ export function InterviewRoom({
 
   const statusConfig: Record<typeof agentStatus, { label: string; dotClass: string }> = {
     idle: { label: "Ready", dotClass: "bg-gray-300" },
-    speaking: { label: "AI Speaking", dotClass: "bg-indigo-500 animate-pulse" },
+    speaking: { label: "AI Speaking", dotClass: "bg-[#F59E0B] animate-pulse" },
     listening: { label: "Listening", dotClass: "bg-emerald-500 animate-pulse" },
   };
 
   const isCodeView = candidateSpeaking && questionType === "code";
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-slate-50 to-white text-gray-900">
+    <div className="flex flex-col h-screen text-[#111]" style={{ background: "#FFFDF0" }}>
       <audio ref={agentAudioRef} preload="auto" />
 
       <InterruptionBubble
@@ -1017,23 +1053,23 @@ export function InterviewRoom({
 
 
       {/* ── Top Header Bar ── */}
-      <header className="flex items-center justify-between px-3 py-2 lg:px-5 lg:py-3 bg-white border-b border-gray-200 shrink-0 min-w-0">
+      <header className="flex items-center justify-between px-4 py-3 lg:px-6 lg:py-3.5 bg-white border-b border-[#F0EDE6] shrink-0 min-w-0">
         {/* Left: Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-xs lg:text-sm font-semibold text-gray-700 hidden sm:block">AI Interview</span>
+          <span className="text-[18px] font-black tracking-tight">
+            <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: 4 }}>Qu</span>ed
+          </span>
+          <span className="text-[11px] font-bold text-[#9CA3AF] hidden sm:block ml-2 uppercase tracking-widest">Mock Interview</span>
         </div>
 
         {/* Center: Status */}
         <div className="flex items-center gap-1.5 lg:gap-3">
-          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-2.5 lg:px-4 py-1.5">
+          <div className="flex items-center gap-1.5 bg-[#FAFAF8] border border-[#F0EDE6] rounded-full px-2.5 lg:px-4 py-1.5">
             <div className={`w-2 h-2 rounded-full ${statusConfig[agentStatus].dotClass}`} />
             <span className="text-xs font-medium text-gray-600">{statusConfig[agentStatus].label}</span>
           </div>
           {candidateSpeaking && questionType === "voice" && (
-            <div className={`flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 ${interrupted ? "border-amber-300" : ""}`}>
+            <div className={`flex items-center gap-1.5 bg-[#FAFAF8] border border-[#F0EDE6] rounded-full px-3 py-1.5 ${interrupted ? "border-amber-300" : ""}`}>
               <Clock className="w-3.5 h-3.5 text-gray-400" />
               <span className={`text-[11px] lg:text-xs font-mono font-bold ${interrupted ? "text-amber-600" : timerColor}`}>
                 {interrupted && <span className="text-[10px] mr-1 font-sans">PAUSED</span>}
@@ -1066,15 +1102,16 @@ export function InterviewRoom({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white border border-gray-200 rounded-2xl p-4 lg:p-5 shadow-sm"
+              className="bg-white border border-[#F0EDE6] rounded-2xl p-5 lg:p-6"
+              style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.04)" }}
             >
               <div className="flex items-start gap-3">
-                <div className="hidden lg:flex w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
-                  <User className="w-5 h-5 text-white" />
+                <div className="hidden lg:flex w-11 h-11 rounded-2xl items-center justify-center shrink-0" style={{ background: "#111" }}>
+                  <span className="text-[18px]">🎙️</span>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-indigo-600">AI Interviewer</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: "#7A6000" }}>AI Interviewer</span>
                     <span className="text-[10px] text-gray-400">{statusConfig[agentStatus].label}</span>
                   </div>
                   {isFollowup && (
@@ -1088,7 +1125,7 @@ export function InterviewRoom({
                       <span className="text-[11px] text-[#9CA3AF]">Based on your previous answer</span>
                     </div>
                   )}
-                  <p className="text-base text-gray-800 leading-relaxed">
+                  <p className="text-[16px] text-[#111] leading-relaxed font-medium">
                     {questionText || "Connecting to interview..."}
                   </p>
                 </div>
@@ -1104,7 +1141,8 @@ export function InterviewRoom({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3 }}
-                className="flex-1 bg-white border border-gray-200 rounded-2xl p-4 lg:p-5 flex flex-col shadow-sm"
+                className="flex-1 bg-white border border-[#F0EDE6] rounded-2xl p-5 lg:p-6 flex flex-col"
+                style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.04)" }}
               >
                 {/* Recording indicator */}
                 <div className="flex items-center justify-between">
@@ -1136,8 +1174,9 @@ export function InterviewRoom({
                     {Array.from({ length: 24 }).map((_, i) => (
                       <div
                         key={i}
-                        className="w-1 bg-indigo-500 rounded-full"
+                        className="w-1 rounded-full"
                         style={{
+                          background: "#F59E0B",
                           height: `${Math.random() * 100}%`,
                           animationName: 'pulse',
                           animationDuration: `${0.5 + Math.random() * 0.8}s`,
@@ -1160,7 +1199,7 @@ export function InterviewRoom({
                 )}
 
                 {/* Live transcript */}
-                <div className="min-h-[3rem] max-h-[6rem] lg:flex-1 lg:max-h-none bg-gray-50 rounded-xl p-3 text-sm text-gray-700 leading-relaxed overflow-y-auto">
+                <div className="min-h-[3rem] max-h-[6rem] lg:flex-1 lg:max-h-none bg-[#FAFAF8] border border-[#F3F4F6] rounded-xl p-4 text-[13px] text-[#374151] leading-relaxed overflow-y-auto">
                   {liveTranscript ? (
                     liveTranscript
                   ) : (
@@ -1185,14 +1224,15 @@ export function InterviewRoom({
                       <div className="flex gap-3">
                         <button
                           onClick={continueRecording}
-                          className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm font-medium transition-all"
+                          className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#374151] rounded-xl py-2.5 text-[13px] font-bold transition-all"
                         >
                           <Play className="w-3.5 h-3.5" />
                           Continue Recording
                         </button>
                         <button
                           onClick={submitAnswer}
-                          className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 text-sm font-medium transition-all"
+                          className="flex-1 flex items-center justify-center gap-2 text-white rounded-xl py-2.5 text-[13px] font-bold transition-all hover:opacity-90"
+                          style={{ background: "#111" }}
                         >
                           <Send className="w-3.5 h-3.5" />
                           Submit Answer
@@ -1206,7 +1246,8 @@ export function InterviewRoom({
                 {!interrupted && (
                   <button
                     onClick={submitAnswer}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:shadow-lg hover:shadow-indigo-500/20 text-white rounded-2xl py-4 lg:py-3 text-base lg:text-sm font-bold transition-all mt-auto"
+                    className="w-full flex items-center justify-center gap-2 text-white rounded-2xl py-4 lg:py-3.5 text-[14px] font-black transition-all mt-auto hover:opacity-90"
+                    style={{ background: "#111" }}
                   >
                     <Send className="w-4 h-4" />
                     Submit Answer
@@ -1220,7 +1261,7 @@ export function InterviewRoom({
           {candidateSpeaking && questionType === "code" && (
             <div className="flex flex-col flex-1 min-h-0">
               {/* Header bar */}
-              <div className="flex items-center justify-between bg-slate-800 border-b border-slate-700 text-white px-4 py-2.5 shrink-0">
+              <div className="flex items-center justify-between border-b text-white px-4 py-3 shrink-0" style={{ background: "#111", borderColor: "#222" }}>
                 <div className="flex items-center gap-3">
                   <select
                     value={lang}
@@ -1231,7 +1272,8 @@ export function InterviewRoom({
                         setCodeAnswer(LANG_DEFAULTS[newLang]);
                       }
                     }}
-                    className="bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg border border-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    className="text-white text-xs px-2.5 py-1.5 rounded-lg border focus:outline-none transition"
+                    style={{ background: "#1A1A1A", borderColor: "#2A2A2A" }}
                   >
                     {Object.entries(LANG_LABELS).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -1248,20 +1290,21 @@ export function InterviewRoom({
                   <button
                     onClick={() => runCode()}
                     disabled={runningCode}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs px-3.5 py-1.5 rounded-lg font-medium transition-colors"
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs px-3.5 py-1.5 rounded-lg font-bold transition-colors"
                   >
                     {runningCode ? "Running..." : "Run"}
                   </button>
                   <button
                     onClick={runAllCases}
                     disabled={runningCode}
-                    className="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs px-3.5 py-1.5 rounded-lg font-medium transition-colors"
+                    className="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs px-3.5 py-1.5 rounded-lg font-bold transition-colors"
                   >
                     Run All
                   </button>
                   <button
                     onClick={submitCode}
-                    className="bg-gradient-to-r from-indigo-600 to-cyan-500 hover:shadow-lg hover:shadow-indigo-500/20 text-white text-xs px-4 py-1.5 rounded-lg font-medium transition-all"
+                    className="text-[#111] text-xs px-4 py-1.5 rounded-lg font-black transition-all hover:opacity-90"
+                    style={{ background: "#FFD600" }}
                   >
                     Submit
                   </button>
@@ -1284,7 +1327,7 @@ export function InterviewRoom({
                         <div
                           key={i}
                           className={`mb-2 p-3 rounded-xl border text-xs font-mono transition-all cursor-pointer ${activeCaseIdx === i
-                            ? "border-indigo-300 bg-indigo-50"
+                            ? "border-[#111] bg-[#FFFDF0]"
                             : "border-gray-200 bg-gray-50 hover:bg-gray-100"
                             }`}
                           onClick={() => setActiveCaseIdx(i)}
@@ -1346,9 +1389,10 @@ export function InterviewRoom({
                           key={tab}
                           onClick={() => setCodeTab(tab)}
                           className={`px-4 py-2 text-xs font-medium transition-colors ${codeTab === tab
-                            ? "text-white border-b-2 border-indigo-400"
+                            ? "text-white border-b-2"
                             : "text-slate-400 hover:text-slate-200"
                             }`}
+                          style={codeTab === tab ? { borderColor: "#FFD600" } : undefined}
                         >
                           {tab === "cases" ? "Test Cases" : tab === "output" ? "Output" : "Results"}
                         </button>
@@ -1414,7 +1458,7 @@ export function InterviewRoom({
           {!candidateSpeaking && !interviewDone && !questionText && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3 text-gray-400">
-                <div className="w-12 h-12 rounded-full border-2 border-gray-200 border-t-indigo-500 animate-spin" />
+                <div className="w-12 h-12 rounded-full border-2 border-gray-200 animate-spin" style={{ borderTopColor: "#111" }} />
                 <span className="text-sm">Connecting to interview...</span>
               </div>
             </div>
@@ -1459,8 +1503,8 @@ export function InterviewRoom({
 
         {/* ── Camera Sidebar ── */}
         {!isCodeView ? (
-          <aside className="w-[280px] shrink-0 flex flex-col gap-3">
-            <div className="flex-1 bg-gray-900 border border-gray-200 rounded-2xl overflow-hidden relative shadow-sm">
+          <aside className="w-[300px] shrink-0 flex flex-col gap-3">
+            <div className="flex-1 border rounded-2xl overflow-hidden relative" style={{ background: "#111", borderColor: "#F0EDE6", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
               <video
                 ref={candidateVideoRef}
                 autoPlay

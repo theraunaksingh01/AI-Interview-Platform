@@ -19,13 +19,16 @@ export default function MockNotWorkingPost() {
               Doing 20 mock interviews and still freezing in real ones? The problem isn't quantity — it's how you're practising. Here's what to change.
             </p>
             <div className="mt-5 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#991b1b] text-[11px] font-bold text-white">QD</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#991b1b] text-[11px] font-bold text-white">R</div>
               <div>
-                <p className="text-[13px] font-semibold text-[#111]">Qued Team</p>
+                <p className="text-[13px] font-semibold text-[#111]">Raunak</p>
                 <p className="text-[11px] text-[#9CA3AF]">4 min read</p>
               </div>
             </div>
           </motion.div>
+
+           {/* Divider */}
+          <div className="my-8 h-px bg-[#E5E7EB]" />
 
           <div className="my-8 h-px bg-[#E5E7EB]" />
 

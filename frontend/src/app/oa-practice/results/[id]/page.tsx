@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { AIDisclaimer } from "@/app/components/AIDisclaimer";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
@@ -12,14 +13,14 @@ const API_BASE = (
 
 const SECTION_LABELS: Record<string, string> = {
   numerical: "Numerical Ability",
-  verbal:    "Verbal Ability",
+  verbal: "Verbal Ability",
   reasoning: "Reasoning Ability",
 };
 
 const BAND_STYLES: Record<string, { bg: string; color: string; border: string }> = {
-  prime:         { bg: "#FFF9C4", color: "#7A6000", border: "#FFD600" },
-  digital:       { bg: "#EEF2FF", color: "#4338CA", border: "#6366F1" },
-  ninja:         { bg: "#F0FDF4", color: "#065F46", border: "#10B981" },
+  prime: { bg: "#FFF9C4", color: "#7A6000", border: "#FFD600" },
+  digital: { bg: "#EEF2FF", color: "#4338CA", border: "#6366F1" },
+  ninja: { bg: "#F0FDF4", color: "#065F46", border: "#10B981" },
   not_qualified: { bg: "#FEF2F2", color: "#991B1B", border: "#EF4444" },
 };
 
@@ -41,8 +42,8 @@ export default function OAResultsPage() {
   const { user, loading: authLoading } = useAuth();
 
   const [results, setResults] = useState<any>(null);
-  const [loading, setLoading]  = useState(true);
-  const [error, setError]      = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -58,12 +59,47 @@ export default function OAResultsPage() {
       .finally(() => setLoading(false));
   }, [user, authLoading, id]);
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ background: "#FAFAF8" }}>
-        <div className="text-center">
-          <div className="text-[48px] mb-3 animate-pulse">📊</div>
-          <p className="text-[14px] text-[#9CA3AF]">Loading results...</p>
+      <main className="min-h-screen px-4 pb-16 pt-24" style={{ background: "#FAFAF8" }}>
+        <div className="mx-auto max-w-[680px] space-y-4">
+
+          <div className="rounded-3xl overflow-hidden" style={{ background: "#111" }}>
+            <div className="px-8 py-8 text-center">
+              <div className="h-3 w-32 mx-auto mb-4 rounded bg-white/10 animate-pulse" />
+              <div className="h-16 w-28 mx-auto mb-4 rounded-xl bg-white/10 animate-pulse" />
+              <div className="h-8 w-40 mx-auto rounded-full bg-white/10 animate-pulse" />
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-[#222] border-t border-[#222]">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="py-4 text-center">
+                  <div className="h-2 w-10 mx-auto mb-2 rounded bg-white/10 animate-pulse" />
+                  <div className="h-5 w-8 mx-auto rounded bg-white/10 animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 space-y-4">
+            <div className="h-3 w-32 rounded bg-gray-100 animate-pulse mb-2" />
+            {[1, 2, 3].map((i) => (
+              <div key={i}>
+                <div className="flex justify-between mb-2">
+                  <div className="h-3 w-24 rounded bg-gray-100 animate-pulse" />
+                  <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
+                </div>
+                <div className="h-2 w-full rounded-full bg-gray-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 space-y-3">
+            <div className="h-3 w-28 rounded bg-gray-100 animate-pulse mb-2" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 w-full rounded-xl bg-gray-50 animate-pulse" />
+            ))}
+          </div>
+
         </div>
       </main>
     );
@@ -151,6 +187,8 @@ export default function OAResultsPage() {
             ))}
           </div>
         </div>
+
+        <AIDisclaimer variant="compact" />
 
         {/* ── Section breakdown ── */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">

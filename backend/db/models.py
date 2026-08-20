@@ -73,6 +73,15 @@ class User(Base):
     is_superuser = Column(Boolean, default=False, nullable=False)
     plan = Column(String(32), nullable=False, server_default="free")
     plan_expires = Column(DateTime(timezone=True), nullable=True)
+    reset_token = Column(String(64), nullable=True)
+    reset_token_expires = Column(DateTime(timezone=True), nullable=True)
+    referral_code = Column(String(12), unique=True, nullable=False)
+    referred_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    referral_count = Column(Integer, nullable=False, server_default="0")
+    session_credits = Column(Integer, nullable=False, server_default="0")
+    credits = Column(Integer, nullable=False, server_default="0")
+    consent_audio_processing = Column(Boolean, nullable=False, server_default="false")
+    consent_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # relationship to Role

@@ -99,7 +99,7 @@ export default function SignupPage() {
     fetch(`${API_BASE}/api/referral/validate/${refCode}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.valid) setReferralValidation(d); })
-      .catch(() => {});
+      .catch(() => { });
   }, [refCode]);
 
   // Feature slide rotation
@@ -109,24 +109,32 @@ export default function SignupPage() {
     return () => clearInterval(id);
   }, []);
 
-  const [step, setStep]           = useState<Step>("account");
-  const stepIndex                 = STEPS.indexOf(step);
-  const [fullName, setFullName]   = useState("");
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
+  const [step, setStep] = useState<Step>("account");
+  const stepIndex = STEPS.indexOf(step);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [college, setCollege]     = useState("");
-  const [year, setYear]           = useState("");
-  const [branch, setBranch]       = useState("");
-  const [targetRole, setTargetRole] = useState("");
+  const [college, setCollege] = useState("");
+  const [year, setYear] = useState("");
+  const [branch, setBranch] = useState("");
+  const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [targetCompanies, setTargetCompanies] = useState<string[]>([]);
   const [selfLevel, setSelfLevel] = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   function toggleCompany(c: string) {
     setTargetCompanies(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  }
+
+  function toggleRole(role: string) {
+    setTargetRoles(prev => {
+      if (prev.includes(role)) return prev.filter(r => r !== role);
+      if (prev.length >= 2) return prev; // cap at 2
+      return [...prev, role];
+    });
   }
 
   async function handleAccountNext() {
@@ -147,27 +155,24 @@ export default function SignupPage() {
 
   function handleRoleNext() {
     setError("");
-    if (!targetRole) { setError("Please select a target role"); return; }
-    setStep("companies");
+    if (targetRoles.length === 0) {
+      setError("Please select at least one target role");
+      return;
+    } setStep("companies");
   }
 
   async function handleFinalSubmit() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      // Step 1: Register the account
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           full_name: fullName.trim(),
           email: email.trim().toLowerCase(),
           password,
-          college: college.trim(),
-          year_of_study: parseInt(year),
-          branch: branch.trim(),
-          target_role: targetRole,
-          target_companies: targetCompanies,
-          self_level: selfLevel,
         }),
       });
       const data = await res.json();
@@ -176,20 +181,51 @@ export default function SignupPage() {
         setLoading(false);
         return;
       }
+
       const token = data.access_token;
-      await login(email.trim().toLowerCase(), password);
-      if (refCode && token) {
+      localStorage.setItem("access_token", token);
+      localStorage.setItem("API_TOKEN", token);
+      document.cookie = `access_token=${token};path=/;max-age=${60 * 60 * 24 * 7};SameSite=Lax`;
+
+      // Step 2: Save onboarding data (college, year, branch, role, level)
+      try {
+        await fetch(`${API_BASE}/auth/onboarding`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            college: college.trim(),
+            year_of_study: year,
+            branch: branch.trim(),
+            target_roles: targetRoles,
+            target_companies: targetCompanies,
+            self_level: selfLevel,
+          }),
+        });
+      } catch {
+        // Onboarding data is nice-to-have — don't block signup on this failing
+      }
+
+      // Step 3: Claim referral if present
+      if (refCode) {
         try {
           await fetch(`${API_BASE}/api/referral/claim`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({ referral_code: refCode }),
           });
         } catch { /* silent */ }
       }
-      router.push("/mock/dashboard");
-    } catch {
-      setError("Something went wrong. Please try again.");
+
+      window.location.href = "/mock/dashboard";
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
     }
   }
@@ -405,8 +441,8 @@ export default function SignupPage() {
                         <select value={year} onChange={e => setYear(e.target.value)}
                           className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] outline-none focus:border-[#111] transition">
                           <option value="">Select</option>
-                          {["1st year","2nd year","3rd year","4th year","5th year"].map((y,i) => (
-                            <option key={y} value={String(i+1)}>{y}</option>
+                          {["1st year", "2nd year", "3rd year", "4th year", "Passed out"].map((y, i) => (
+                            <option key={y} value={i === 4 ? "passed_out" : String(i + 1)}>{y}</option>
                           ))}
                         </select>
                       </div>
@@ -430,29 +466,36 @@ export default function SignupPage() {
                 </div>
               )}
 
+
               {/* Step 3: Role */}
               {step === "role" && (
                 <div>
                   <h2 className="text-[24px] font-black text-[#111] mb-1" style={{ letterSpacing: "-0.5px" }}>Target role</h2>
                   <p className="text-[13px] text-[#9CA3AF] mb-5">Questions weighted toward this role.</p>
+                  <p className="text-[11px] text-[#9CA3AF] mb-2">Select up to 2 roles</p>
                   <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
-                    {ROLES.map(role => (
-                      <button key={role} type="button" onClick={() => setTargetRole(role)}
-                        className="w-full flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-[12px] font-medium transition"
-                        style={{
-                          borderColor: targetRole === role ? "#111" : "#E5E7EB",
-                          background: targetRole === role ? "#111" : "white",
-                          color: targetRole === role ? "white" : "#374151",
-                        }}>
-                        {role}
-                        {targetRole === role && <span>&#10003;</span>}
-                      </button>
-                    ))}
+                    {ROLES.map(role => {
+                      const selected = targetRoles.includes(role);
+                      const disabled = !selected && targetRoles.length >= 2;
+                      return (
+                        <button key={role} type="button" onClick={() => toggleRole(role)}
+                          disabled={disabled}
+                          className="w-full flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-[12px] font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{
+                            borderColor: selected ? "#111" : "#E5E7EB",
+                            background: selected ? "#111" : "white",
+                            color: selected ? "white" : "#374151",
+                          }}>
+                          {role}
+                          {selected && <span>&#10003;</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                   <div className="mt-4">
                     <label className="block text-[11px] font-bold text-[#374151] mb-2">Rate yourself</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {[{val:"beginner",label:"Beginner"},{val:"intermediate",label:"Intermediate"},{val:"advanced",label:"Advanced"}].map(({val,label}) => (
+                      {[{ val: "beginner", label: "Beginner" }, { val: "intermediate", label: "Intermediate" }, { val: "advanced", label: "Advanced" }].map(({ val, label }) => (
                         <button key={val} type="button" onClick={() => setSelfLevel(val)}
                           className="rounded-xl border py-2 text-[11px] font-bold transition"
                           style={{

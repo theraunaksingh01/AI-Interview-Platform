@@ -29,6 +29,8 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_current_user
 from db.session import SessionLocal
+from api.rate_limit import rate_limit
+from fastapi import Request
 
 log = logging.getLogger(__name__)
 
@@ -319,7 +321,9 @@ def _update_peer_stats(db: Session, user_id: int, won: bool, drew: bool, score: 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/create")
+@rate_limit(max_requests=10, window_seconds=3600)
 def create_room(
+    request: Request,
     payload: CreateRoomRequest,
     db: Session = Depends(_get_db),
     current_user=Depends(get_current_user),
