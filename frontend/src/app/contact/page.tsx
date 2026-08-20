@@ -79,10 +79,10 @@ export default function ContactPage() {
               <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Email us directly</p>
                 <a
-                  href="mailto:hello@qued.in"
+                  href="mailto:hello@cractal.in"
                   className="text-[18px] font-black text-[#111] hover:underline"
                 >
-                  hello@qued.in
+                  hello@cractal.in
                 </a>
                 <p className="mt-2 text-[13px] text-[#6B7280]">Usually reply within 24 hours.</p>
               </div>
@@ -111,7 +111,7 @@ export default function ContactPage() {
               <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">For placement cells</p>
                 <p className="text-[13px] text-[#6B7280] leading-relaxed mb-3">
-                  Looking to set up Qued for your batch? We're building batch tools — tell us about your college and we'll prioritize you.
+                  Looking to set up Cractal for your batch? We're building batch tools — tell us about your college and we'll prioritize you.
                 </p>
                 <Link href="/pricing" className="text-[13px] font-bold text-[#111] hover:underline">
                   See pricing →

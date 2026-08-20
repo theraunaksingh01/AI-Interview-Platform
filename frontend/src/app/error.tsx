@@ -56,8 +56,8 @@ export default function GlobalError({
 
         <p className="mt-8 text-[12px] text-[#C4C4C4]">
           If this keeps happening, email us at{" "}
-          <a href="mailto:hello@qued.in" className="underline hover:text-[#111] transition-colors">
-            hello@qued.in
+          <a href="mailto:hello@cractal.in" className="underline hover:text-[#111] transition-colors">
+            hello@cractal.in
           </a>
         </p>
       </div>

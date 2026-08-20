@@ -691,7 +691,7 @@ function ActiveSession({
 
 function SummaryScreen({ summary }: { summary: SummaryData }) {
   function shareWhatsApp() {
-    const text = `Just did a Quick Prep session on Qued — revised ${summary.concepts_covered} concepts in a few minutes before my interview. ${summary.closing_message}`;
+    const text = `Just did a Quick Prep session on Cractal — revised ${summary.concepts_covered} concepts in a few minutes before my interview. ${summary.closing_message}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   }
 

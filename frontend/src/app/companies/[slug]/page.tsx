@@ -496,7 +496,7 @@ export default function CompanyDetailPage() {
                 Share the questions they asked — earn a{" "}
                 <span className="font-bold text-[#111]">+1 bonus mock session credit</span>{" "}
                 and help other students prepare for the same company. Every approved
-                question goes into the Qued question bank.
+                question goes into the Cractal question bank.
               </p>
               <Link
                 href={`/submit-question?company=${data.slug}`}

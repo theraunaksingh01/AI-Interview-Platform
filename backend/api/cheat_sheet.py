@@ -386,7 +386,7 @@ def _build_cheat_sheet(db: Session, user_id: int, company: str, user_name: str) 
         "patterns": {
             "available": has_patterns,
             "data": patterns if has_patterns else None,
-            "unlock_hint": "After 5 sessions, Qued will identify your recurring patterns." if not has_patterns else None,
+            "unlock_hint": "After 5 sessions, Cractal will identify your recurring patterns." if not has_patterns else None,
         },
         "intro": {
             "available": intro is not None,

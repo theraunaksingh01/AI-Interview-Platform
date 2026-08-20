@@ -67,10 +67,10 @@ function bandColor(band: string) { return BAND_COLOR[band] || "#D1D5DB"; }
 function ShareModal({ data, onClose }: { data: PassportData; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
 
-  const shareText = `🎯 My Qued Interview Skill Passport\n\nReadiness Score: ${data.readiness_score}/100 (${data.readiness_band})\nSessions completed: ${data.overall.total_sessions}\nBest score: ${data.overall.best_score ? Math.round(data.overall.best_score) : "—"}/100${data.overall.improvement !== null && data.overall.improvement > 0 ? `\nImprovement: +${data.overall.improvement} points` : ""}\n\nPractice AI mock interviews free at qued.in 🚀`;
+  const shareText = `🎯 My Cractal Interview Skill Passport\n\nReadiness Score: ${data.readiness_score}/100 (${data.readiness_band})\nSessions completed: ${data.overall.total_sessions}\nBest score: ${data.overall.best_score ? Math.round(data.overall.best_score) : "—"}/100${data.overall.improvement !== null && data.overall.improvement > 0 ? `\nImprovement: +${data.overall.improvement} points` : ""}\n\nPractice AI mock interviews free at cractal.in 🚀`;
 
   const encodedText = encodeURIComponent(shareText);
-  const shareUrl = encodeURIComponent("https://qued.in/passport");
+  const shareUrl = encodeURIComponent("https://cractal.in/passport");
 
   const platforms = [
     {
@@ -198,7 +198,7 @@ function PassportCard({ data }: { data: PassportData }) {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[15px] font-black" style={{ color: "#111" }}>
-                Qu<span className="bg-yellow-400 text-[#111] px-1 rounded-sm">ed</span>
+                Cr<span className="bg-yellow-400 text-[#111] px-1 rounded-sm">actal</span>
               </span>
               <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[8px] font-black text-[#374151] uppercase tracking-widest">
                 Skill Passport
@@ -268,8 +268,8 @@ function PassportCard({ data }: { data: PassportData }) {
             ))}
           </div>
           <div className="text-right">
-            <p className="text-[8px]" style={{ color: "#111" }}>Verified by Qued AI</p>
-            <p className="text-[8px]" style={{ color: "#111" }}>qued.in · {new Date().getFullYear()}</p>
+            <p className="text-[8px]" style={{ color: "#111" }}>Verified by Cractal AI</p>
+            <p className="text-[8px]" style={{ color: "#111" }}>cractal.in · {new Date().getFullYear()}</p>
           </div>
         </div>
       </div>

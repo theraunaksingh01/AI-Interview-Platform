@@ -612,7 +612,7 @@ export default function SettingsPage() {
                       Download my data
                     </button>
                     <Link href="/privacy" className="rounded-xl border border-gray-200 px-6 py-3 font-bold text-gray-700 hover:border-black hover:text-black">
-                      How Qued uses your data →
+                      How Cractal uses your data →
                     </Link>
                   </div>
                 </div>

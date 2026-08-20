@@ -63,7 +63,7 @@ export function ReferralCard({ prefetchedData }: { prefetchedData?: any }) {
   const shareWhatsApp = () => {
     if (!data) return;
     const msg = encodeURIComponent(
-      `I've been preparing for placements on Qued — AI mock interviews, OA practice tests, and placement readiness assessment. It's free to try.\n\nUse my link to get 2 bonus sessions when you sign up: ${data.referral_link}`
+      `I've been preparing for placements on Cractal — AI mock interviews, OA practice tests, and placement readiness assessment. It's free to try.\n\nUse my link to get 2 bonus sessions when you sign up: ${data.referral_link}`
     );
     window.open(`https://wa.me/?text=${msg}`, "_blank");
   };

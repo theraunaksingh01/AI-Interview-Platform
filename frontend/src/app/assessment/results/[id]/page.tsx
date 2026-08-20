@@ -156,11 +156,11 @@ export default function AssessmentResultsPage() {
     if (!results) return;
     const gap = results.biggest_gap?.replace("_", " ") ?? "unknown";
     const msg = encodeURIComponent(
-      `I just took Qued's Placement Readiness Assessment.\n\n` +
+      `I just took Cractal's Placement Readiness Assessment.\n\n` +
       `My score: ${results.total_score}% — ${results.label} 📊\n` +
       `Biggest gap: ${gap}\n\n` +
       `Take the free test and see where you stand:\n` +
-      `https://qued.in/assessment\n\n` +
+      `https://cractal.in/assessment\n\n` +
       `#PlacementPrep #CampusPlacements`
     );
     window.open(`https://wa.me/?text=${msg}`, "_blank");

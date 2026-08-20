@@ -3,7 +3,7 @@
 
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://qued.in";
+const BASE_URL = "https://cractal.in";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

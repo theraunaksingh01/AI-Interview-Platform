@@ -92,7 +92,7 @@ export default function MockNotWorkingPost() {
             </div>
 
             <p>
-              The review step is what most students skip. It's also the step that creates the most improvement. Qued's per-question report — transcript, what was missing, model answer — exists specifically to make this review fast and actionable.
+              The review step is what most students skip. It's also the step that creates the most improvement. Cractal's per-question report — transcript, what was missing, model answer — exists specifically to make this review fast and actionable.
             </p>
 
             <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#111", marginTop: "2rem", marginBottom: "0.5rem" }}>One last thing</h2>
@@ -100,7 +100,7 @@ export default function MockNotWorkingPost() {
               The goal of mock practice isn't to get comfortable with interview questions. It's to get comfortable with being uncomfortable — with not knowing the answer perfectly, with a follow-up question that catches you off guard, with the silence after you finish and the interviewer doesn't immediately respond.
             </p>
             <p>
-              That discomfort is exactly what Qued's AI interviewer creates. It doesn't nod along. It asks follow-ups. It scores you honestly. That's the point.
+              That discomfort is exactly what Cractal's AI interviewer creates. It doesn't nod along. It asks follow-ups. It scores you honestly. That's the point.
             </p>
 
             <div className="rounded-2xl bg-[#111] p-6 text-center mt-8">

@@ -6,7 +6,7 @@ const challenges = [
     color: "#FDE68A",
     icon: "🗣️",
     title: "Practicing with friends?",
-    desc: "They won't tell you your answer was bad. Qued scores you honestly and shows exactly what a strong answer looks like — no sugarcoating.",
+    desc: "They won't tell you your answer was bad. Cractal scores you honestly and shows exactly what a strong answer looks like — no sugarcoating.",
     tag: "Smart Scoring",
   },
   {

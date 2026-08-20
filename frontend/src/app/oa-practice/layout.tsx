@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     "TCS NQT mock test free",
   ],
   openGraph: {
-    title: "OA Practice Tests — TCS, Infosys, Wipro, Cognizant | Qued",
+    title: "OA Practice Tests — TCS, Infosys, Wipro, Cognizant | Cractal",
     description:
       "Simulate the real OA with locked section timers and band prediction. 734 questions across TCS NQT, Infosys SE, Wipro NLTH, Cognizant GenC.",
-    url: "https://qued.in/oa-practice",
+    url: "https://cractal.in/oa-practice",
   },
   alternates: {
-    canonical: "https://qued.in/oa-practice",
+    canonical: "https://cractal.in/oa-practice",
   },
 };
 

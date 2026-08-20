@@ -136,7 +136,7 @@ export default function BlogPostDSAPatterns() {
                 Practice with real test cases, not just theory
               </p>
               <p style={{ fontSize: "14px", color: "#555" }}>
-                Qued&apos;s DSA Practice has 185 problems across Python, Java, and C++ with real test
+                Cractal&apos;s DSA Practice has 185 problems across Python, Java, and C++ with real test
                 case validation — and shows you the optimal approach and time complexity after you
                 submit, so you can see exactly which pattern you should have recognized.
               </p>

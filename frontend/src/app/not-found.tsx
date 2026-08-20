@@ -83,10 +83,10 @@ export default function NotFound() {
         <p className="mt-10 text-[12px] text-[#C4C4C4]">
           Lost? Email us at{" "}
           <a
-            href="mailto:hello@qued.in"
+            href="mailto:hello@cractal.in"
             className="underline hover:text-[#111] transition-colors"
           >
-            hello@qued.in
+            hello@cractal.in
           </a>
         </p>
       </div>

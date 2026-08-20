@@ -133,7 +133,7 @@ export default function AdminFeedbackPage() {
       {totalRec > 0 && (
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
           <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-            Would recommend Qued?
+            Would recommend Cractal?
           </p>
           <div className="flex gap-6">
             {[

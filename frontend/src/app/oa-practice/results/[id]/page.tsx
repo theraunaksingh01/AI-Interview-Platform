@@ -126,10 +126,10 @@ export default function OAResultsPage() {
   const shareOnWhatsApp = () => {
     const bandLabel = bandInfo?.label || band;
     const msg = encodeURIComponent(
-      `Just completed a ${results.company?.toUpperCase()} NQT mock test on Qued!\n\n` +
+      `Just completed a ${results.company?.toUpperCase()} NQT mock test on Cractal!\n\n` +
       `Score: ${results.total_score}% — ${bandLabel} band prediction 🎯\n\n` +
-      `Try it free: https://qued.in/oa-practice\n\n` +
-      `#TCSPlacement #CampusPlacement #Qued`
+      `Try it free: https://cractal.in/oa-practice\n\n` +
+      `#TCSPlacement #CampusPlacement #Cractal`
     );
     window.open(`https://wa.me/?text=${msg}`, "_blank");
   };

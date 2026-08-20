@@ -252,11 +252,11 @@ def validate_referral_code(
     if not referrer:
         return {"valid": False}
 
-    name = referrer["full_name"] or "A Qued student"
+    name = referrer["full_name"] or "A Cractal student"
     first_name = name.split()[0] if name else "Someone"
 
     return {
         "valid": True,
         "referred_by_name": first_name,
-        "message": f"{first_name} invited you to Qued — you'll get {REFERRED_BONUS_SESSIONS} bonus sessions when you sign up.",
+        "message": f"{first_name} invited you to Cractal — you'll get {REFERRED_BONUS_SESSIONS} bonus sessions when you sign up.",
     }

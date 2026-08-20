@@ -124,7 +124,7 @@ export default function BlogPostOffCampus() {
                 Prep is prep, regardless of how you got the interview
               </p>
               <p style={{ fontSize: "14px", color: "#555" }}>
-                Qued was built for students at any college — tier 1, 2, or 3 — preparing for
+                Cractal was built for students at any college — tier 1, 2, or 3 — preparing for
                 interviews they got through campus drives or their own applications. The mock
                 interviews, DSA practice, and OA simulations are the same regardless of your college&apos;s
                 placement record.

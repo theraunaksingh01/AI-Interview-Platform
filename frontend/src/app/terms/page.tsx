@@ -3,9 +3,9 @@
 import Link from "next/link";
 
 const LAST_UPDATED = "July 1, 2025";
-const CONTACT_EMAIL = "legal@qued.in";
-const COMPANY_NAME = "Qued";
-const WEBSITE = "qued.in";
+const CONTACT_EMAIL = "legal@cractal.in";
+const COMPANY_NAME = "Cractal";
+const WEBSITE = "cractal.in";
 
 const sections = [
   {
@@ -17,10 +17,10 @@ const sections = [
     id: "eligibility",
     title: "2. Eligibility",
     bullets: [
-      "You must be at least 17 years old to use Qued.",
-      "You must be a student or professional preparing for interviews — Qued is not intended for automated scraping or competitive intelligence gathering.",
+      "You must be at least 17 years old to use Cractal.",
+      "You must be a student or professional preparing for interviews — Cractal is not intended for automated scraping or competitive intelligence gathering.",
       "You may not create accounts on behalf of others or share your account credentials.",
-      "Corporate accounts and institutional access are only permitted if explicitly agreed in writing with Qued.",
+      "Corporate accounts and institutional access are only permitted if explicitly agreed in writing with Cractal.",
     ],
   },
   {
@@ -62,7 +62,7 @@ const sections = [
       "Do not use automated scripts or bots to interact with the platform in place of real human use",
       "Do not reverse-engineer or attempt to access our source code or proprietary AI prompts",
       "Do not impersonate another user, student, or recruiter on the platform",
-      "Do not use Qued to prepare for fraudulent interviews — i.e., impersonating another candidate in an actual company hiring process",
+      "Do not use Cractal to prepare for fraudulent interviews — i.e., impersonating another candidate in an actual company hiring process",
       "Do not share your account with others or create multiple accounts to circumvent Free plan limits",
     ],
   },
@@ -77,7 +77,7 @@ const sections = [
     content: [
       {
         subtitle: "You own your answers",
-        text: "The interview answers, voice recordings, and code you submit remain yours. You grant Qued a limited licence to process this content to generate your scores and feedback. We do not use your individual answers to train AI models.",
+        text: "The interview answers, voice recordings, and code you submit remain yours. You grant Cractal a limited licence to process this content to generate your scores and feedback. We do not use your individual answers to train AI models.",
       },
       {
         subtitle: "Aggregate improvements",
@@ -173,7 +173,7 @@ export default function TermsPage() {
                 opacity: 0.45,
               }}
             >
-              ← Qued
+              ← Cractal
             </Link>
 
             <div className="legal-pill-dark">Legal</div>

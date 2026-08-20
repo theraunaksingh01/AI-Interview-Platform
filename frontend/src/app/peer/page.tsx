@@ -216,7 +216,7 @@ export default function PeerCreatePage() {
   function shareWhatsApp() {
     if (!room) return;
     const url = `${window.location.origin}/peer/${room.room_code}`;
-    const text = `I just answered 5 interview questions on Qued. Can you beat my score? 🔥\n\nTry here: ${url}`;
+    const text = `I just answered 5 interview questions on Cractal. Can you beat my score? 🔥\n\nTry here: ${url}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   }
 

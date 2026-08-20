@@ -67,7 +67,7 @@ export function ProductDemo() {
             {playing && DEMO_VIDEO_URL ? (
               <iframe
                 src={`${DEMO_VIDEO_URL}${DEMO_VIDEO_URL.includes("?") ? "&" : "?"}autoplay=1`}
-                title="Qued product demo"
+                title="Cractal product demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="absolute inset-0 h-full w-full"

@@ -255,9 +255,9 @@ export function Navbar() {
 
             {/* Logo + mobile toggle */}
             <div className="flex w-full justify-between lg:w-auto">
-              <Link href="/" aria-label="home" className="flex items-center">
+                            <Link href="/" aria-label="home" className="flex items-center">
                 <span className="text-xl font-black tracking-tight">
-                  Qu<span className="bg-yellow-400 text-black px-1 rounded-sm">ed</span>
+                  Cr<span className="bg-yellow-400 text-black px-1 rounded-sm">actal</span>
                 </span>
               </Link>
               <button

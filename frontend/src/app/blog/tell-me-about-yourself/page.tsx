@@ -110,7 +110,7 @@ export default function BlogPost1() {
               Record yourself on your phone. Listen back. If you cringe at how scripted it sounds, that's the version the interviewer is hearing too. Practise until it sounds like a conversation, not a speech.
             </p>
             <p>
-              Qued's mock interview mode gives you live feedback on your WPM and filler words while you answer — which is exactly where self-introductions go wrong. Students who practise this specific question 4-5 times on Qued typically cut their filler word count by 60%.
+              Cractal's mock interview mode gives you live feedback on your WPM and filler words while you answer — which is exactly where self-introductions go wrong. Students who practise this specific question 4-5 times on Cractal typically cut their filler word count by 60%.
             </p>
 
             {/* CTA */}

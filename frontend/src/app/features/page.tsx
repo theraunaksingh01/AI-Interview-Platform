@@ -15,7 +15,7 @@ const FEATURE_SECTIONS = [
       {
         tag: "Mock Interview",
         headline: "A coach in your ear, every answer.",
-        body: "While you speak, Qued tracks WPM, detects filler words, and nudges you when you've been silent too long. Role-specific questions, voice transcription, AI scoring — full interview simulation.",
+        body: "While you speak, Cractal tracks WPM, detects filler words, and nudges you when you've been silent too long. Role-specific questions, voice transcription, AI scoring — full interview simulation.",
         stat: "Real-time pace and filler tracking",
         icon: "🎤",
         color: "#FFF9C4",
@@ -94,7 +94,7 @@ const FEATURE_SECTIONS = [
       {
         tag: "Resume Prep",
         headline: "AI reads your resume and asks about YOUR projects.",
-        body: "Upload your resume. Qued asks specific questions about your projects, tech stack choices, and experience — exactly what real interviewers do. No generic questions.",
+        body: "Upload your resume. Cractal asks specific questions about your projects, tech stack choices, and experience — exactly what real interviewers do. No generic questions.",
         stat: "Stack-specific, project-aware follow-ups",
         icon: "📄",
         color: "#F0FDF4",
@@ -150,7 +150,7 @@ const FEATURE_SECTIONS = [
       {
         tag: "Follow-up Questions",
         headline: "Real interviews don't stop at the first answer.",
-        body: "After your answer, Qued asks follow-ups based on what you actually said — 'Can you give a project example?' or 'What's the trade-off?' Training you to handle pressure and think on your feet.",
+        body: "After your answer, Cractal asks follow-ups based on what you actually said — 'Can you give a project example?' or 'What's the trade-off?' Training you to handle pressure and think on your feet.",
         stat: "Contextual, based on your actual answer",
         icon: "💬",
         color: "#FFF7ED",
@@ -338,7 +338,7 @@ const FEATURE_SECTIONS = [
       {
         tag: "Interview Calendar",
         headline: "Add your interview date. Get a day-by-day plan.",
-        body: "Tell Qued when your interview is. Get a personalised daily prep plan built around your timeline — different focus areas per day based on how much time you have left.",
+        body: "Tell Cractal when your interview is. Get a personalised daily prep plan built around your timeline — different focus areas per day based on how much time you have left.",
         stat: "Works for campus and off-campus timelines",
         icon: "📅",
         color: "#ECFDF5",
@@ -386,20 +386,20 @@ const FEATURE_SECTIONS = [
 ];
 
 const COMPARISON = [
-  { feature: "Live coaching while you speak",        qued: true,  paper: false, generic: false },
-  { feature: "Per-question model answers",           qued: true,  paper: false, generic: false },
-  { feature: "Company-specific questions",           qued: true,  paper: true,  generic: false },
-  { feature: "WPM + filler word tracking",           qued: true,  paper: false, generic: false },
-  { feature: "Instant AI feedback",                  qued: true,  paper: false, generic: true  },
-  { feature: "Campus + off-campus placement focus",  qued: true,  paper: true,  generic: false },
-  { feature: "OA practice with locked timers",       qued: true,  paper: false, generic: false },
-  { feature: "Placement readiness diagnostic",       qued: true,  paper: false, generic: false },
-  { feature: "Progress tracking over time",          qued: true,  paper: false, generic: false },
-  { feature: "Available 24/7, no scheduling",        qued: true,  paper: true,  generic: true  },
+  { feature: "Live coaching while you speak",        Cractal: true,  paper: false, generic: false },
+  { feature: "Per-question model answers",           Cractal: true,  paper: false, generic: false },
+  { feature: "Company-specific questions",           Cractal: true,  paper: true,  generic: false },
+  { feature: "WPM + filler word tracking",           Cractal: true,  paper: false, generic: false },
+  { feature: "Instant AI feedback",                  Cractal: true,  paper: false, generic: true  },
+  { feature: "Campus + off-campus placement focus",  Cractal: true,  paper: true,  generic: false },
+  { feature: "OA practice with locked timers",       Cractal: true,  paper: false, generic: false },
+  { feature: "Placement readiness diagnostic",       Cractal: true,  paper: false, generic: false },
+  { feature: "Progress tracking over time",          Cractal: true,  paper: false, generic: false },
+  { feature: "Available 24/7, no scheduling",        Cractal: true,  paper: true,  generic: true  },
 ];
 
 const FAQS = [
-  { q: "How is Qued different from just practising with ChatGPT?", a: "ChatGPT gives you generic feedback on what you typed. Qued listens to your actual voice, tracks your speaking patterns in real time, scores your answers across multiple dimensions, and shows you a model answer for every question. It's the difference between a text editor and a flight simulator." },
+  { q: "How is Cractal different from just practising with ChatGPT?", a: "ChatGPT gives you generic feedback on what you typed. Cractal listens to your actual voice, tracks your speaking patterns in real time, scores your answers across multiple dimensions, and shows you a model answer for every question. It's the difference between a text editor and a flight simulator." },
   { q: "Is this useful for TCS/Infosys campus placements?", a: "Yes — this is exactly who we built it for. The question bank includes TCS NQT and Infosys InfyTQ-style questions. The OA practice tests simulate the exact format with locked timers and band prediction. Difficulty is calibrated for campus placement level, not senior engineer level." },
   { q: "Does it work for off-campus applications too?", a: "Yes. If your placement cell doesn't get companies like Razorpay, Zerodha, or Freshworks on campus, you can still prep for those interviews here. The question bank, scoring, and coaching are the same regardless of how you're applying. Your college tier doesn't matter to us." },
   { q: "How many sessions do I need before I see improvement?", a: "It varies, but students who read the per-question coaching report carefully and act on the one specific fix tend to improve fastest. Most see measurable improvement within 3–5 sessions." },
@@ -541,8 +541,8 @@ export default function FeaturesPage() {
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {[
-                { icon: "🗣️", title: "Did you actually answer the question?", body: "Qued checks if your response addresses what was asked, not just whether you said something fluent-sounding. Rambling around the topic without answering it gets flagged." },
-                { icon: "🔍", title: "Did you go deep, or stay surface-level?", body: "Naming the right concept isn't enough. Qued checks whether you explained the why and how — the part interviewers actually probe on follow-up." },
+                { icon: "🗣️", title: "Did you actually answer the question?", body: "Cractal checks if your response addresses what was asked, not just whether you said something fluent-sounding. Rambling around the topic without answering it gets flagged." },
+                { icon: "🔍", title: "Did you go deep, or stay surface-level?", body: "Naming the right concept isn't enough. Cractal checks whether you explained the why and how — the part interviewers actually probe on follow-up." },
                 { icon: "⏱️", title: "How you said it, not just what you said", body: "Speaking pace, filler word frequency, and long silences are tracked live. These are the habits you can't see in yourself until someone points them out." },
                 { icon: "🎯", title: "Does it match what this company actually asks?", body: "Your answer is evaluated against the pattern of that specific company's interview style — a TCS campus drive answer and an off-campus product company answer aren't scored the same way." },
               ].map((item, i) => (
@@ -571,14 +571,14 @@ export default function FeaturesPage() {
               <h2 style={{ fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 900, letterSpacing: "-1.5px", color: "#111" }}>
                 Why not just practise on paper?
               </h2>
-              <p className="mt-3 text-[15px] text-[#6B7280] mx-auto max-w-lg">Here's what Qued does that other approaches can't.</p>
+              <p className="mt-3 text-[15px] text-[#6B7280] mx-auto max-w-lg">Here's what Cractal does that other approaches can't.</p>
             </div>
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
                     <th className="border-b border-gray-100 bg-[#F9FAFB] px-5 py-4 text-left text-[12px] font-bold text-[#374151]">Feature</th>
-                    <th className="border-b border-gray-100 bg-[#111] px-4 py-4 text-center text-[12px] font-black text-white">Qued</th>
+                    <th className="border-b border-gray-100 bg-[#111] px-4 py-4 text-center text-[12px] font-black text-white">Cractal</th>
                     <th className="border-b border-gray-100 px-4 py-4 text-center text-[11px] font-bold text-[#9CA3AF]">On paper</th>
                     <th className="border-b border-gray-100 px-4 py-4 text-center text-[11px] font-bold text-[#9CA3AF]">Generic prep tools</th>
                   </tr>
@@ -587,7 +587,7 @@ export default function FeaturesPage() {
                   {COMPARISON.map((row, i) => (
                     <tr key={row.feature} className={`border-t border-gray-50 ${i % 2 === 0 ? "" : "bg-[#FAFAFA]"}`}>
                       <td className="px-5 py-3.5 text-[13px] text-[#374151]">{row.feature}</td>
-                      <td className="px-4 py-3.5 text-center bg-[#111]/[0.02]"><Check filled={row.qued} /></td>
+                      <td className="px-4 py-3.5 text-center bg-[#111]/[0.02]"><Check filled={row.Cractal} /></td>
                       <td className="px-4 py-3.5 text-center"><Check filled={row.paper} /></td>
                       <td className="px-4 py-3.5 text-center"><Check filled={row.generic} /></td>
                     </tr>

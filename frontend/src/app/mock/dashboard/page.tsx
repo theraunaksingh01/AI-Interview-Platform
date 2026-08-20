@@ -448,7 +448,7 @@ export default function MockDashboardPage() {
         day: "Day 2",
         icon: "📅",
         title: "Add your interview date",
-        sub: "Tell Qued when your TCS, Infosys or any company interview is — get a day-by-day prep plan built around your timeline.",
+        sub: "Tell Cractal when your TCS, Infosys or any company interview is — get a day-by-day prep plan built around your timeline.",
         cta: "Set interview date →",
         href: "/calendar",
         highlight: false,
@@ -499,7 +499,7 @@ export default function MockDashboardPage() {
                 color: "#111",
               }}
             >
-              {firstName ? `Welcome, ${firstName} 👋` : "Welcome to Qued 👋"}
+              {firstName ? `Welcome, ${firstName} 👋` : "Welcome to Cractal 👋"}
             </h1>
             <p className="mt-1 text-[14px] text-[#6B7280]">
               Here&apos;s your first week. Follow this and you&apos;ll know exactly where you stand by Day 4.

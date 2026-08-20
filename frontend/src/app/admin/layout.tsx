@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
           {!collapsed && (
             <span className="text-[15px] font-black tracking-tight">
-              Qu<span className="bg-yellow-400 text-black px-1 rounded-sm">ed</span>
+              Cr<span className="bg-yellow-400 text-black px-1 rounded-sm">actal</span>
               <span className="text-[10px] font-normal text-white/40 ml-2">admin</span>
             </span>
           )}

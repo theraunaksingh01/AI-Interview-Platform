@@ -3,9 +3,9 @@
 import Link from "next/link";
 
 const LAST_UPDATED = "July 1, 2025";
-const CONTACT_EMAIL = "legal@qued.in";
-const COMPANY_NAME = "Qued";
-const WEBSITE = "qued.in";
+const CONTACT_EMAIL = "legal@cractal.in";
+const COMPANY_NAME = "Cractal";
+const WEBSITE = "cractal.in";
 
 const sections = [
   {
@@ -187,7 +187,7 @@ export default function PrivacyPage() {
                 opacity: 0.45,
               }}
             >
-              ← Qued
+              ← Cractal
             </Link>
 
             <div className="legal-pill">Legal</div>

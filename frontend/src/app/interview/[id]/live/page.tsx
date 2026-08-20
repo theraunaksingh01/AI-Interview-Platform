@@ -1057,7 +1057,7 @@ export function InterviewRoom({
         {/* Left: Brand */}
         <div className="flex items-center gap-3">
           <span className="text-[18px] font-black tracking-tight">
-            <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: 4 }}>Qu</span>ed
+            <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: 4 }}>Cr</span>actal
           </span>
           <span className="text-[11px] font-bold text-[#9CA3AF] hidden sm:block ml-2 uppercase tracking-widest">Mock Interview</span>
         </div>

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const testimonials = [
   {
     quote:
-      "I fumbled every mock I did with friends. After 2 weeks on Qued I could actually structure my answers. Cracked TCS and Infosys both in the same placement season.",
+      "I fumbled every mock I did with friends. After 2 weeks on Cractal I could actually structure my answers. Cracked TCS and Infosys both in the same placement season.",
     name: "Priya S.",
     role: "Final Year CSE, VIT Vellore",
     bg: "#FFE4E6",
@@ -33,7 +33,7 @@ const testimonials = [
   },
   {
     quote:
-      "As someone from a Tier 3 college I always felt like I had no access to good coaching. Qued changed that completely. Got placed at Wipro and Accenture both.",
+      "As someone from a Tier 3 college I always felt like I had no access to good coaching. Cractal changed that completely. Got placed at Wipro and Accenture both.",
     name: "Sneha R.",
     role: "IT 2025, LNCT Bhopal",
     bg: "#FED7AA",
@@ -42,7 +42,7 @@ const testimonials = [
   },
   {
     quote:
-      "I failed 4 campus interviews before Qued. What I was missing was not knowledge — it was how to present what I know. The WPM tracker made me realize I speak way too fast when nervous. Fixed it in a week.",
+      "I failed 4 campus interviews before Cractal. What I was missing was not knowledge — it was how to present what I know. The WPM tracker made me realize I speak way too fast when nervous. Fixed it in a week.",
     name: "Karan P.",
     role: "Final Year, SRM Chennai",
     bg: "#D1FAE5",
@@ -258,7 +258,7 @@ export function Testimonials() {
                 {[
                   {
                     quote:
-                      "I failed 4 campus interviews before Qued. What I was missing was not knowledge — it was how to present what I know. Fixed it in 2 weeks.",
+                      "I failed 4 campus interviews before Cractal. What I was missing was not knowledge — it was how to present what I know. Fixed it in 2 weeks.",
                     name: "Karan P.",
                     role: "Final Year, SRM Chennai",
                     bg: "#D1FAE5",

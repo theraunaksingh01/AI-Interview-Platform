@@ -22,7 +22,7 @@ const PROBLEM_SOLUTION = [
   {
     label: "The solution",
     title: "Practice that talks back — specifically, honestly, every time.",
-    body: "Qued listens to how you actually answer, scores you honestly, and tells you exactly what to fix — not just that you scored 62. Company-specific question banks, live coaching while you speak, and a model answer for every question so you know what good actually sounds like. Works for campus drives and off-campus applications alike.",
+    body: "Cractal listens to how you actually answer, scores you honestly, and tells you exactly what to fix — not just that you scored 62. Company-specific question banks, live coaching while you speak, and a model answer for every question so you know what good actually sounds like. Works for campus drives and off-campus applications alike.",
     color: "#D1FAE5",
     accent: "#065F46",
   },
@@ -65,7 +65,7 @@ export default function AboutPage() {
               transition={{ duration: 0.4 }}
               className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4"
             >
-              About Qued
+              About Cractal
             </motion.p>
 
             <motion.h1
@@ -87,7 +87,7 @@ export default function AboutPage() {
               className="mt-6 max-w-2xl text-[17px] leading-relaxed"
               style={{ color: "#666" }}
             >
-              Most mock interview tools are built for US tech companies. Qued is built specifically
+              Most mock interview tools are built for US tech companies. Cractal is built specifically
               for Indian engineering students preparing for placement interviews — whether that's a
               campus drive at your college or an off-campus application to a company your placement
               cell never contacted.
@@ -123,7 +123,7 @@ export default function AboutPage() {
               <span className="text-[20px] mt-0.5 flex-shrink-0">💼</span>
               <p className="text-[13px] text-[#374151] leading-relaxed">
                 <span className="font-bold text-[#111]">Your college's placement cell isn't the only path.</span>{" "}
-                Qued works equally well for students preparing to apply directly to Razorpay, Zerodha,
+                Cractal works equally well for students preparing to apply directly to Razorpay, Zerodha,
                 Freshworks, and hundreds of companies that don't visit most campuses.
               </p>
             </motion.div>

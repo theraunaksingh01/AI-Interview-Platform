@@ -1,6 +1,6 @@
 # backend/services/interruption_engine.py
 """
-Smart Interruption Engine for Qued mock interviews.
+Smart Interruption Engine for Cractal mock interviews.
 
 Detects when a student's live answer needs a nudge and generates
 a short contextual directive (not a question) via Claude Haiku.

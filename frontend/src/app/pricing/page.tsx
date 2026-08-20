@@ -94,12 +94,12 @@ const faqs = [
     a: "All your sessions and reports are preserved. You just lose access to locked features.",
   },
   {
-    q: "Does Qued work for off-campus placement prep?",
-    a: "Yes — Qued is built for both campus drives and off-campus applications. Whether your placement cell is active or you're applying directly through LinkedIn or career pages, the questions, scoring, and coaching are the same. Your college tier doesn't matter here.",
+    q: "Does Cractal work for off-campus placement prep?",
+    a: "Yes — Cractal is built for both campus drives and off-campus applications. Whether your placement cell is active or you're applying directly through LinkedIn or career pages, the questions, scoring, and coaching are the same. Your college tier doesn't matter here.",
   },
   {
-    q: "My college doesn't have great placements. Can Qued still help?",
-    a: "That's exactly who Qued is built for. Off-campus hiring is how most tier-2 and tier-3 students actually get placed at good companies. Qued prepares you for the interview itself — the part you can control.",
+    q: "My college doesn't have great placements. Can Cractal still help?",
+    a: "That's exactly who Cractal is built for. Off-campus hiring is how most tier-2 and tier-3 students actually get placed at good companies. Cractal prepares you for the interview itself — the part you can control.",
   },
 ];
 

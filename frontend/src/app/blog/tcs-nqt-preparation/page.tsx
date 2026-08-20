@@ -134,7 +134,7 @@ export default function BlogPostTCSNQT() {
                 Practice under the real format
               </p>
               <p style={{ fontSize: "14px", color: "#555" }}>
-                Qued&apos;s OA Practice simulates TCS NQT exactly — locked section timers, no going
+                Cractal&apos;s OA Practice simulates TCS NQT exactly — locked section timers, no going
                 back, band prediction after every attempt. It&apos;s the closest you can get to the
                 real exam without waiting for exam day.
               </p>

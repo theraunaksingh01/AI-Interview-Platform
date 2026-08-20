@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # ── Config ────────────────────────────────────────────────────────────────────
 # Replace with your Resend API key and from address
-# When you get your domain, change RESEND_FROM to noreply@qued.in
+# When you get your domain, change RESEND_FROM to noreply@cractal.in
 import os
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM    = os.environ.get("RESEND_FROM", "onboarding@resend.dev")
@@ -54,7 +54,7 @@ def send_reset_email(to_email: str, reset_url: str, full_name: str | None) -> bo
         Reset your password
       </h2>
       <p style="color: #6B7280; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
-        Hi {name}, we received a request to reset your Qued password.
+        Hi {name}, we received a request to reset your Cractal password.
         Click the button below to set a new password. This link expires in 30 minutes.
       </p>
       <a href="{reset_url}"
@@ -69,7 +69,7 @@ def send_reset_email(to_email: str, reset_url: str, full_name: str | None) -> bo
       </p>
       <hr style="border: none; border-top: 1px solid #F3F4F6; margin: 24px 0;">
       <p style="color: #9CA3AF; font-size: 12px;">
-        Qued · AI-powered placement interview practice
+        Cractal · AI-powered placement interview practice
       </p>
     </div>
     """
@@ -84,7 +84,7 @@ def send_reset_email(to_email: str, reset_url: str, full_name: str | None) -> bo
             json={
                 "from": RESEND_FROM,
                 "to":   [to_email],
-                "subject": "Reset your Qued password",
+                "subject": "Reset your Cractal password",
                 "html": html,
             },
             timeout=10,

@@ -102,7 +102,7 @@ export default function StarMethodPost() {
 
             <div className="rounded-2xl bg-[#111] p-6 text-center mt-8">
               <p className="text-white font-black text-[18px] mb-2">Practise behavioural questions with live feedback.</p>
-              <p className="text-[#9CA3AF] text-[13px] mb-4">Qued scores your STAR structure and flags when your answers sound too scripted.</p>
+              <p className="text-[#9CA3AF] text-[13px] mb-4">Cractal scores your STAR structure and flags when your answers sound too scripted.</p>
               <Link href="/mock">
                 <button className="rounded-xl bg-yellow-400 px-6 py-2.5 text-[13px] font-black text-[#111] hover:bg-yellow-300 transition">Start mock interview →</button>
               </Link>

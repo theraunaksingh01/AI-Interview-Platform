@@ -7,7 +7,7 @@ const steps = [
     step: "Step 1",
     title: "Pick your company",
     description:
-      "Select your target company, role, and difficulty. Qued pulls real questions from that company's campus placement history.",
+      "Select your target company, role, and difficulty. Cractal pulls real questions from that company's campus placement history.",
     image: "/images/how-it-works-1.png",
   },
   {

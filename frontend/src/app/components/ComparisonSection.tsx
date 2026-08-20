@@ -49,7 +49,7 @@ export default function ComparisonSection() {
           {/* LEFT — Ours */}
           <div className="panel panel--ours">
             <div className="panel-header">
-              <span className="panel-badge panel-badge--ours">Qued</span>
+              <span className="panel-badge panel-badge--ours">Cractal</span>
               <p className="panel-label">Structured. Adaptive. Honest.</p>
             </div>
             <div className="tag-cloud">

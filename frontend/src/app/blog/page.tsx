@@ -102,7 +102,7 @@ export default function BlogIndexPage() {
               animate={{ opacity: 1 }}
               className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3"
             >
-              The Qued Blog
+              The Cractal Blog
             </motion.p>
             <motion.h1
               initial={{ opacity: 0, y: 16 }}

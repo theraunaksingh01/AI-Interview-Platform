@@ -58,8 +58,8 @@ export default function InterviewError({
 
         <p className="mt-8 text-[12px] text-[#C4C4C4]">
           Keeps happening? Email{" "}
-          <a href="mailto:hello@qued.in" className="underline hover:text-[#111] transition-colors">
-            hello@qued.in
+          <a href="mailto:hello@cractal.in" className="underline hover:text-[#111] transition-colors">
+            hello@cractal.in
           </a>{" "}
           — mention what you were doing when it crashed.
         </p>

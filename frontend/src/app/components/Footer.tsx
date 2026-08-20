@@ -69,8 +69,8 @@ export function FooterHero() {
           <div style={{ maxWidth: 280 }}>
             <Link href="/">
               <span className="text-[22px] font-black tracking-tight inline-block mb-3">
-                <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: "4px" }}>Qu</span>
-                <span style={{ color: "white" }}>ed</span>
+                <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: "4px" }}>Cr</span>
+                <span style={{ color: "white" }}>actal</span>
               </span>
             </Link>
             <p style={{ fontSize: "13px", color: "#555", lineHeight: 1.7 }}>
@@ -81,8 +81,8 @@ export function FooterHero() {
             {/* Social */}
             <div className="flex items-center gap-2 mt-5">
               {[
-                { icon: <Linkedin size={14} />, href: "https://linkedin.com/company/qued-in", label: "LinkedIn" },
-                { icon: <Instagram size={14} />, href: "https://instagram.com/qued.in", label: "Instagram" },
+                { icon: <Linkedin size={14} />, href: "https://linkedin.com/company/Cractal-in", label: "LinkedIn" },
+                { icon: <Instagram size={14} />, href: "https://instagram.com/cractal.in", label: "Instagram" },
               ].map((s) => (
                 <Link
                   key={s.label}
@@ -170,7 +170,7 @@ export function FooterHero() {
         {/* ── Bottom bar ── */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8">
           <p style={{ fontSize: 12, color: "#333" }}>
-            © 2026 Qued. Built for India's engineering students.
+            © 2026 Cractal. Built for India's engineering students.
           </p>
           <div className="flex gap-6">
             {[
@@ -186,13 +186,13 @@ export function FooterHero() {
         </div>
       </div>
 
-      {/* Giant QUED watermark */}
+      {/* Giant Cractal watermark */}
       <div aria-hidden className="pointer-events-none flex justify-center overflow-hidden" style={{ marginTop: "-16px" }}>
         <span
           className="select-none font-black leading-none"
           style={{ fontSize: "clamp(80px, 20vw, 220px)", color: "rgba(255,255,255,0.03)", letterSpacing: "-4px" }}
         >
-          QUED
+          Cractal
         </span>
       </div>
     </footer>

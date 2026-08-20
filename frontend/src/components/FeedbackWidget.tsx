@@ -203,7 +203,7 @@ export default function FeedbackWidget({
             className="px-6 py-4"
           >
             <p className="text-[13px] text-[#6B7280]">
-              Would you recommend Qued to a friend? Were the questions relevant? Tell us — it takes 20 seconds and directly improves the platform.
+              Would you recommend Cractal to a friend? Were the questions relevant? Tell us — it takes 20 seconds and directly improves the platform.
             </p>
           </motion.div>
         )}
@@ -220,7 +220,7 @@ export default function FeedbackWidget({
             {/* Q1 — Recommend (moved to top, colour-coded) */}
             <div>
               <p className="text-[12px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
-                Would you recommend Qued to a friend preparing for placements?
+                Would you recommend Cractal to a friend preparing for placements?
               </p>
               <RecommendGroup value={wouldRecommend} onChange={setWouldRecommend} />
             </div>

@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
         <div className="text-center mb-8">
           <Link href="/">
             <span className="text-[22px] font-black text-[#111]">
-              Qu<span style={{ background: "#FFD600", padding: "1px 6px", borderRadius: "4px" }}>ed</span>
+              Cr<span style={{ background: "#FFD600", padding: "1px 6px", borderRadius: "4px" }}>actal</span>
             </span>
           </Link>
         </div>

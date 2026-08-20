@@ -125,7 +125,7 @@ export default function BlogPostCommunication() {
                 Get the specific feedback friends won&apos;t give you
               </p>
               <p style={{ fontSize: "14px", color: "#555" }}>
-                Qued&apos;s mock interviews track your pace, filler word count, and silence gaps live
+                Cractal&apos;s mock interviews track your pace, filler word count, and silence gaps live
                 while you speak — then show you exactly what to fix, not just a score.
               </p>
               <Link href="/mock" className="inline-block mt-3 text-[13px] font-black text-[#065F46] hover:underline">

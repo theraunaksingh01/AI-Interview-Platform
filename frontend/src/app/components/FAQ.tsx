@@ -5,28 +5,28 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const faqs = [
   {
-    q: "How is Qued different from other mock interview platforms?",
-    a: "Qued gives you specific, actionable feedback — not generic scores. We tell you exactly what to fix: 'You said um 18 times on Q3 and your pace jumped to 148 WPM.' We also have company-specific question banks for TCS, Amazon, Microsoft, and more, built specifically for Indian engineering students preparing for campus placements.",
+    q: "How is Cractal different from other mock interview platforms?",
+    a: "Cractal gives you specific, actionable feedback — not generic scores. We tell you exactly what to fix: 'You said um 18 times on Q3 and your pace jumped to 148 WPM.' We also have company-specific question banks for TCS, Amazon, Microsoft, and more, built specifically for Indian engineering students preparing for campus placements.",
   },
   {
-    q: "Is there a free trial available for Qued's AI interviews?",
+    q: "Is there a free trial available for Cractal's AI interviews?",
     a: "Yes — you get 3 free mock interviews per month with no credit card required, plus 3 DSA practice problems a day. Free sessions include your score and what was missing. Upgrade to Pro (₹299/mo) for unlimited sessions, company-specific prep, model answers, and your Skill Passport. Max (₹699/mo) adds Resume/Project discussion prep, the Cheat Sheet, and a Personal Coach Agent.",
   },
   {
-    q: "Who should use Qued?",
-    a: "Qued is built for final-year engineering students preparing for campus placements at TCS, Infosys, Wipro, Amazon, Microsoft, and startups. If you've never done a real technical interview before, or you've failed interviews and don't know why, Qued shows you exactly what to fix.",
+    q: "Who should use Cractal?",
+    a: "Cractal is built for final-year engineering students preparing for campus placements at TCS, Infosys, Wipro, Amazon, Microsoft, and startups. If you've never done a real technical interview before, or you've failed interviews and don't know why, Cractal shows you exactly what to fix.",
   },
   {
     q: "What is the typical length of a mock interview session?",
     a: "A standard session is 8 questions and takes about 20-25 minutes. You can choose 5, 8, or 11 questions depending on your plan. Each question can be answered by voice or text, and live coaching tracks your pace and filler words throughout.",
   },
   {
-    q: "How does Qued analyze my responses and provide feedback?",
+    q: "How does Cractal analyze my responses and provide feedback?",
     a: "Your voice is transcribed in real time using Faster-Whisper ASR. Claude evaluates your response across multiple dimensions — technical accuracy, communication clarity, and completeness. After the full session, you get one specific, prioritized fix to work on before your next interview.",
   },
   {
     q: "Can I customize my interview experience for different job roles?",
-    a: "Yes. You choose your target role, difficulty level, and optionally the company you're aiming for. The question bank serves questions specific to that combination — TCS NQT-style questions look nothing like an Amazon system design round, and Qued knows the difference.",
+    a: "Yes. You choose your target role, difficulty level, and optionally the company you're aiming for. The question bank serves questions specific to that combination — TCS NQT-style questions look nothing like an Amazon system design round, and Cractal knows the difference.",
   },
 ];
 
@@ -63,7 +63,7 @@ export function FAQ() {
             Frequently asked questions
           </h2>
           <p className="mt-4 text-gray-500" style={{ fontSize: "16px" }}>
-            Everything you need to know about Qued and our AI interview platform.
+            Everything you need to know about Cractal and our AI interview platform.
           </p>
         </div>
 

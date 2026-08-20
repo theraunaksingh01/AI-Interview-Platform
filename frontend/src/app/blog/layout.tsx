@@ -7,13 +7,13 @@ export const metadata: Metadata = {
   description:
     "Real tactics for placement interviews — TCS NQT prep, DSA patterns, off-campus strategy, and communication tips for Indian engineering students.",
   openGraph: {
-    title: "The Qued Blog — Interview Prep Insights",
+    title: "The Cractal Blog — Interview Prep Insights",
     description:
       "Company-specific prep guides, DSA patterns, and communication tips for engineering students preparing for placements.",
-    url: "https://qued.in/blog",
+    url: "https://cractal.in/blog",
   },
   alternates: {
-    canonical: "https://qued.in/blog",
+    canonical: "https://cractal.in/blog",
   },
 };
 

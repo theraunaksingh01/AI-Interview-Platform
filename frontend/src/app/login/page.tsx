@@ -102,8 +102,8 @@ function LoginForm() {
           <div className="relative z-10 px-8">
             <div className="mb-8">
               <span className="text-[24px] font-black tracking-tight">
-                <span style={{ background: "#FFD600", color: "#111", padding: "1px 7px", borderRadius: 5 }}>Qu</span>
-                <span style={{ color: "white" }}>ed</span>
+                <span style={{ background: "#FFD600", color: "#111", padding: "1px 7px", borderRadius: 5 }}>Cr</span>
+                <span style={{ color: "white" }}>actal</span>
               </span>
             </div>
             <h1 className="text-[30px] font-black text-white leading-tight mb-3" style={{ letterSpacing: "-0.5px" }}>
@@ -156,7 +156,7 @@ function LoginForm() {
             <div className="lg:hidden mb-6">
               <Link href="/">
                 <span className="text-[20px] font-black tracking-tight">
-                  <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: 4 }}>Qu</span>ed
+                  <span style={{ background: "#FFD600", color: "#111", padding: "1px 6px", borderRadius: 4 }}>Cr</span>actal
                 </span>
               </Link>
             </div>

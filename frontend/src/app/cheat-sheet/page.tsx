@@ -161,7 +161,7 @@ export default function CheatSheetPage() {
 
   function shareWhatsApp() {
     if (!data) return;
-    const text = `My ${data.company} Cheat Sheet on Qued — covering strengths, weak spots, company tips, and my prep stats. Check it out!`;
+    const text = `My ${data.company} Cheat Sheet on Cractal — covering strengths, weak spots, company tips, and my prep stats. Check it out!`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   }
 

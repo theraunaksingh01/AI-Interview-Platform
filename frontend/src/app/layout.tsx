@@ -10,10 +10,10 @@ import { CookieBanner } from "@/app/components/CookieBanner";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://qued.in"),
+  metadataBase: new URL("https://cractal.in"),
   title: {
-    default: "Qued — AI Mock Interviews & Placement Prep for Engineering Students",
-    template: "%s | Qued",
+    default: "Cractal — AI Mock Interviews & Placement Prep for Engineering Students",
+    template: "%s | Cractal",
   },
   description:
     "AI-powered mock interviews, OA practice tests, and placement readiness assessment for Indian engineering students. Prepare for TCS NQT, Infosys, Wipro, Amazon and more — campus or off-campus.",
@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     "placement readiness assessment",
     "coding interview preparation India",
   ],
-  authors: [{ name: "Qued" }],
-  creator: "Qued",
-  publisher: "Qued",
+  authors: [{ name: "Cractal" }],
+  creator: "Cractal",
+  publisher: "Cractal",
   robots: {
     index: true,
     follow: true,
@@ -47,9 +47,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_IN",
-    url: "https://qued.in",
-    siteName: "Qued",
-    title: "Qued — AI Mock Interviews & Placement Prep for Engineering Students",
+    url: "https://cractal.in",
+    siteName: "Cractal",
+    title: "Cractal — AI Mock Interviews & Placement Prep for Engineering Students",
     description:
       "AI-powered placement prep for India's engineering students. Mock interviews with live coaching, OA practice tests, and a free readiness assessment.",
     images: [
@@ -57,13 +57,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Qued — AI Placement Prep Platform",
+        alt: "Cractal — AI Placement Prep Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Qued — AI Mock Interviews & Placement Prep",
+    title: "Cractal — AI Mock Interviews & Placement Prep",
     description:
       "AI-powered placement prep for India's engineering students. Free readiness assessment, mock interviews, and OA practice.",
     images: ["/og-image.png"],
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   alternates: {
-    canonical: "https://qued.in",
+    canonical: "https://cractal.in",
   },
 };
 

@@ -124,7 +124,7 @@ export default function BlogPostAIInterviews() {
                 Practice the way you&apos;ll actually be evaluated
               </p>
               <p style={{ fontSize: "14px", color: "#555" }}>
-                Qued&apos;s mock interviews use live voice-based AI scoring, and OA Practice simulates
+                Cractal&apos;s mock interviews use live voice-based AI scoring, and OA Practice simulates
                 locked-timer, no-going-back assessment formats — the same conditions modern hiring
                 systems actually use.
               </p>
