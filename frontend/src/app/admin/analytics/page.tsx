@@ -31,6 +31,7 @@ export function AdminAnalyticsPage() {
   const { data: retention } = useAdminFetch("/api/admin/analytics/retention");
   const { data: funnel } = useAdminFetch("/api/admin/analytics/funnel");
   const { data: qAnalytics } = useAdminFetch("/api/admin/analytics/questions");
+  const { data: referrals } = useAdminFetch("/api/admin/analytics/referrals");
  
   const funnelData = funnel?.funnel || [];
   const funnelMax = funnelData[0]?.count || 1;
@@ -153,6 +154,58 @@ export function AdminAnalyticsPage() {
             ))}
           </div>
         </div>
+
+        
+        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 lg:col-span-2">
+          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-5">
+            Referral Program
+          </p>
+ 
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {[
+              { label: "Signups via referral", value: referrals?.referred_signups ?? 0,
+                sub: `${referrals?.referral_signup_pct ?? 0}% of all signups` },
+              { label: "Rewarded referrals", value: referrals?.rewarded_referrals ?? 0,
+                sub: "bonus sessions given" },
+              { label: "Referred user activation", value: `${referrals?.referred_activation_pct ?? 0}%`,
+                sub: "started a session" },
+              { label: "Total users", value: referrals?.total_users ?? 0,
+                sub: "for reference" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl border border-[#F3F4F6] bg-[#FAFAF8] px-4 py-3">
+                <p className="text-[20px] font-black text-[#111]">{s.value}</p>
+                <p className="text-[11px] font-bold text-[#374151] mt-0.5">{s.label}</p>
+                <p className="text-[10px] text-[#9CA3AF] mt-0.5">{s.sub}</p>
+              </div>
+            ))}
+          </div>
+ 
+          
+          {referrals?.top_referrers?.length > 0 ? (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
+                Top Referrers
+              </p>
+              <div className="space-y-1.5">
+                {referrals.top_referrers.slice(0, 5).map((r: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg bg-[#FAFAF8] px-3 py-2">
+                    <span className="text-[12px] font-medium text-[#374151]">{r.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] text-[#9CA3AF]">
+                        {r.rewarded_count}/{r.referral_count} rewarded
+                      </span>
+                      <span className="text-[13px] font-black text-[#111]">{r.referral_count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[13px] text-[#9CA3AF]">No referrals yet</p>
+          )}
+        </div>
+
       </div>
     </div>
   );

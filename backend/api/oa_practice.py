@@ -346,6 +346,42 @@ def submit_oa(
     }
 
 
+@router.get("/results/{attempt_id}/public")
+def get_public_oa_results(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Minimal, unauthenticated OA result data — used only for generating
+    OG share images (opengraph-image.tsx). No auth required.
+ 
+    Returns ONLY score/company/band — no name, email, or other PII,
+    since this endpoint has no auth check.
+    """
+    row = db.execute(
+        text("""
+            SELECT company, total_score, band_prediction
+            FROM oa_attempts
+            WHERE id = :id AND status = 'completed'
+        """),
+        {"id": attempt_id},
+    ).mappings().first()
+ 
+    if not row:
+        raise HTTPException(404, "Results not found")
+ 
+    company = row["company"] or "tcs"
+    config = OA_CONFIGS.get(company, {})
+    band_prediction = row["band_prediction"] or "not_qualified"
+ 
+    return {
+        "company": company,
+        "total_score": round(row["total_score"] or 0),
+        "band_prediction": band_prediction,
+        "band_info": config.get("bands", {}).get(band_prediction),
+    }
+    
+
 @router.get("/results/{attempt_id}")
 def get_oa_results(
     attempt_id: int,

@@ -791,6 +791,90 @@ def get_funnel(
     }
 
 
+@router.get("/analytics/referrals")
+def get_referral_analytics(
+    db: Session = Depends(_get_db),
+    _=Depends(_require_admin),
+) -> dict:
+    """Referral program performance: signups via referral, conversion, top referrers."""
+ 
+    total_users = db.execute(text("SELECT COUNT(*) FROM users")).scalar() or 0
+ 
+    referred_signups = db.execute(
+        text("SELECT COUNT(*) FROM referral_events")
+    ).scalar() or 0
+ 
+    rewarded_referrals = db.execute(
+        text("SELECT COUNT(*) FROM referral_events WHERE reward_given = TRUE")
+    ).scalar() or 0
+ 
+    # % of all signups that came through a referral
+    referral_signup_pct = round(referred_signups / total_users * 100, 1) if total_users else 0
+ 
+    # Top referrers — users who've referred the most people
+    top_referrers = db.execute(text("""
+        SELECT u.full_name, u.email, u.referral_count,
+               COUNT(re.id) FILTER (WHERE re.reward_given = TRUE) as rewarded_count
+        FROM users u
+        LEFT JOIN referral_events re ON re.referrer_id = u.id
+        WHERE u.referral_count > 0
+        GROUP BY u.id, u.full_name, u.email, u.referral_count
+        ORDER BY u.referral_count DESC
+        LIMIT 10
+    """)).mappings().all()
+ 
+    # Referred users who are still active (had a session) vs churned
+    referred_user_ids = db.execute(
+        text("SELECT referred_id FROM referral_events")
+    ).scalars().all()
+ 
+    referred_active = 0
+    if referred_user_ids:
+        referred_active = db.execute(
+            text("""
+                SELECT COUNT(DISTINCT user_id) FROM mock_sessions
+                WHERE user_id = ANY(:ids)
+            """),
+            {"ids": referred_user_ids},
+        ).scalar() or 0
+ 
+    referred_activation_pct = (
+        round(referred_active / len(referred_user_ids) * 100, 1)
+        if referred_user_ids else 0
+    )
+ 
+    # Weekly referral signup trend (last 8 weeks)
+    weekly_trend = db.execute(text("""
+        SELECT
+            DATE_TRUNC('week', re.created_at)::date as week,
+            COUNT(*) as signups
+        FROM referral_events re
+        WHERE re.created_at > NOW() - INTERVAL '8 weeks'
+        GROUP BY week
+        ORDER BY week
+    """)).mappings().all()
+ 
+    return {
+        "total_users": total_users,
+        "referred_signups": referred_signups,
+        "rewarded_referrals": rewarded_referrals,
+        "referral_signup_pct": referral_signup_pct,
+        "referred_activation_pct": referred_activation_pct,
+        "top_referrers": [
+            {
+                "name": r["full_name"] or r["email"].split("@")[0],
+                "referral_count": r["referral_count"],
+                "rewarded_count": r["rewarded_count"],
+            }
+            for r in top_referrers
+        ],
+        "weekly_trend": [
+            {"week": w["week"].isoformat(), "signups": w["signups"]}
+            for w in weekly_trend
+        ],
+    }
+    
+    
 @router.get("/analytics/questions")
 def get_question_analytics(
     db: Session = Depends(_get_db),

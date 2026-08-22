@@ -325,6 +325,43 @@ def claim_attempt(
     return {"ok": True, "attempt_id": payload.attempt_id}
 
 
+@router.get("/results/{attempt_id}/public")
+def get_public_results(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Minimal, unauthenticated result data — used only for generating
+    OG share images (opengraph-image.tsx). No auth required since this
+    is fetched server-side by Next.js's image generation, not by a browser
+    with student credentials.
+ 
+    Deliberately returns ONLY score/label/gap — no name, email, or any
+    other identifying information, since this endpoint has no auth check
+    and could technically be hit by anyone with a valid attempt_id.
+    """
+    row = db.execute(
+        text("""
+            SELECT total_score, biggest_gap
+            FROM assessment_attempts
+            WHERE id = :id AND status = 'completed'
+        """),
+        {"id": attempt_id},
+    ).mappings().first()
+ 
+    if not row:
+        raise HTTPException(404, "Results not found")
+ 
+    total_score = row["total_score"] or 0
+    biggest_gap = row["biggest_gap"] or ""
+ 
+    return {
+        "total_score": total_score,
+        "label": _overall_label(total_score),
+        "biggest_gap": biggest_gap,
+    }
+    
+
 @router.get("/results/{attempt_id}")
 def get_results(
     attempt_id: int,
