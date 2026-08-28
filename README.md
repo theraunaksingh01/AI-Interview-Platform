@@ -1,7 +1,7 @@
 # AI Interview Platform
-## Name: Qurio – from “curious” + “query”
+## Name: Cractal
 
-A prototype AI-powered interview platform built with FastAPI + Next.js + Docker.
+An AI-powered mock interview platform.
 
 ## Setup
 - Requires Docker Desktop (WSL2 backend)
@@ -14,17 +14,9 @@ A prototype AI-powered interview platform built with FastAPI + Next.js + Docker.
 .\.venv311\Scripts\Activate.ps1
 
 ## Uvicorn start
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000 --host 0.0.0.0
 
 Celery Start
 celery -A celery_app.app worker -l info -P solo
 
-Store the token in the browser for the frontend to use
-localStorage.setItem('access_token', '<PASTE_ACCESS_TOKEN_HERE>');
 
-Remove prev Tokens [Testing]
-localStorage.removeItem('access_token');
-localStorage.removeItem('API_TOKEN'); // if you used this earlier
-document.cookie.split(';').forEach(c => {
-  document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/');
-});
