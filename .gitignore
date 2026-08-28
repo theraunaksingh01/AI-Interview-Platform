@@ -86,6 +86,7 @@ ipython_config.py
 *.md
 
 # dsa que json files
+backend/dsa_bank/*.json
 backend/dsa_bank/batches/
 
 # json files for questions

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 import { ConsentModal } from "@/app/components/ConsentModal";
@@ -19,15 +20,50 @@ const ROLES = [
   { value: "System Design", label: "System Design", icon: "✂", tag: "Architecture · Trade-offs", comingSoon: true },
 ] as const;
 
+// Each company lists which roles it has real, curated question content for.
+// The dropdown filters to only show companies matching the currently selected role.
 const COMPANIES = [
-  { value: "", label: "General prep", tag: "Any company" },
-  { value: "tcs", label: "TCS", tag: "Campus placement" },
-  { value: "infosys", label: "Infosys", tag: "Campus placement" },
-  { value: "wipro", label: "Wipro", tag: "Campus placement" },
-  { value: "amazon", label: "Amazon", tag: "FAANG style" },
-  { value: "microsoft", label: "Microsoft", tag: "FAANG style" },
-  { value: "startup", label: "Startup", tag: "Product focused" },
-] as const;
+  { value: "", label: "General prep", tag: "Any company", roles: ["*"] },
+
+  // SDE — 24 companies
+  { value: "tcs", label: "TCS", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "infosys", label: "Infosys", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer", "AI Engineer", "Data Engineer"] },
+  { value: "wipro", label: "Wipro", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "cognizant genc", label: "Cognizant GenC", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "oracle", label: "Oracle", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "walmart", label: "Walmart", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "adobe", label: "Adobe", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer", "AI Engineer"] },
+  { value: "ltimindtree", label: "LTIMindtree", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "capgemini", label: "Capgemini", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "flipkart", label: "Flipkart", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer", "AI Engineer", "Data Engineer"] },
+  { value: "ibm", label: "IBM", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "jp morgan", label: "JP Morgan", tag: "Finance", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "qualcomm", label: "Qualcomm", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "salesforce", label: "Salesforce", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "tech mahindra", label: "Tech Mahindra", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "hcltech", label: "HCLTech", tag: "Campus placement", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "deloitte", label: "Deloitte", tag: "Consulting", roles: ["Backend Engineer", "Software Engineer", "Data Engineer"] },
+  { value: "accenture", label: "Accenture", tag: "Consulting", roles: ["Backend Engineer", "Software Engineer", "Data Engineer"] },
+  { value: "zomato", label: "Zomato", tag: "Startup", roles: ["Backend Engineer", "Software Engineer", "AI Engineer"] },
+  { value: "phonepe", label: "PhonePe", tag: "Fintech", roles: ["Backend Engineer", "Software Engineer", "AI Engineer"] },
+  { value: "atlassian", label: "Atlassian", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "goldman sachs", label: "Goldman Sachs", tag: "Finance", roles: ["Backend Engineer", "Software Engineer", "AI Engineer"] },
+  { value: "uber", label: "Uber", tag: "Product focused", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "amazon", label: "Amazon", tag: "FAANG style", roles: ["Backend Engineer", "Software Engineer", "AI Engineer", "Data Engineer"] },
+
+  // FAANG — SDE + AI/ML
+  { value: "google", label: "Google", tag: "FAANG style", roles: ["Backend Engineer", "Software Engineer", "AI Engineer"] },
+  { value: "microsoft", label: "Microsoft", tag: "FAANG style", roles: ["Backend Engineer", "Software Engineer", "AI Engineer"] },
+  { value: "meta", label: "Meta", tag: "FAANG style", roles: ["Backend Engineer", "Software Engineer"] },
+  { value: "apple", label: "Apple", tag: "FAANG style", roles: ["Backend Engineer", "Software Engineer"] },
+
+  // Data Analyst-only additions
+  { value: "mu sigma", label: "Mu Sigma", tag: "Analytics", roles: ["Data Engineer"] },
+  { value: "latentview", label: "LatentView", tag: "Analytics", roles: ["Data Engineer"] },
+  { value: "fractal", label: "Fractal", tag: "Analytics", roles: ["Data Engineer"] },
+
+  { value: "startup", label: "Startup", tag: "Product focused", roles: ["*"] },
+];
 
 const DIFFICULTY = [
   { value: "beginner", label: "Beginner", sub: "Fresher / 0 yr" },
@@ -453,34 +489,52 @@ export default function MockLandingPage() {
             </div>
 
             {/* Company */}
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
-              <p className="text-[13px] font-bold text-[#111] mb-0.5">Target Company</p>
-              <p className="text-[12px] text-[#9CA3AF] mb-4">
-                Questions tailored to company style
+                        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+              <div className="flex items-center justify-between mb-0.5">
+                <p className="text-[13px] font-bold text-[#111]">Target Company</p>
                 {userPlan === "free" && (
-                  <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-600">
+                  <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-600">
                     Pro feature
                   </span>
                 )}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {COMPANIES.map((c) => {
-                  const selected = company === c.value;
-                  const locked = userPlan === "free" && c.value !== "";
-                  return (
-                    <button key={c.value} onClick={() => !locked && setCompany(c.value)}
-                      className={`rounded-xl border px-4 py-2 text-[13px] font-medium transition ${selected
-                        ? "border-[#111] bg-[#111] text-white"
-                        : locked
-                          ? "border-[#F3F4F6] bg-[#F9FAFB] text-[#D1D5DB] cursor-not-allowed"
-                          : "border-[#E5E7EB] text-[#374151] hover:border-[#111] hover:bg-[#F9FAFB]"
-                        }`}>
-                      {c.label}
-                      {locked && <span className="ml-1 text-[10px]">🔒</span>}
-                    </button>
-                  );
-                })}
               </div>
+              <p className="text-[12px] text-[#9CA3AF] mb-4">
+                {userPlan === "free"
+                  ? "Free plan gets a mix of questions from all companies. Upgrade to target one specifically."
+                  : role
+                    ? `Showing companies with real ${selectedRole?.label ?? ""} interview questions`
+                    : "Select a role above to see companies with real interview questions"}
+              </p>
+
+              <div className="max-h-[260px] overflow-y-auto pr-1 -mr-1">
+                <div className="flex flex-wrap gap-2">
+                  {COMPANIES
+                    .filter((c) => c.roles.includes("*") || c.roles.includes(role))
+                    .map((c) => {
+                      const selected = company === c.value;
+                      const locked = userPlan === "free" && c.value !== "";
+                      return (
+                        <button key={c.value} onClick={() => !locked && setCompany(c.value)}
+                          disabled={locked}
+                          className={`rounded-xl border px-3.5 py-2 text-[12px] font-medium transition ${selected
+                            ? "border-[#111] bg-[#111] text-white"
+                            : locked
+                              ? "border-[#F3F4F6] bg-[#F9FAFB] text-[#D1D5DB] cursor-not-allowed"
+                              : "border-[#E5E7EB] text-[#374151] hover:border-[#111] hover:bg-[#F9FAFB]"
+                            }`}>
+                          {c.label}
+                          {locked && <span className="ml-1 text-[10px]">🔒</span>}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {userPlan === "free" && (
+                <Link href="/pricing" className="mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-[#FFFBEB] border border-amber-200 py-2.5 text-[12px] font-bold text-amber-700 hover:bg-amber-50 transition">
+                  ⚡ Upgrade to Pro for company-specific prep across {COMPANIES.length - 1}+ companies
+                </Link>
+              )}
             </div>
 
             {/* Difficulty */}

@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api import deps
-from api.rate_limit import login_rate_limit
+from api.rate_limit import login_rate_limit_dep
 from core import security
 from core.config import settings
 from db import models as db_models
@@ -283,11 +283,12 @@ def _authenticate(db: Session, email: str, password: str) -> db_models.User:
 
 # ---------- Endpoints ----------
 @router.post("/login", response_model=Token)
-@login_rate_limit()
+
 def login_form(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(deps.get_db),
+    _rl=Depends(login_rate_limit_dep),
 ) -> Any:
     """
     OAuth2 Password flow for Swagger **Authorize** dialog.
@@ -314,8 +315,8 @@ def login_json(payload: LoginJSON, db: Session = Depends(deps.get_db)) -> Any:
 
 
 @router.post("/register", response_model=Token)
-@login_rate_limit()
-def register(request: Request, payload: RegisterPayload, db: Session = Depends(deps.get_db)) -> Any:
+
+def register(request: Request, payload: RegisterPayload, db: Session = Depends(deps.get_db), _rl=Depends(login_rate_limit_dep)) -> Any:
     """
     Create a new user account and return an access token.
     """

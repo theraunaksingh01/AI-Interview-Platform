@@ -475,9 +475,19 @@ def start_mock_session(
     # Map company_type to company tag
     company_tag = None
     company_map = {
-        "tcs": "tcs", "infosys": "infosys",
-        "wipro": "wipro", "amazon": "amazon",
-        "microsoft": "microsoft", "startup": "startup",
+        "tcs": "TCS", "infosys": "Infosys", "wipro": "Wipro",
+        "amazon": "Amazon", "microsoft": "Microsoft", "startup": "startup",
+        "cognizant genc": "Cognizant GenC", "oracle": "Oracle",
+        "walmart": "Walmart", "adobe": "Adobe", "ltimindtree": "LTIMindtree",
+        "capgemini": "Capgemini", "flipkart": "Flipkart", "ibm": "IBM",
+        "jp morgan": "JP Morgan", "qualcomm": "Qualcomm",
+        "salesforce": "Salesforce", "tech mahindra": "Tech Mahindra",
+        "hcltech": "HCLTech", "deloitte": "Deloitte", "accenture": "Accenture",
+        "zomato": "Zomato", "phonepe": "PhonePe", "atlassian": "Atlassian",
+        "goldman sachs": "Goldman Sachs", "uber": "Uber",
+        "google": "Google", "mu sigma": "Mu Sigma",
+        "latentview": "LatentView", "fractal": "Fractal",
+        "meta": "Meta", "apple": "Apple",
     }
     if payload.company_type:
         company_tag = company_map.get(

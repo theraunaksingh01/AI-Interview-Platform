@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { isPublicRoute, isCandidateInterviewRoute } from "@/lib/publicRoutes";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+  process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
 type User = {
@@ -125,7 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const authHeader = useCallback((): Record<string, string> => {
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    const base: Record<string, string> = { "ngrok-skip-browser-warning": "true" };
+    return token ? { ...base, Authorization: `Bearer ${token}` } : base;
   }, [token]);
 
   return (

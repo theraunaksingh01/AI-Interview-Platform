@@ -434,18 +434,35 @@ export default function MockDashboardPage() {
   if (!hasSessions) {
     const firstName = user?.full_name ? user.full_name.split(" ")[0] : null;
 
+    const gapLabel = latestAssessment?.biggest_gap
+      ? latestAssessment.biggest_gap.replace(/_/g, " ")
+      : null;
+
     const WEEK_PLAN = [
       {
         day: "Day 1",
-        icon: "🎙️",
-        title: "Take your first mock interview",
-        sub: "See where you actually stand. 5 questions, 15 minutes, honest score.",
-        cta: "Start mock interview →",
-        href: "/mock",
-        highlight: true,
+        icon: "📊",
+        title: "Take the free readiness assessment",
+        sub: "5 minutes, no mic needed. Find out exactly where you stand and what to fix first.",
+        cta: "Take assessment →",
+        href: "/assessment",
+        highlight: !latestAssessment,
       },
       {
         day: "Day 2",
+        icon: "🎙️",
+        title: latestAssessment
+          ? `Take a mock interview focused on ${gapLabel || "your weak area"}`
+          : "Take your first mock interview",
+        sub: latestAssessment
+          ? `Your assessment flagged ${gapLabel || "an area to improve"} as your biggest gap. This mock session targets exactly that.`
+          : "See where you actually stand. 5 questions, 15 minutes, honest score.",
+        cta: "Start mock interview →",
+        href: "/mock",
+        highlight: !!latestAssessment,
+      },
+      {
+        day: "Day 3",
         icon: "📅",
         title: "Add your interview date",
         sub: "Tell Cractal when your TCS, Infosys or any company interview is — get a day-by-day prep plan built around your timeline.",
@@ -454,7 +471,7 @@ export default function MockDashboardPage() {
         highlight: false,
       },
       {
-        day: "Day 3",
+        day: "Day 4",
         icon: "📅",
         title: "Answer the daily challenge",
         sub: "One question a day. 2 minutes. Builds your streak and your confidence.",
@@ -463,21 +480,12 @@ export default function MockDashboardPage() {
         highlight: false,
       },
       {
-        day: "Day 4",
+        day: "Day 5",
         icon: "💻",
         title: "Try DSA practice",
         sub: "185 problems across Easy, Medium, Hard. Python, Java, C++ supported.",
         cta: "Open DSA practice →",
         href: "/dsa",
-        highlight: false,
-      },
-      {
-        day: "Day 5",
-        icon: "🔁",
-        title: "Do a second mock session",
-        sub: "Read your Day 1 report first. Focus on the one specific fix it gives you.",
-        cta: "Start another session →",
-        href: "/mock",
         highlight: false,
       },
     ];
@@ -556,7 +564,7 @@ export default function MockDashboardPage() {
                   {WEEK_PLAN.map((item, i) => (
                     <div
                       key={item.day}
-                      className={`flex items-start gap-4 px-7 py-5 transition ${
+                      className={`flex items-start gap-3 px-4 py-4 sm:gap-4 sm:px-7 sm:py-5 transition ${
                         item.highlight ? "bg-[#FAFAF5]" : "hover:bg-[#FAFAF8]"
                       }`}
                     >
@@ -583,15 +591,15 @@ export default function MockDashboardPage() {
                       <div className="flex-1 min-w-0 pt-1">
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                               <span
-                                className="text-[10px] font-black uppercase tracking-widest"
+                                className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
                                 style={{ color: item.highlight ? "#111" : "#9CA3AF" }}
                               >
                                 {item.day}
                               </span>
                               {item.highlight && (
-                                <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-[#111]">
+                                <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-[#111] whitespace-nowrap">
                                   START HERE
                                 </span>
                               )}
@@ -603,9 +611,9 @@ export default function MockDashboardPage() {
                               {item.sub}
                             </p>
                           </div>
-                          <Link href={item.href} className="flex-shrink-0">
+                          <Link href={item.href} className="flex-shrink-0 w-full sm:w-auto">
                             <button
-                              className="rounded-xl px-4 py-2 text-[12px] font-black transition whitespace-nowrap"
+                              className="w-full sm:w-auto rounded-xl px-4 py-2.5 sm:py-2 text-[12px] font-black transition whitespace-nowrap"
                               style={{
                                 background: item.highlight ? "#111" : "white",
                                 color: item.highlight ? "white" : "#374151",

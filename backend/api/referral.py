@@ -12,7 +12,7 @@ from api.deps import get_current_user
 from db.session import get_db
 from db import models as db_models
 import os
-from api.rate_limit import rate_limit
+from api.rate_limit import referral_claim_rate_limit_dep
 from fastapi import Request
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -142,12 +142,12 @@ def get_my_referral(
 
 
 @router.post("/claim")
-@rate_limit(max_requests=5, window_seconds=3600)
 def claim_referral(
     request: Request,
     payload: dict,
     current_user: db_models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _rl=Depends(referral_claim_rate_limit_dep),
 ):
     """
     Claim a referral code after signup.

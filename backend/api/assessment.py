@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from api.deps import get_current_user
-from api.rate_limit import assessment_rate_limit
+from api.rate_limit import assessment_rate_limit_dep
 
 router = APIRouter(prefix="/api/assessment", tags=["assessment"])
 
@@ -40,7 +40,12 @@ def _biggest_gap(section_scores: dict) -> str:
         "programming_dsa": 0.25,
         "communication": 0.20,
     }
-    worst = min(section_scores, key=lambda s: section_scores[s] * weights.get(s, 1))
+    # Only compare sections that were actually attempted (score is not None) —
+    # a skipped section should never be reported as the student's "biggest gap"
+    attempted = {s: v for s, v in section_scores.items() if v is not None}
+    if not attempted:
+        return ""
+    worst = min(attempted, key=lambda s: attempted[s] * weights.get(s, 1))
     return worst
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -67,8 +72,8 @@ class ClaimAttemptRequest(BaseModel):
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
 @router.post("/start")
-@assessment_rate_limit()
-def start_assessment(request: Request, db: Session = Depends(get_db)):
+
+def start_assessment(request: Request, db: Session = Depends(get_db),_rl=Depends(assessment_rate_limit_dep)):
     """
     Start a new assessment attempt — no auth required.
     Returns a guest_token stored in localStorage, and the question set.
@@ -197,9 +202,13 @@ def submit_assessment(
             (data["correct"] / total * 100) if total > 0 else 0
         )
 
-    # ── Evaluate voice if transcript provided ──────────────────────────────
+        # ── Evaluate voice if transcript provided ────────────────────────────────
     voice_evaluation = None
-    if payload.voice_transcript and len(payload.voice_transcript.strip()) > 10:
+    communication_attempted = bool(
+        payload.voice_transcript and len(payload.voice_transcript.strip()) > 10
+    )
+
+    if communication_attempted:
         try:
             client = anthropic.Anthropic()
             duration = payload.voice_duration_sec or 0
@@ -209,10 +218,8 @@ def submit_assessment(
                 messages=[{
                     "role": "user",
                     "content": f"""A student recorded their "Tell me about yourself" response for a placement interview diagnostic.
-
 Transcript: "{payload.voice_transcript}"
 Duration: {duration} seconds
-
 Evaluate and return ONLY valid JSON, no other text:
 {{
   "structure": <0-10>,
@@ -225,25 +232,34 @@ Evaluate and return ONLY valid JSON, no other text:
             )
             raw = resp.content[0].text.strip()
             voice_evaluation = json.loads(raw)
-            # Convert to 0-100 score for section_scores
             comm_score = round(
                 (voice_evaluation["structure"] + voice_evaluation["clarity"]) / 2 * 10
             )
             pct_scores["communication"] = comm_score
         except Exception:
-            pct_scores["communication"] = 0
+            # Attempted but our evaluation pipeline failed — this is our fault,
+            # not a reflection of the student's actual communication ability.
+            # Score it neutrally rather than as a 0% failure.
+            pct_scores["communication"] = 50
     else:
-        pct_scores["communication"] = 0
+        # Genuinely skipped — no data was collected. Exclude this section
+        # from the weighted score entirely rather than scoring it as 0%,
+        # since 0% implies a demonstrated weakness that was never measured.
+        pct_scores["communication"] = None
 
     # ── Overall score ──────────────────────────────────────────────────────
-    weights = {
+        weights = {
         "aptitude": 0.25,
         "cs_fundamentals": 0.30,
         "programming_dsa": 0.25,
         "communication": 0.20,
     }
+    # Exclude sections that were never attempted (None) from scoring,
+    # and redistribute their weight proportionally across attempted sections
+    attempted_weights = {s: w for s, w in weights.items() if pct_scores.get(s) is not None}
+    weight_sum = sum(attempted_weights.values()) or 1  # avoid div by zero
     total_score = round(sum(
-        pct_scores.get(s, 0) * w for s, w in weights.items()
+        pct_scores.get(s, 0) * (w / weight_sum) for s, w in attempted_weights.items()
     ))
 
     biggest_gap = _biggest_gap(pct_scores)

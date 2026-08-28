@@ -266,15 +266,23 @@ export default function AssessmentResultsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#222] border-t border-[#222]">
             {sectionOrder.map((key) => {
               const s = results.section_scores[key];
-              if (!s) return null;
               return (
                 <div key={key} className="px-4 py-4 text-center">
                   <p className="text-[18px] mb-1">{SECTION_ICONS[key]}</p>
                   <p className="text-[10px] font-black uppercase tracking-widest text-[#555] mb-1">
                     {SECTION_LABELS[key]}
                   </p>
-                  <p className="text-[20px] font-black text-white leading-none">{s.score}%</p>
-                  <p className="text-[11px] text-[#555] mt-0.5">{s.label}</p>
+                  {s ? (
+                    <>
+                      <p className="text-[20px] font-black text-white leading-none">{s.score}%</p>
+                      <p className="text-[11px] text-[#555] mt-0.5">{s.label}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[20px] font-black text-[#555] leading-none">—</p>
+                      <p className="text-[11px] text-[#555] mt-0.5">Not attempted</p>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -289,8 +297,18 @@ export default function AssessmentResultsPage() {
           <div className="space-y-4">
             {sectionOrder.map((key) => {
               const s = results.section_scores[key];
-              if (!s) return null;
               const isGap = key === results.biggest_gap;
+              if (!s) {
+                return (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[13px] font-bold text-[#9CA3AF]">{SECTION_LABELS[key]}</span>
+                      <span className="text-[12px] text-[#9CA3AF]">Not attempted</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-[#F3F4F6]" />
+                  </div>
+                );
+              }
               return (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-1.5">

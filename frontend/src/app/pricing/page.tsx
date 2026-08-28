@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,8 @@ const faqs = [
   },
 ];
 
+
+
 // ─── Cell ─────────────────────────────────────────────────────────────────────
 
 function FeatureCell({ value, colIndex }: { value: FeatureValue; colIndex: number }) {
@@ -178,6 +181,7 @@ function UpgradeBanner() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PricingPage() {
+  const { user } = useAuth();
   return (
     <main className="min-h-screen bg-[#F9FAFB] pt-20">
 
@@ -254,8 +258,7 @@ export default function PricingPage() {
                     }`}>
                       {tier.desc}
                     </p>
-                    <Link href={tier.ctaHref}>
-                      <button className={`w-full rounded-xl py-2.5 text-[13px] font-bold transition ${
+                    <Link href={user ? "/settings" : tier.ctaHref}>                      <button className={`w-full rounded-xl py-2.5 text-[13px] font-bold transition ${
                         tier.dark
                           ? "bg-white text-[#111] hover:bg-gray-100"
                           : "bg-[#111] text-white hover:bg-[#333]"
@@ -316,10 +319,32 @@ export default function PricingPage() {
                 </span>
                 <span className="text-[13px] text-[#9CA3AF]">{tier.period}</span>
               </div>
-              <p className={`text-[13px] mb-5 ${tier.dark ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>
+                            <p className={`text-[13px] mb-5 ${tier.dark ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>
                 {tier.desc}
               </p>
-              <Link href={tier.ctaHref}>
+
+              {/* Condensed feature list for mobile */}
+              <div className="space-y-2 mb-5">
+                {features.map((row) => {
+                  const val = row[tier.name.toLowerCase() as "free" | "pro" | "max"];
+                  if (val === false) return null;
+                  return (
+                    <div key={row.label} className="flex items-start gap-2">
+                      <span className={`text-[13px] mt-0.5 flex-shrink-0 ${tier.dark ? "text-yellow-400" : "text-emerald-500"}`}>
+                        ✓
+                      </span>
+                      <span className={`text-[12px] leading-snug ${tier.dark ? "text-[#D1D5DB]" : "text-[#374151]"}`}>
+                        {row.label}
+                        {typeof val === "string" && (
+                          <span className={tier.dark ? "text-[#6B7280]" : "text-[#9CA3AF]"}> — {val}</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <Link href={user ? "/settings" : tier.ctaHref}>
                 <button className={`w-full rounded-xl py-2.5 text-[13px] font-bold transition ${
                   tier.dark
                     ? "bg-white text-[#111] hover:bg-gray-100"

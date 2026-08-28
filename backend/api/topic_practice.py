@@ -24,7 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.deps import get_current_user
-from api.rate_limit import transcribe_rate_limit
+from api.rate_limit import transcribe_rate_limit_dep
 from db.session import SessionLocal
 
 import tempfile, os
@@ -332,10 +332,9 @@ def get_topics() -> dict:
 
 
 @router.post("/transcribe")
-@transcribe_rate_limit()
 async def transcribe_audio(
-    request: Request,
     file: UploadFile = File(...),
+    _rl: None = Depends(transcribe_rate_limit_dep),
     # current_user=Depends(get_current_user),
 ):
     """Transcribe audio blob for topic practice — no session or upload ID needed."""

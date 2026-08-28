@@ -99,7 +99,7 @@ def _fetch_questions(
             """
             AND (
                 :company IS NULL
-                OR company_tags @> ARRAY[:company]::text[]
+                OR EXISTS (SELECT 1 FROM unnest(company_tags) ct WHERE LOWER(ct) = LOWER(:company))
                 OR company_tags = '{}'::text[]
             )
             """
@@ -111,7 +111,7 @@ def _fetch_questions(
             """
             ORDER BY
                 CASE
-                    WHEN :company IS NOT NULL AND company_tags @> ARRAY[:company]::text[] THEN 0
+                    WHEN :company IS NOT NULL AND EXISTS (SELECT 1 FROM unnest(company_tags) ct WHERE LOWER(ct) = LOWER(:company)) THEN 0
                     ELSE 1
                 END,
                 quality_score DESC,

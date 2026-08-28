@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from api.deps import get_current_user
-from api.rate_limit import rate_limit
+from api.rate_limit import oa_start_rate_limit_dep, oa_submit_rate_limit_dep
 from fastapi import Request
 
 router = APIRouter(prefix="/api/oa", tags=["oa_practice"])
@@ -156,12 +156,12 @@ def list_oa_companies():
 
 
 @router.post("/start")
-@rate_limit(max_requests=10, window_seconds=3600)
 def start_oa(
     request: Request,
     payload: StartOARequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    _rl=Depends(oa_start_rate_limit_dep),
 ):
     """Start an OA attempt — requires auth."""
     config = OA_CONFIGS.get(payload.company)
@@ -235,12 +235,13 @@ def start_oa(
 
 
 @router.post("/submit")
-@rate_limit(max_requests=30, window_seconds=3600)
+
 def submit_oa(
     request: Request,
     payload: SubmitOARequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    _rl=Depends(oa_submit_rate_limit_dep),
 ):
     """Submit OA answers and get results."""
     attempt = db.execute(
