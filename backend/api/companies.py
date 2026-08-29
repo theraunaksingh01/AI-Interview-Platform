@@ -52,11 +52,22 @@ def get_company(slug: str, db: Session = Depends(get_db)):
 def get_company_question_count(slug: str, db: Session = Depends(get_db)):
     """Return question bank stats for a company — used in the prep section."""
     slug_to_tag = {
-        "tcs": "tcs", "infosys": "infosys", "wipro": "wipro",
-        "cognizant": "cognizant", "accenture": "accenture",
-        "capgemini": "capgemini", "amazon": "amazon",
-        "microsoft": "microsoft", "hcl": "hcl",
-        "tech-mahindra": "tech_mahindra",
+        "tcs": "TCS", "infosys": "Infosys", "wipro": "Wipro",
+        "cognizant": "Cognizant GenC", "accenture": "Accenture",
+        "capgemini": "Capgemini", "amazon": "Amazon",
+        "microsoft": "Microsoft", "hcl": "HCLTech",
+        "tech-mahindra": "Tech Mahindra",
+        "deloitte": "Deloitte", "ibm": "IBM",
+        "mindtree": "LTIMindtree",
+        "mphasis": "Mphasis",
+        "google": "Google", "meta": "Meta", "apple": "Apple",
+        "flipkart": "Flipkart", "adobe": "Adobe",
+        "goldman-sachs": "Goldman Sachs",
+        "jp-morgan": "JP Morgan", "oracle": "Oracle",
+        "qualcomm": "Qualcomm", "salesforce": "Salesforce",
+        "atlassian": "Atlassian", "uber": "Uber",
+        "phonepe": "PhonePe", "zomato": "Zomato",
+        "walmart": "Walmart",
     }
     company_tag = slug_to_tag.get(slug)
     if not company_tag:

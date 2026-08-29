@@ -274,11 +274,17 @@ export default function CompanyDetailPage() {
                   {data.oa_pattern.total_questions} questions · {data.oa_pattern.total_time} minutes total
                 </p>
               </div>
-              <Link href="/oa-practice">
-                <button className="rounded-xl bg-[#111] px-4 py-2 text-[12px] font-black text-white hover:bg-[#333] transition">
-                  Practice this pattern →
-                </button>
-              </Link>
+              {["tcs", "infosys", "wipro", "cognizant", "accenture", "hcl", "tech-mahindra"].includes(data.slug) ? (
+                <Link href={`/oa-practice/${data.slug}`}>
+                  <button className="rounded-xl bg-[#111] px-4 py-2 text-[12px] font-black text-white hover:bg-[#333] transition">
+                    Practice this pattern →
+                  </button>
+                </Link>
+              ) : (
+                <span className="rounded-xl bg-[#F3F4F6] px-4 py-2 text-[12px] font-black text-[#9CA3AF] cursor-not-allowed">
+                  Coming soon
+                </span>
+              )}
             </div>
 
             {/* Sections table */}
@@ -446,28 +452,31 @@ export default function CompanyDetailPage() {
               Start practicing right now.
             </h2>
 
-            {/* Question bank count */}
-            {qcount && qcount.total > 0 && (
-              <div className="mb-5 rounded-xl bg-white/5 border border-white/10 px-4 py-3 flex items-center gap-3">
-                <span className="text-[20px]">📚</span>
-                <p className="text-[13px] text-[#aaa]">
-                  <span className="text-white font-bold">{qcount.voice_count} voice questions</span> and{" "}
-                  <span className="text-white font-bold">{qcount.dsa_count} DSA problems</span> tagged for {data.company} in the question bank.
-                </p>
-              </div>
-            )}
+            
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Link href={mockUrl}>
-                <button className="w-full rounded-xl bg-yellow-400 py-3 text-[13px] font-black text-[#111] hover:bg-yellow-300 transition">
-                  🎙️ Start {data.company} mock interview →
+              {qcount && qcount.voice_count > 0 ? (
+                <Link href={mockUrl}>
+                  <button className="w-full rounded-xl bg-yellow-400 py-3 text-[13px] font-black text-[#111] hover:bg-yellow-300 transition">
+                    🎙️ Start {data.company} mock interview →
+                  </button>
+                </Link>
+              ) : (
+                <button disabled className="w-full rounded-xl bg-yellow-400/10 py-3 text-[13px] font-black text-yellow-400/40 cursor-not-allowed">
+                  🎙️ Mock interview — Coming soon
                 </button>
-              </Link>
-              <Link href="/oa-practice">
-                <button className="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition">
-                  📝 Take {data.company} OA practice test →
+              )}
+              {["tcs", "infosys", "wipro", "cognizant", "accenture", "hcl", "tech-mahindra"].includes(data.slug) ? (
+                <Link href={`/oa-practice/${data.slug}`}>
+                  <button className="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition">
+                    📝 Take {data.company} OA practice test →
+                  </button>
+                </Link>
+              ) : (
+                <button disabled className="w-full rounded-xl border border-white/10 bg-white/[0.02] py-3 text-[13px] font-black text-white/30 cursor-not-allowed">
+                  📝 OA practice — Coming soon
                 </button>
-              </Link>
+              )}
               <Link href="/dsa">
                 <button className="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-[13px] font-black text-white hover:bg-white/10 transition">
                   💻 Practice {data.company} DSA problems →
