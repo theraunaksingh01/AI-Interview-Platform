@@ -15,8 +15,14 @@ type TopicScore = { topic: string; avg_score: number; session_count: number };
 type Reminder = { topic: string; reminder: string };
 type CompanyProfile = {
   company: string;
-  interview_pattern: { rounds: string[] };
-  most_asked_topics: { topic: string; weight: string }[];
+  interview_pattern: {
+    sections?: { name: string; type: string; time_min: number; questions: number }[];
+    tracks?: string[];
+    behaviors?: string[];
+    total_time?: number;
+    total_questions?: number;
+  };
+  most_asked_topics: string[];
   interview_style: string;
   difficulty_range: string;
   typical_duration: string;
@@ -332,12 +338,14 @@ export default function CheatSheetPage() {
                   {data.company_intel.available && data.company_intel.data ? (
                     <div className="space-y-4">
                       <div>
-                        <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">Rounds</p>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">Sections</p>
                         <div className="flex flex-wrap gap-2">
-                          {data.company_intel.data.interview_pattern.rounds.map((r, i) => (
+                          {(data.company_intel.data.interview_pattern?.sections ?? []).map((s: any, i: number) => (
                             <div key={i} className="flex items-center gap-1.5">
-                              <span className="rounded-lg bg-[#EFF6FF] px-2.5 py-1 text-[12px] font-bold text-[#1E40AF]">{r}</span>
-                              {i < data.company_intel.data!.interview_pattern.rounds.length - 1 && (
+                              <span className="rounded-lg bg-[#EFF6FF] px-2.5 py-1 text-[12px] font-bold text-[#1E40AF]">
+                                {s.name}{s.time_min ? ` · ${s.time_min}m` : ""}
+                              </span>
+                              {i < (data.company_intel.data!.interview_pattern?.sections?.length ?? 0) - 1 && (
                                 <span className="text-[#D1D5DB]">→</span>
                               )}
                             </div>
@@ -348,10 +356,10 @@ export default function CheatSheetPage() {
                       <div>
                         <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-2">Most asked topics</p>
                         <div className="flex flex-wrap gap-2">
-                          {data.company_intel.data.most_asked_topics.map((t, i) => (
+                          {(data.company_intel.data.most_asked_topics ?? []).map((t: string, i: number) => (
                             <span key={i} className="rounded-full px-3 py-1 text-[11px] font-bold border"
-                              style={{ borderColor: WEIGHT_COLOR[t.weight] + "40", color: WEIGHT_COLOR[t.weight], background: WEIGHT_COLOR[t.weight] + "10" }}>
-                              {t.topic}
+                              style={{ borderColor: "#3B82F640", color: "#3B82F6", background: "#3B82F610" }}>
+                              {t}
                             </span>
                           ))}
                         </div>

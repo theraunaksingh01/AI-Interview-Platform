@@ -40,7 +40,7 @@ const COMPANIES = [
     bands: ["Project Engineer", "Turbo"],
     available: true,
   },
-  {
+    {
     slug: "cognizant",
     name: "Cognizant GenC",
     full: "Cognizant Online Assessment",
@@ -50,6 +50,37 @@ const COMPANIES = [
     bands: ["GenC", "GenC Next", "GenC Elevate"],
     available: true,
   },
+  {
+    slug: "accenture",
+    name: "Accenture Assessment",
+    full: "Accenture Cognitive and Technical Assessment",
+    emoji: "🟣",
+    duration: "90 min",
+    sections: "Verbal + Numerical + Reasoning + Technical",
+    bands: ["Cleared", "Strong Performer"],
+    available: true,
+  },
+  {
+    slug: "hcltech",
+    name: "HCLTech Assessment",
+    full: "HCLTech Online Aptitude and Technical Test",
+    emoji: "🟢",
+    duration: "60 min",
+    sections: "Numerical + Reasoning + Verbal + Technical",
+    bands: ["Cleared", "Strong Performer"],
+    available: true,
+  },
+  {
+    slug: "tech-mahindra",
+    name: "Tech Mahindra Assessment",
+    full: "Tech Mahindra National Qualifying Test",
+    emoji: "🔴",
+    duration: "90 min",
+    sections: "Numerical + Reasoning + Verbal + Technical",
+    bands: ["Cleared", "Strong Performer"],
+    available: true,
+  },
+
 ];
 
 export default function OAPracticePage() {

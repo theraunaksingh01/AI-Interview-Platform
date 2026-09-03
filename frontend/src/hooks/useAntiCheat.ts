@@ -22,22 +22,38 @@ export function useAntiCheat(opts: {
   blockContextMenu?: boolean;
   /** If true, detect DevTools open via heuristic (default: true) */
   detectDevTools?: boolean;
+  /** Called once when the violation count reaches maxViolations. Use this to end a proctored test. */
+  onCritical?: () => void;
+  /** Number of violations that triggers onCritical (default: 2 — one warning, then end) */
+  maxViolations?: number;
 } = {}) {
   const {
     blockPaste = false,
     blockCopy = false,
     blockContextMenu = true,
     detectDevTools = true,
+    onCritical,
+    maxViolations = 2,
   } = opts;
+
+  const criticalFired = useRef(false);
 
   const flagsRef = useRef<string[]>([]);
   const [flags, setFlags] = useState<string[]>([]);
   const devToolsFired = useRef(false);
 
-  const addFlag = useCallback((f: string) => {
+    const addFlag = useCallback((f: string) => {
     flagsRef.current = [...flagsRef.current, f];
     setFlags(flagsRef.current.slice(-8));
-  }, []);
+    if (
+      onCritical &&
+      !criticalFired.current &&
+      flagsRef.current.length >= maxViolations
+    ) {
+      criticalFired.current = true;
+      onCritical();
+    }
+  }, [onCritical, maxViolations]);
 
   // ── Tab switch / window blur ───────────────────────────────────
   useEffect(() => {
@@ -161,6 +177,7 @@ export function useAntiCheat(opts: {
     flagsRef.current = [];
     setFlags([]);
     devToolsFired.current = false;
+    criticalFired.current = false;
   }, []);
 
   return { flags, flagsRef, addFlag, submitFlags, resetFlags };

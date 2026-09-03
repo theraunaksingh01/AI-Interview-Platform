@@ -138,6 +138,20 @@ export default function OAResultsPage() {
     <main className="min-h-screen pt-24 pb-16 px-4" style={{ background: "#FAFAF8" }}>
       <div className="mx-auto max-w-[680px] space-y-5">
 
+        {results.ended_early_reason && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+            <span className="text-[20px]">⚠️</span>
+            <div>
+              <p className="text-[13px] font-bold text-amber-800">Test ended early</p>
+              <p className="text-[12px] text-amber-700 mt-0.5">
+                This test was ended early because you exited fullscreen mode during proctoring — the
+                same rule as a real OA. Your score reflects only the questions you answered before the
+                test ended, not a full attempt.
+              </p>
+            </div>
+          </div>
+        )}
+
         <Link href="/oa-practice" className="inline-flex items-center gap-1 text-[12px] font-medium text-[#9CA3AF] hover:text-[#111] transition">
           ← All OA tests
         </Link>

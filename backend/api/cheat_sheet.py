@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import anthropic
@@ -319,7 +319,10 @@ def _get_cached(db: Session, user_id: int, company: str) -> Optional[dict]:
     ).mappings().first()
     if not row:
         return None
-    if row["expires_at"] < datetime.utcnow():
+    expires_at = row["expires_at"]
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
         return None
     content = row["content"]
     if isinstance(content, str):
@@ -328,7 +331,7 @@ def _get_cached(db: Session, user_id: int, company: str) -> Optional[dict]:
 
 
 def _save_cache(db: Session, user_id: int, company: str, content: dict) -> None:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(hours=CACHE_HOURS)
     db.execute(
         text("""

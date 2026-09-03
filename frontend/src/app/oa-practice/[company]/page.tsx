@@ -58,6 +58,9 @@ export default function OATestPage() {
 
   // OA data
   const [oaData, setOaData] = useState<OAData | null>(null);
+  const oaDataRef = useRef<OAData | null>(null);
+  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
+  const exitedFullscreenOnce = useRef(false);
   const [config, setConfig] = useState<any>(null);
 
   // Test state
@@ -66,12 +69,51 @@ export default function OATestPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [sectionLocked, setSectionLocked] = useState(false);
+
   const { addFlag, flags } = useAntiCheat({
     blockPaste: false,
     blockCopy: false,
     blockContextMenu: false,
     detectDevTools: false,
   });
+
+  // Fullscreen-specific proctoring — separate from the generic anti-cheat
+  // toast system, since exiting fullscreen during a locked OA test needs
+  // to pause everything immediately, not just log a flag.
+  useEffect(() => {
+    const onFsChange = () => {
+      const isFullscreen = !!document.fullscreenElement;
+      if (isFullscreen || phase !== "test") return; // only care about exits during the actual test
+
+      if (!exitedFullscreenOnce.current) {
+        // First exit — pause the test, show the re-entry prompt
+        exitedFullscreenOnce.current = true;
+        if (sectionTimerRef.current) clearInterval(sectionTimerRef.current);
+        if (totalTimerRef.current) clearInterval(totalTimerRef.current);
+        setShowFullscreenPrompt(true);
+      } else {
+        // Second exit — end the test immediately
+        if (oaDataRef.current) {
+          handleSubmit(oaDataRef.current, "proctoring_violation");
+        }
+      }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, [phase]);
+
+  const handleReEnterFullscreen = async () => {
+    try {
+      await document.documentElement.requestFullscreen();
+      setShowFullscreenPrompt(false);
+      // Resume timers from wherever they left off
+      startSectionTimer(sectionTimeLeft, oaData!);
+      startTotalTimer(totalTimeLeft, oaData!);
+    } catch {
+      // Browser denied re-entry (e.g. requires direct user gesture) —
+      // keep the prompt open so they can try the button again
+    }
+  };
   const [lastFlag, setLastFlag] = useState("");
   const [showFlagWarning, setShowFlagWarning] = useState(false);
 
@@ -103,7 +145,7 @@ export default function OATestPage() {
     fetch(`${API_BASE}/api/oa/config/${company}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d) setConfig(d); })
-      .catch(() => {});
+      .catch(() => { });
   }, [company]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -140,6 +182,7 @@ export default function OATestPage() {
       }
       const data = await res.json();
       setOaData(data);
+      oaDataRef.current = data;
 
       // Start timers
       const totalSec = (data.config?.total_time_min || 30) * 60;
@@ -273,13 +316,11 @@ export default function OATestPage() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  const handleSubmit = async (data: OAData) => {
+  const handleSubmit = async (data: OAData, endReason?: string) => {
     if (sectionTimerRef.current) clearInterval(sectionTimerRef.current);
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
     setPhase("submitting");
-
     const timeTaken = Math.round((Date.now() - testStartTime.current) / 1000);
-
     try {
       const res = await fetch(`${API_BASE}/api/oa/submit`, {
         method: "POST",
@@ -288,6 +329,7 @@ export default function OATestPage() {
           attempt_id: data.attempt_id,
           answers: answers,
           time_taken_sec: timeTaken,
+          ended_early_reason: endReason ?? null,
         }),
       });
       const result = await res.json();
@@ -432,6 +474,32 @@ export default function OATestPage() {
             </div>
           )}
 
+          {/* Fullscreen proctoring modal — blocks everything until re-entry, no dismiss button */}
+          {showFullscreenPrompt && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
+            >
+              <div
+                className="w-full max-w-[440px] rounded-2xl p-7 text-center"
+                style={{ background: "#111", border: "1.5px solid #EF4444" }}
+              >
+                <div className="text-[40px] mb-3">⏸️</div>
+                <p className="text-[16px] font-black text-white mb-2">Your test is paused</p>
+                <p className="text-[13px] leading-relaxed mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  You exited fullscreen. Real OA proctoring does not allow this — you get one chance to return.
+                  If you exit fullscreen again, your test will end immediately and be submitted as-is.
+                </p>
+                <button
+                  onClick={handleReEnterFullscreen}
+                  className="w-full rounded-xl bg-white py-3 text-[14px] font-black text-[#111] hover:bg-gray-100 transition"
+                >
+                  Re-enter fullscreen and continue
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Top bar */}
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
@@ -482,7 +550,7 @@ export default function OATestPage() {
                   style={{
                     background: i < currentSectionIdx ? "#111"
                       : i === currentSectionIdx ? "#FFD600"
-                      : "#E5E7EB",
+                        : "#E5E7EB",
                   }}
                 />
               ))}
@@ -552,8 +620,8 @@ export default function OATestPage() {
                   {currentQIdx < currentQuestions.length - 1
                     ? "Next →"
                     : currentSectionIdx < totalSections - 1
-                    ? "Next section →"
-                    : "Submit test →"}
+                      ? "Next section →"
+                      : "Submit test →"}
                 </button>
               </div>
 

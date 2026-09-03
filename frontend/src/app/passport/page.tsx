@@ -602,11 +602,18 @@ export default function PassportPage() {
                 </div>
               )}
 
-              <DiagnosticsCard
-                authHeader={{ Authorization: `Bearer ${token}` }}
-                compact={false}
-              />
-
+                            {/* Readiness Assessment prompt */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-1">
+                  Placement Readiness Assessment
+                </p>
+                <p className="text-[12px] text-[#6B7280] mb-4">
+                  A 5-minute diagnostic across aptitude, CS fundamentals, DSA, and communication — see exactly where you stand.
+                </p>
+                <Link href="/assessment" className="block w-full rounded-xl border border-[#111] py-2.5 text-center text-[13px] font-black text-[#111] hover:bg-[#F9FAFB] transition">
+                  Take the assessment →
+                </Link>
+              </div>
               {/* CTA */}
               <div className="rounded-2xl bg-[#111] p-5">
                 <p className="text-[14px] font-black text-white mb-1">Improve your score</p>

@@ -115,6 +115,78 @@ OA_CONFIGS = {
             "genc_elevate": {"min_pct": 85, "label": "GenC Elevate", "ctc": "Rs.9 LPA (approx)"},
         },
     },
+        "accenture": {
+        "name": "Accenture Assessment",
+        "full_name": "Accenture Cognitive and Technical Assessment",
+        "total_time_min": 90,
+        "tracks": ["foundation"],
+        "sections": {
+            "foundation": [
+                {"key": "verbal",     "label": "Verbal Ability",     "questions": 30, "time_min": 25},
+                {"key": "numerical",  "label": "Numerical Ability",  "questions": 30, "time_min": 25},
+                {"key": "reasoning",  "label": "Reasoning Ability",  "questions": 25, "time_min": 20},
+                {"key": "technical",  "label": "Technical",          "questions": 25, "time_min": 20},
+            ],
+        },
+        "rules": [
+            "Sectional cutoffs apply - must clear each section individually",
+            "Cannot go back to previous questions",
+            "No negative marking",
+            "Technical section covers pseudocode, networking, and cloud basics",
+        ],
+        "bands": {
+            "pass":     {"min_pct": 50, "label": "Cleared",          "ctc": "Rs.4.5-7 LPA"},
+            "strong":   {"min_pct": 70, "label": "Strong Performer", "ctc": "Rs.7 LPA (approx)"},
+        },
+    },
+    "hcltech": {
+        "name": "HCLTech Assessment",
+        "full_name": "HCLTech Online Aptitude and Technical Test",
+        "total_time_min": 60,
+        "tracks": ["foundation"],
+        "sections": {
+            "foundation": [
+                {"key": "numerical",  "label": "Numerical Ability",   "questions": 35, "time_min": 15},
+                {"key": "reasoning",  "label": "Logical Reasoning",   "questions": 35, "time_min": 15},
+                {"key": "verbal",     "label": "Verbal Ability",      "questions": 30, "time_min": 15},
+                {"key": "technical",  "label": "Technical",           "questions": 30, "time_min": 15},
+            ],
+        },
+        "rules": [
+            "Sectional cutoffs apply",
+            "No negative marking",
+            "Cannot go back to previous questions",
+            "Technical section covers OOPS, DBMS, Networking, and OS basics",
+        ],
+        "bands": {
+            "pass":   {"min_pct": 45, "label": "Cleared",          "ctc": "Rs.3.5-4.5 LPA"},
+            "strong": {"min_pct": 65, "label": "Strong Performer", "ctc": "Rs.4.5-6 LPA"},
+        },
+    },
+    "tech mahindra": {
+        "name": "Tech Mahindra Assessment",
+        "full_name": "Tech Mahindra National Qualifying Test",
+        "total_time_min": 90,
+        "tracks": ["foundation"],
+        "sections": {
+            "foundation": [
+                {"key": "numerical",  "label": "Numerical Ability",  "questions": 35, "time_min": 25},
+                {"key": "reasoning",  "label": "Logical Reasoning",  "questions": 35, "time_min": 25},
+                {"key": "verbal",     "label": "Verbal Ability",     "questions": 30, "time_min": 20},
+                {"key": "technical",  "label": "Technical",          "questions": 30, "time_min": 20},
+            ],
+        },
+        "rules": [
+            "No negative marking",
+            "Cannot go back to previous questions",
+            "Section timer locks when time expires",
+            "Technical section covers programming fundamentals, OOPS, DBMS, and networking",
+        ],
+        "bands": {
+            "pass":   {"min_pct": 45, "label": "Cleared",          "ctc": "Rs.3.25-4 LPA"},
+            "strong": {"min_pct": 65, "label": "Strong Performer", "ctc": "Rs.4-5 LPA"},
+        },
+    },
 }
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -127,6 +199,7 @@ class SubmitOARequest(BaseModel):
     attempt_id: int
     answers: list[dict]   # [{question_id, selected_option, time_sec, section}]
     time_taken_sec: int
+    ended_early_reason: Optional[str] = None
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
@@ -164,7 +237,7 @@ def start_oa(
     _rl=Depends(oa_start_rate_limit_dep),
 ):
     """Start an OA attempt — requires auth."""
-    config = OA_CONFIGS.get(payload.company)
+    config = OA_CONFIGS.get(payload.company.replace("-", " "))
     if not config:
         raise HTTPException(404, "Company OA not found")
 
@@ -322,7 +395,8 @@ def submit_oa(
                 band_prediction = :band,
                 time_taken_sec = :time_taken,
                 status         = 'completed',
-                completed_at   = NOW()
+                completed_at   = NOW(),
+                ended_early_reason = :ended_early
             WHERE id = :id
         """),
         {
@@ -332,10 +406,11 @@ def submit_oa(
             "band":       band_prediction,
             "time_taken": payload.time_taken_sec,
             "id":         payload.attempt_id,
+            "ended_early": payload.ended_early_reason,
         },
     )
     db.commit()
-
+        
     return {
         "attempt_id": payload.attempt_id,
         "total_score": total_score,
@@ -344,6 +419,7 @@ def submit_oa(
         "band_info": bands.get(band_prediction),
         "time_taken_sec": payload.time_taken_sec,
         "enriched_answers": enriched,
+        "ended_early_reason": payload.ended_early_reason,
     }
 
 
@@ -420,6 +496,7 @@ def get_oa_results(
         "all_bands": config.get("bands", {}),
         "time_taken_sec": data.get("time_taken_sec"),
         "completed_at": str(data.get("completed_at", "")),
+        "ended_early_reason": data.get("ended_early_reason"),
     }
 
 
