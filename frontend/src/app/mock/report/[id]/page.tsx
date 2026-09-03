@@ -7,6 +7,7 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 import ContributeCard from "@/components/ContributeCard";
 import FlagQuestionButton from "@/components/FlagQuestionButton";
 import { AIDisclaimer } from "@/app/components/AIDisclaimer";
+import { AnswerScaffoldModal } from "@/app/components/AnswerScaffoldModal";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type QuestionData = {
@@ -87,6 +88,7 @@ function wpmLabel(wpm: number | null | undefined): string {
   return "too fast";
 }
 
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ScoreRing({ score }: { score: number | null }) {
@@ -114,8 +116,7 @@ function ScoreRing({ score }: { score: number | null }) {
   );
 }
 
-function QuestionCard({ q, index, userPlan, sessionId, authHeader }: { q: QuestionData; index: number; userPlan: string; sessionId: string; authHeader: () => Record<string, string>; }) {
-  const [expanded, setExpanded] = useState(false);
+function QuestionCard({ q, index, userPlan, sessionId, authHeader, onBuildAnswer }: { q: QuestionData; index: number; userPlan: string; sessionId: string; authHeader: () => Record<string, string>; onBuildAnswer: (question: { id: number; text: string }) => void; }) {  const [expanded, setExpanded] = useState(false);
   const hasTranscript = q.transcript && q.transcript.trim().length > 0;
 
   return (
@@ -241,12 +242,20 @@ function QuestionCard({ q, index, userPlan, sessionId, authHeader }: { q: Questi
               ) : null}
 
               {userPlan === "max" && q.better_answer && (
-                <a
-                  href={`/mock?retry_question=${q.question_id}`}
-                  className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700"
-                >
-                  🎙 Practice this answer again
-                </a>
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <a
+                    href={`/mock?retry_question=${q.question_id}`}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                  >
+                    🎙 Practice this answer again
+                  </a>
+                  <button
+                    onClick={() => onBuildAnswer({ id: q.question_id, text: q.question_text })}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-amber-600 hover:text-amber-700"
+                  >
+                    🧩 Build this answer piece by piece
+                  </button>
+                </div>
               )}
             </>
           ) : (
@@ -342,6 +351,7 @@ function SkeletonCard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function MockReportPage() {
+  const [scaffoldQuestion, setScaffoldQuestion] = useState<{ id: number; text: string } | null>(null);
   const { id } = useParams() as { id: string };
   const sessionId = id;
   const router = useRouter();
@@ -511,7 +521,7 @@ export default function MockReportPage() {
   return (
     <main className="min-h-screen bg-[#FAFAFA] px-4 pb-16 pt-28 sm:px-8">
       <div className="mx-auto max-w-215 space-y-6">
-        <AIDisclaimer variant="compact" />
+       
         {/* ── Header ── */}
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
@@ -677,8 +687,7 @@ export default function MockReportPage() {
           ) : sortedQuestions.length > 0 ? (
             <div className="space-y-3">
               {sortedQuestions.map((q, i) => (
-                <QuestionCard key={q.question_id} q={q} index={i} userPlan={userPlan} sessionId={sessionId} authHeader={authHeader} />
-              ))}
+                <QuestionCard key={q.question_id} q={q} index={i} userPlan={userPlan} sessionId={sessionId} authHeader={authHeader} onBuildAnswer={setScaffoldQuestion} />              ))}
             </div>
           ) : (
             <div className="rounded-2xl border border-[#F3F4F6] bg-white px-5 py-8 text-center text-sm text-[#9CA3AF]">
@@ -781,6 +790,15 @@ export default function MockReportPage() {
 
         {/* Contribute card */}
         <ContributeCard />
+
+        {/* ── Answer Scaffold Modal ── */}
+        {scaffoldQuestion && (
+          <AnswerScaffoldModal
+            questionId={scaffoldQuestion.id}
+            questionText={scaffoldQuestion.text}
+            onClose={() => setScaffoldQuestion(null)}
+          />
+        )}
 
       </div>
     </main>
