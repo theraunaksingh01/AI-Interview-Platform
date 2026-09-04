@@ -102,63 +102,71 @@ function SetupScreen({
   const [duration, setDuration] = useState(15);
   const [focus, setFocus] = useState("auto");
 
-  const focusInfo = FOCUS_AREAS.find(f => f.value === focus);
-  const durationInfo = DURATIONS.find(d => d.value === duration);
-
   return (
-    <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 lg:grid-cols-2">
+    <div className="min-h-[calc(100vh-72px)]" style={{ background: "#FAFAF8" }}>
+      <div className="mx-auto max-w-[720px] px-6 py-10 lg:py-14">
 
-      {/* LEFT: Form */}
-      <div className="flex flex-col justify-center px-6 py-10 lg:px-14 lg:py-12 bg-[#FFFDF0] border-r border-[#F0F0EE]">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-[440px] mx-auto w-full">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 mb-5">
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">Quick Prep</span>
-          </div>
-          <h1 style={{ fontSize: "clamp(26px, 4vw, 38px)", fontWeight: 900, letterSpacing: "-1px", color: "#111", lineHeight: 1.4 }}
-            className="mb-2">
-            Revise fast,<br />
+          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Quick Prep</p>
+          <h1
+            className="mb-2 font-black text-[#111]"
+            style={{ fontSize: "clamp(28px, 5vw, 40px)", letterSpacing: "-1px", lineHeight: 1.15 }}
+          >
+            Revise fast,{" "}
             <span style={{ background: "#FFD600", padding: "1px 10px", borderRadius: "6px", fontStyle: "italic" }}>
               walk in calm.
             </span>
           </h1>
-          <p className="mb-8 text-[14px] text-[#6B7280] leading-relaxed">
+          <p className="mb-10 text-[14px] text-[#6B7280] leading-relaxed max-w-[480px]">
             No scoring. No pressure. Just a quick check on what you remember before your interview.
           </p>
 
-          <div className="mb-6">
-            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
-              Company <span className="text-[#D1D5DB]">(optional)</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {COMPANIES.map(c => (
-                <button key={c.key} onClick={() => setCompany(company === c.key ? null : c.key)}
-                  className={`rounded-xl px-3 py-1.5 text-[12px] font-bold border transition-all ${
-                    company === c.key
+          {/* Company */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 mb-4">
+            <p className="text-[13px] font-bold text-[#111] mb-0.5">Target company</p>
+            <p className="text-[12px] text-[#9CA3AF] mb-4">Optional — helps personalize your closing summary</p>
+
+            <div className="flex flex-wrap gap-2 mb-3">
+              {COMPANIES.filter((c) => c.key !== "general").map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => setCompany(company === c.key ? null : c.key)}
+                  className={`rounded-xl px-3.5 py-2 text-[12px] font-bold border transition-all ${company === c.key
                       ? "border-[#111] bg-[#111] text-white"
                       : "border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111]"
-                  }`}>
+                    }`}
+                >
                   {c.name}
                 </button>
               ))}
             </div>
+
+            <input
+              type="text"
+              value={company && !COMPANIES.some((c) => c.key === company) ? company : ""}
+              onChange={(e) => setCompany(e.target.value.trim() ? e.target.value : null)}
+              placeholder="Or type any other company…"
+              className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-[13px] text-[#111] focus:border-[#111] focus:outline-none"
+            />
           </div>
 
-          <div className="mb-6">
-            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">How much time do you have?</p>
-            <div className="grid grid-cols-3 gap-2">
-              {DURATIONS.map(d => (
-                <button key={d.value} onClick={() => setDuration(d.value)}
-                  className={`rounded-2xl border-2 px-3 py-3 text-center transition-all ${
-                    duration === d.value
-                      ? "border-[#111] bg-[#111]"
-                      : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
-                  }`}>
-                  <p className={`text-[16px] font-black ${duration === d.value ? "text-white" : "text-[#111]"}`}>
-                    {d.label}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 ${duration === d.value ? "text-white/50" : "text-[#9CA3AF]"}`}>
+          {/* Duration */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 mb-4">
+            <p className="text-[13px] font-bold text-[#111] mb-0.5">How much time do you have?</p>
+            <p className="text-[12px] text-[#9CA3AF] mb-4">Sets how many concepts you'll cover</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {DURATIONS.map((d) => (
+                <button
+                  key={d.value}
+                  onClick={() => setDuration(d.value)}
+                  className={`rounded-xl border px-4 py-3 text-center transition ${duration === d.value
+                      ? "border-[#111] bg-[#111] text-white"
+                      : "border-[#E5E7EB] hover:border-[#111] hover:bg-[#F9FAFB]"
+                    }`}
+                >
+                  <p className="text-[15px] font-black">{d.label}</p>
+                  <p className={`text-[11px] mt-0.5 ${duration === d.value ? "text-white/60" : "text-[#9CA3AF]"}`}>
                     {d.desc}
                   </p>
                 </button>
@@ -166,20 +174,22 @@ function SetupScreen({
             </div>
           </div>
 
-          <div className="mb-8">
-            <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Focus area</p>
-            <div className="grid grid-cols-2 gap-2">
-              {FOCUS_AREAS.map(f => (
-                <button key={f.value} onClick={() => setFocus(f.value)}
-                  className={`rounded-2xl border-2 px-3 py-3 text-left transition-all ${
-                    focus === f.value
-                      ? "border-[#111] bg-[#111]"
-                      : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
-                  }`}>
-                  <p className={`text-[13px] font-black ${focus === f.value ? "text-white" : "text-[#111]"}`}>
-                    {f.label}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 ${focus === f.value ? "text-white/50" : "text-[#9CA3AF]"}`}>
+          {/* Focus area */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 mb-4">
+            <p className="text-[13px] font-bold text-[#111] mb-0.5">Focus area</p>
+            <p className="text-[12px] text-[#9CA3AF] mb-4">What should this session cover?</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {FOCUS_AREAS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFocus(f.value)}
+                  className={`rounded-xl border px-4 py-3 text-left transition ${focus === f.value
+                      ? "border-[#111] bg-[#111] text-white"
+                      : "border-[#E5E7EB] hover:border-[#111] hover:bg-[#F9FAFB]"
+                    }`}
+                >
+                  <p className="text-[13px] font-black">{f.label}</p>
+                  <p className={`text-[11px] mt-0.5 ${focus === f.value ? "text-white/60" : "text-[#9CA3AF]"}`}>
                     {f.desc}
                   </p>
                 </button>
@@ -187,8 +197,29 @@ function SetupScreen({
             </div>
           </div>
 
+          {/* How it flows */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 mb-4">
+            <p className="text-[13px] font-bold text-[#111] mb-4">How it flows</p>
+            <div className="space-y-3">
+              {[
+                { icon: "🎙️", title: "AI asks a concept", sub: "Spoken aloud — \"Explain normalization in databases\"" },
+                { icon: "💬", title: "You explain it", sub: "Speak naturally, or type if you prefer" },
+                { icon: "✅", title: "Instant feedback", sub: "\"Solid — you covered 1NF to 3NF. Remember BCNF too.\"" },
+                { icon: "⚡", title: "Or skip ahead", sub: "\"I know this\" moves on instantly — no need to prove it" },
+              ].map(({ icon, title, sub }) => (
+                <div key={title} className="flex items-start gap-3">
+                  <span className="text-[18px] mt-0.5">{icon}</span>
+                  <div>
+                    <p className="text-[13px] font-bold text-[#111]">{title}</p>
+                    <p className="text-[12px] text-[#9CA3AF] mt-0.5 leading-relaxed">{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {error && (
-            <div className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4">
               <p className="text-[13px] text-rose-700">{error}</p>
             </div>
           )}
@@ -201,89 +232,16 @@ function SetupScreen({
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                Building your revision...
+                Building your revision…
               </span>
-            ) : "Start Quick Prep →"}
+            ) : (
+              "Start Quick Prep →"
+            )}
           </button>
           <p className="mt-3 text-center text-[11px] text-[#9CA3AF]">
             Works best with earphones in a quiet spot
           </p>
         </motion.div>
-      </div>
-
-      {/* RIGHT: Live preview (desktop only) */}
-      <div className="hidden lg:flex flex-col bg-white overflow-y-auto">
-        <AnimatePresence mode="wait">
-          <motion.div key={`${company}-${duration}-${focus}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="h-full flex flex-col"
-          >
-            <div className="px-8 pt-10 pb-6 border-b border-[#F3F4F6]">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">
-                What this session looks like
-              </p>
-
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex flex-col items-center justify-center h-16 w-16 rounded-2xl bg-[#111] text-white flex-shrink-0">
-                  <p className="text-[20px] font-black leading-none">{durationInfo?.label.split(" ")[0]}</p>
-                  <p className="text-[9px] text-[#9CA3AF] uppercase tracking-wide">min</p>
-                </div>
-                <div>
-                  <p className="text-[16px] font-black text-[#111] leading-tight">
-                    {durationInfo?.desc} · {focusInfo?.label}
-                  </p>
-                  <p className="text-[12px] text-[#6B7280] mt-1">
-                    {company ? `Personalized for ${COMPANIES.find(c => c.key === company)?.name}` : "General revision — pick a company for tailored prep"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="flex-1 rounded-xl bg-[#FFFBEB] border border-yellow-200 px-3 py-2 text-center">
-                  <p className="text-[10px] font-black text-[#92400E]">WARM-UP</p>
-                  <p className="text-[11px] text-[#92400E]/70 mt-0.5">1 concept</p>
-                </div>
-                <div className="flex-1 rounded-xl bg-[#F0FDF4] border border-emerald-200 px-3 py-2 text-center">
-                  <p className="text-[10px] font-black text-[#065F46]">REVISION</p>
-                  <p className="text-[11px] text-[#065F46]/70 mt-0.5">most of it</p>
-                </div>
-                <div className="flex-1 rounded-xl bg-[#EFF6FF] border border-blue-200 px-3 py-2 text-center">
-                  <p className="text-[10px] font-black text-[#1E40AF]">RAPID FIRE</p>
-                  <p className="text-[11px] text-[#1E40AF]/70 mt-0.5">last stretch</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-8 py-6 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">How it flows</p>
-              <div className="space-y-3">
-                {[
-                  { icon: "🎙️", title: "AI asks a concept", sub: "Spoken aloud — \"Explain normalization in databases\"" },
-                  { icon: "💬", title: "You explain it", sub: "Speak naturally, or type if you prefer" },
-                  { icon: "✅", title: "Instant feedback", sub: "\"Solid — you covered 1NF to 3NF. Remember BCNF too.\"" },
-                  { icon: "⚡", title: "Or skip ahead", sub: "\"I know this\" moves on instantly — no need to prove it" },
-                ].map(({ icon, title, sub }) => (
-                  <div key={title} className="flex items-start gap-3">
-                    <span className="text-[18px] mt-0.5">{icon}</span>
-                    <div>
-                      <p className="text-[13px] font-bold text-[#111]">{title}</p>
-                      <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-relaxed">{sub}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 rounded-2xl bg-[#111] p-4">
-                <p className="text-[11px] font-black uppercase tracking-widest text-[#555] mb-2">At the end</p>
-                <p className="text-[13px] text-white leading-relaxed">
-                  &quot;You&apos;re solid on DBMS and OS. Brush up on TCP vs UDP — that&apos;s your one weak spot. You&apos;ve done several practice sessions. You&apos;re more prepared than you think.&quot;
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -424,7 +382,7 @@ function ActiveSession({
       }
       setTranscript((finalText + interim).trim());
     };
-    recognition.onerror = () => {};
+    recognition.onerror = () => { };
     recognition.start();
   }
 
@@ -540,9 +498,8 @@ function ActiveSession({
       {/* Progress dots */}
       <div className="flex gap-1 px-5 lg:px-8 py-2">
         {session.concepts.map((_, i) => (
-          <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${
-            i < index ? "bg-[#111]" : i === index ? "bg-yellow-400" : "bg-[#F3F4F6]"
-          }`} />
+          <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < index ? "bg-[#111]" : i === index ? "bg-yellow-400" : "bg-[#F3F4F6]"
+            }`} />
         ))}
       </div>
 
@@ -664,13 +621,11 @@ function ActiveSession({
               const isCurrent = i === index;
               const isDone = i < index;
               return (
-                <div key={c.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors ${
-                  isCurrent ? "bg-yellow-50 border border-yellow-200" :
-                  isDone ? "opacity-50" : "bg-[#F9FAFB]"
-                }`}>
-                  <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${
-                    isDone ? "bg-[#111] text-white" : isCurrent ? "bg-yellow-400 text-[#111]" : "bg-[#F3F4F6] text-[#9CA3AF]"
+                <div key={c.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors ${isCurrent ? "bg-yellow-50 border border-yellow-200" :
+                    isDone ? "opacity-50" : "bg-[#F9FAFB]"
                   }`}>
+                  <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${isDone ? "bg-[#111] text-white" : isCurrent ? "bg-yellow-400 text-[#111]" : "bg-[#F3F4F6] text-[#9CA3AF]"
+                    }`}>
                     {isDone ? "✓" : i + 1}
                   </div>
                   <span className="text-[11px]">{m.icon}</span>

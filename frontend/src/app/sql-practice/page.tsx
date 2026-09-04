@@ -20,8 +20,8 @@ export default function SQLPracticePage() {
             SQL Practice
           </h1>
           <p className="text-[14px] text-[#6B7280] max-w-lg leading-relaxed">
-            Write and run real SQL queries against pre-loaded schemas. Joins, subqueries,
-            aggregations — everything tested in TCS, Infosys, and Amazon DBMS rounds.
+            Write and run real SQL queries against pre-loaded schemas — joins, subqueries,
+            aggregations, and the core patterns tested in placement DBMS rounds.
           </p>
         </div>
 
@@ -38,7 +38,7 @@ export default function SQLPracticePage() {
           {[
             { icon: "⌨️", tip: "Ctrl+Enter to run query", sub: "Works in the editor" },
             { icon: "💡", tip: "Use Practice Questions tab", sub: "Curated questions with hints" },
-            { icon: "🏢", tip: "SQLite syntax", sub: "Close to MySQL/PostgreSQL for placement prep" },
+            { icon: "🏢", tip: "SQLite syntax", sub: "Core SQL concepts — some MySQL/PostgreSQL syntax differs" },
           ].map(({ icon, tip, sub }) => (
             <div
               key={tip}

@@ -67,6 +67,12 @@ type DashboardData = {
     session_id: string;
     achieved_at: string;
   }>;
+  feature_stats?: {
+    dsa: { solved: number; total_attempts: number };
+    assessment: { attempts: number; best_score: number | null; avg_score: number | null };
+    oa_practice: { attempts: number; best_score: number | null; avg_score: number | null };
+    topic_practice: { sessions: number };
+  };
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -217,6 +223,53 @@ function ScoreCard({
         />
       </div>
     </div>
+  );
+}
+
+function FeatureStatCard({
+  label,
+  icon,
+  primaryValue,
+  primaryLabel,
+  secondaryValue,
+  color,
+  emptyMessage,
+  href,
+}: {
+  label: string;
+  icon: string;
+  primaryValue: string | null;
+  primaryLabel: string;
+  secondaryValue?: string | null;
+  color: string;
+  emptyMessage: string;
+  href: string;
+}) {
+  const isEmpty = primaryValue === null;
+  return (
+    <Link href={href}>
+      <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 hover:border-[#111] hover:shadow-sm transition-all cursor-pointer h-full">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-[13px] text-[#6B7280] flex items-center gap-1.5">
+            <span>{icon}</span> {label}
+          </div>
+        </div>
+        {isEmpty ? (
+          <>
+            <div className="text-[20px] font-bold text-[#9CA3AF]">Not started</div>
+            <div className="mt-1.5 text-[11px] text-[#9CA3AF]">{emptyMessage}</div>
+          </>
+        ) : (
+          <>
+            <div className="text-[32px] font-bold text-[#111]">{primaryValue}</div>
+            <div className="mt-1 text-[11px] text-[#6B7280]">{primaryLabel}</div>
+            {secondaryValue && (
+              <div className="mt-2 text-[11px] font-medium" style={{ color }}>{secondaryValue}</div>
+            )}
+          </>
+        )}
+      </div>
+    </Link>
   );
 }
 
@@ -987,13 +1040,46 @@ export default function MockDashboardPage() {
           />
         </div>
 
-        {/* ── Dimension score cards ── */}
+        {/* ── Skill readiness cards — pulled from whichever feature actually measures each skill ── */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <ScoreCard label="DSA"          score={data?.latest_scores?.dsa ?? null}          delta={data?.deltas?.dsa ?? null}          color={COLORS.dsa} />
-          <ScoreCard label="System Design" score={data?.latest_scores?.system_design ?? null} delta={data?.deltas?.system_design ?? null} color={COLORS.system_design} />
-          <ScoreCard label="Behavioral"   score={data?.latest_scores?.behavioral ?? null}   delta={data?.deltas?.behavioral ?? null}   color={COLORS.behavioral} />
+          <FeatureStatCard
+            label="DSA Practice"
+            icon="💻"
+            primaryValue={data?.feature_stats ? `${data.feature_stats.dsa.solved}/185` : null}
+            primaryLabel="problems solved"
+            secondaryValue={data?.feature_stats?.dsa.total_attempts ? `${data.feature_stats.dsa.total_attempts} attempts total` : null}
+            color={COLORS.dsa}
+            emptyMessage="Try your first problem"
+            href="/dsa"
+          />
           <ScoreCard label="Communication" score={data?.latest_scores?.communication ?? null} delta={data?.deltas?.communication ?? null} color={COLORS.communication} />
+          <FeatureStatCard
+            label="Aptitude & Fundamentals"
+            icon="📊"
+            primaryValue={data?.feature_stats?.assessment.best_score != null ? `${data.feature_stats.assessment.best_score}%` : null}
+            primaryLabel={data?.feature_stats?.assessment.attempts ? `best of ${data.feature_stats.assessment.attempts} attempt${data.feature_stats.assessment.attempts !== 1 ? "s" : ""}` : ""}
+            secondaryValue={data?.feature_stats?.assessment.avg_score != null ? `${data.feature_stats.assessment.avg_score}% average` : null}
+            color={COLORS.system_design}
+            emptyMessage="Take the readiness assessment"
+            href="/assessment"
+          />
+          <FeatureStatCard
+            label="OA Readiness"
+            icon="📝"
+            primaryValue={data?.feature_stats?.oa_practice.best_score != null ? `${data.feature_stats.oa_practice.best_score}%` : null}
+            primaryLabel={data?.feature_stats?.oa_practice.attempts ? `best of ${data.feature_stats.oa_practice.attempts} attempt${data.feature_stats.oa_practice.attempts !== 1 ? "s" : ""}` : ""}
+            secondaryValue={data?.feature_stats?.oa_practice.avg_score != null ? `${data.feature_stats.oa_practice.avg_score}% average` : null}
+            color={COLORS.behavioral}
+            emptyMessage="Practice a real company OA"
+            href="/oa-practice"
+          />
         </div>
+        {data?.feature_stats?.topic_practice.sessions ? (
+          <p className="text-[12px] text-[#9CA3AF] -mt-1">
+            You've also done <span className="font-bold text-[#374151]">{data.feature_stats.topic_practice.sessions} Topic Practice sessions</span> —{" "}
+            <Link href="/topic-practice" className="underline hover:text-[#111]">keep going →</Link>
+          </p>
+        ) : null}
 
         {/* ── DSA Practice widget ── */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">

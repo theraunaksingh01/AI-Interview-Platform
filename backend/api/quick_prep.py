@@ -561,10 +561,10 @@ def end_session(
         if mock_sessions > 0:
             closing = f"You've done {mock_sessions} practice session{'s' if mock_sessions != 1 else ''} preparing for {company_row}. You're more ready than you think. Go get it."
         else:
-            closing = f"You just revised {total_covered} concepts for {company_row}. Walk in with confidence — you know more than you think."
+            closing = f"You just revised {total_covered} concepts for {company_row}. Walk in with confidence - you know more than you think."
     else:
-        closing = f"You revised {total_covered} concepts just now. That's active recall — it sticks better than re-reading notes. Good luck."
-
+        closing = f"You revised {total_covered} concepts just now. That's active recall - it sticks better than re-reading notes. Good luck."
+        
     # Update session row with final counts
     db.execute(
         text("""

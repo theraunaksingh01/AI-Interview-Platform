@@ -517,6 +517,12 @@ export function CompanyPrep() {
                       {q.difficulty}
                     </span>
                     <button
+                      onClick={() =>
+                      (window.location.href =
+                        q.type === "code"
+                          ? "/dsa"
+                          : `/mock?company=${encodeURIComponent(q.company)}`)
+                      }
                       className="transition-transform duration-150 group-hover:translate-x-0.5"
                       style={{
                         fontSize: "13px",
@@ -540,17 +546,9 @@ export function CompanyPrep() {
 
         {/* Bottom CTA */}
         <div className="text-center mt-10">
-          <p
-            className="mb-4"
-            style={{ fontSize: "14px", color: "#888" }}
-          >
-            {active === "all"
-              ? "160+ questions across all companies"
-              : `${filtered.length} questions for ${
-                  companies.find((c) => c.id === active)?.label
-                }`}
-          </p>
+
           <button
+            onClick={() => (window.location.href = "/mock")}
             style={{
               background: "#111111",
               color: "white",

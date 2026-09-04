@@ -8,9 +8,9 @@ const PLANS_MONTHLY = [
   {
     name: "Free",
     badge: null,
-    price: "₹0",
+    price: "Rs.0",
     period: "forever",
-    desc: "Start practicing — campus drive or off-campus application.",
+    desc: "Start practicing - campus drive or off-campus application.",
     cta: "Start free",
     ctaStyle: { background: "white", color: "#111", border: "1.5px solid #E8E8E0" },
     featured: false,
@@ -20,7 +20,7 @@ const PLANS_MONTHLY = [
       { text: "Score + what was missing", included: true },
       { text: "Streak tracking", included: true },
       { text: "3 DSA problems per day", included: true },
-      { text: "Readiness Assessment — 1 per month", included: true },
+      { text: "Readiness Assessment - 1 per month", included: true },
       { text: "Assessment section scores + company match", included: true },
       { text: "OA Practice Tests", included: false },
       { text: "Model answers", included: false },
@@ -30,18 +30,18 @@ const PLANS_MONTHLY = [
   {
     name: "Pro",
     badge: "Most Popular",
-    price: "₹299",
+    price: "Rs.299",
     period: "per month",
-    desc: "Everything to crack placements — campus or off-campus.",
-    cta: "Start Pro — ₹299/mo",
+    desc: "Everything to crack placements - campus or off-campus.",
+    cta: "Start Pro - Rs.299/mo",
     ctaStyle: { background: "#111111", color: "white", border: "none" },
     featured: true,
     features: [
       { text: "Unlimited sessions", included: true },
       { text: "8 questions per session", included: true },
       { text: "Full report with model answers", included: true },
-      { text: "Readiness Assessment — 3 per month", included: true },
-      { text: "OA Practice Tests — 5 per month (TCS, Infosys, Wipro, Cognizant)", included: true },
+      { text: "Readiness Assessment - 3 per month", included: true },
+      { text: "OA Practice Tests - 5 per month (TCS, Infosys, Wipro, Cognizant)", included: true },
       { text: "Company-specific prep", included: true },
       { text: "Unlimited DSA practice", included: true },
       { text: "Session history + improvement graph", included: true },
@@ -52,10 +52,10 @@ const PLANS_MONTHLY = [
   {
     name: "Max",
     badge: null,
-    price: "₹699",
+    price: "Rs.699",
     period: "per month",
     desc: "For serious candidates who want every edge before the interview.",
-    cta: "Start Max — ₹699/mo",
+    cta: "Start Max - Rs.699/mo",
     ctaStyle: { background: "white", color: "#111", border: "1.5px solid #E8E8E0" },
     featured: false,
     features: [
@@ -64,26 +64,25 @@ const PLANS_MONTHLY = [
       { text: "Unlimited Readiness Assessments", included: true },
       { text: "Unlimited OA Practice Tests", included: true },
       { text: "Resume/Project discussion prep", included: true },
-      { text: "Cheat Sheet — company prep page", included: true },
+      { text: "Cheat Sheet - company prep page", included: true },
       { text: "Retry any answer on report page", included: true },
       { text: "Solution access on DSA problems", included: true },
-      { text: "Personal Coach Agent", included: true },
     ],
   },
 ];
 
 const PLANS_YEARLY = PLANS_MONTHLY.map((p) => {
-  if (p.price === "₹0") return { ...p, price: "₹0", period: "forever", cta: "Start free" };
-  const monthlyNum = parseInt(p.price.replace("₹", ""), 10);
+  if (p.price === "Rs.0") return { ...p, price: "Rs.0", period: "forever", cta: "Start free" };
+  const monthlyNum = parseInt(p.price.replace("Rs.", ""), 10);
   const yearlyMonthlyEquivalent = Math.round((monthlyNum * 0.63) / 10) * 10;
   return {
     ...p,
-    price: `₹${yearlyMonthlyEquivalent}`,
+    price: `Rs.${yearlyMonthlyEquivalent}`,
     period: "per month, billed yearly",
     cta:
       p.name === "Pro"
-        ? `Start Pro — ₹${yearlyMonthlyEquivalent}/mo`
-        : `Start Max — ₹${yearlyMonthlyEquivalent}/mo`,
+        ? `Start Pro - Rs.${yearlyMonthlyEquivalent}/mo`
+        : `Start Max - Rs.${yearlyMonthlyEquivalent}/mo`,
   };
 });
 

@@ -57,137 +57,134 @@ function UploadScreen({
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 lg:grid-cols-2">
+    <div className="min-h-[calc(100vh-72px)]" style={{ background: "#FAFAF8" }}>
+      <div className="mx-auto max-w-[720px] px-6 py-10 lg:py-14">
 
-      {/* LEFT: Upload */}
-      <div className="flex flex-col justify-center px-6 py-10 lg:px-14 bg-[#FFFDF0] border-r border-[#F0F0EE]">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-[460px] mx-auto w-full">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 mb-5">
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-widest text-[#374151]">Resume Prep · Max</span>
-          </div>
-
-          <h1 style={{ fontSize: "clamp(26px, 4vw, 38px)", fontWeight: 900, letterSpacing: "-1px", color: "#111", lineHeight: 1.3 }}
-            className="mb-2">
-            They&apos;ll ask about<br />
+          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF] mb-3">Resume Prep · Max</p>
+          <h1
+            className="mb-2 font-black text-[#111]"
+            style={{ fontSize: "clamp(28px, 5vw, 40px)", letterSpacing: "-1px", lineHeight: 1.15 }}
+          >
+            They&apos;ll ask about{" "}
             <span style={{ background: "#FFD600", padding: "1px 10px", borderRadius: "6px", fontStyle: "italic" }}>
               your projects.
             </span>
           </h1>
-          <p className="mb-8 text-[14px] text-[#6B7280] leading-relaxed">
-            Upload your resume. We&apos;ll generate questions specific to YOUR projects, your stack, your claims — exactly how a real interviewer would.
+          <p className="mb-10 text-[14px] text-[#6B7280] leading-relaxed max-w-[480px]">
+            Upload your resume. We&apos;ll generate questions specific to YOUR projects, your stack,
+            your claims — exactly how a real interviewer would.
           </p>
 
-          {/* Mode toggle */}
-          <div className="flex gap-2 mb-5">
-            <button onClick={() => setMode("file")}
-              className={`flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all ${
-                mode === "file" ? "bg-[#111] text-white" : "bg-white border border-[#E5E7EB] text-[#374151]"
-              }`}>
-              📄 Upload PDF
-            </button>
-            <button onClick={() => setMode("text")}
-              className={`flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all ${
-                mode === "text" ? "bg-[#111] text-white" : "bg-white border border-[#E5E7EB] text-[#374151]"
-              }`}>
-              ✏️ Paste text
-            </button>
+          {/* How this is different */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 mb-4">
+            <p className="text-[13px] font-bold text-[#111] mb-4">How this is different</p>
+            <div className="space-y-3.5">
+              {[
+                { icon: "🎯", title: "Questions about YOUR projects", sub: "Not generic — \"Walk me through how you handled order tracking in your delivery app\"" },
+                { icon: "🔍", title: "Probes your exact tech stack", sub: "\"You listed Redis — what did you actually use it for?\"" },
+                { icon: "⚠️", title: "Tests for resume inflation", sub: "If you said \"led\" or \"architected\", expect to be asked what that specifically meant" },
+                { icon: "📊", title: "Resume Consistency Score", sub: "Your report shows whether your spoken answers matched what's written" },
+              ].map(({ icon, title, sub }) => (
+                <div key={title} className="flex items-start gap-3">
+                  <span className="text-[18px] mt-0.5">{icon}</span>
+                  <div>
+                    <p className="text-[13px] font-bold text-[#111]">{title}</p>
+                    <p className="text-[12px] text-[#9CA3AF] mt-0.5 leading-relaxed">{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {mode === "file" ? (
-            <div
-              onDragOver={e => { e.preventDefault(); setDragActive(true); }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`rounded-2xl border-2 border-dashed p-10 text-center cursor-pointer transition-all ${
-                dragActive ? "border-[#111] bg-white" : "border-[#D1D5DB] bg-white hover:border-[#9CA3AF]"
-              }`}
-            >
-              <div className="text-[40px] mb-3">📄</div>
-              <p className="text-[14px] font-bold text-[#111] mb-1">
-                {dragActive ? "Drop your resume here" : "Drag & drop your resume"}
-              </p>
-              <p className="text-[12px] text-[#9CA3AF]">or click to browse · PDF, max 5MB</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) onFileSelected(file);
-                }}
-              />
-            </div>
-          ) : (
-            <div>
-              <textarea
-                value={pastedText}
-                onChange={e => setPastedText(e.target.value)}
-                placeholder="Paste your resume text or project descriptions here..."
-                className="w-full rounded-2xl border border-[#E5E7EB] bg-white p-4 min-h-[200px] text-[14px] text-[#374151] focus:border-[#111] focus:outline-none resize-none"
-              />
+          {/* Sample question */}
+          <div className="rounded-2xl bg-[#111] p-6 mb-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#555] mb-3">Sample question</p>
+            <p className="text-[14px] text-white leading-relaxed">
+              &quot;I see you built a food delivery API using Redis for caching. Walk me through what
+              specifically you cached, and how you handled cache invalidation when order status changed.&quot;
+            </p>
+          </div>
+
+          {/* Upload */}
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 mb-4">
+            <p className="text-[13px] font-bold text-[#111] mb-4">Add your resume</p>
+
+            <div className="flex gap-2 mb-4">
               <button
-                onClick={() => onTextSubmit(pastedText)}
-                disabled={pastedText.trim().length < 50}
-                className="w-full mt-3 rounded-2xl bg-[#111] py-4 text-[14px] font-black text-white hover:bg-[#333] transition disabled:opacity-40"
+                onClick={() => setMode("file")}
+                className={`flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all ${
+                  mode === "file" ? "bg-[#111] text-white" : "bg-white border border-[#E5E7EB] text-[#374151] hover:border-[#111]"
+                }`}
               >
-                Generate my questions →
+                📄 Upload PDF
+              </button>
+              <button
+                onClick={() => setMode("text")}
+                className={`flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all ${
+                  mode === "text" ? "bg-[#111] text-white" : "bg-white border border-[#E5E7EB] text-[#374151] hover:border-[#111]"
+                }`}
+              >
+                ✏️ Paste text
               </button>
             </div>
-          )}
+
+            {mode === "file" ? (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`rounded-2xl border-2 border-dashed p-10 text-center cursor-pointer transition-all ${
+                  dragActive ? "border-[#111] bg-[#FAFAF8]" : "border-[#D1D5DB] bg-[#FAFAF8] hover:border-[#9CA3AF]"
+                }`}
+              >
+                <div className="text-[40px] mb-3">📄</div>
+                <p className="text-[14px] font-bold text-[#111] mb-1">
+                  {dragActive ? "Drop your resume here" : "Drag & drop your resume"}
+                </p>
+                <p className="text-[12px] text-[#9CA3AF]">or click to browse · PDF, max 5MB</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onFileSelected(file);
+                  }}
+                />
+              </div>
+            ) : (
+              <div>
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Paste your resume text or project descriptions here…"
+                  className="w-full rounded-2xl border border-[#E5E7EB] bg-[#FAFAF8] p-4 min-h-[180px] text-[14px] text-[#374151] focus:border-[#111] focus:outline-none resize-none"
+                />
+                <button
+                  onClick={() => onTextSubmit(pastedText)}
+                  disabled={pastedText.trim().length < 50}
+                  className="w-full mt-3 rounded-2xl bg-[#111] py-4 text-[14px] font-black text-white hover:bg-[#333] transition disabled:opacity-40"
+                >
+                  Generate my questions →
+                </button>
+              </div>
+            )}
+          </div>
 
           {error && (
-            <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4">
               <p className="text-[13px] text-rose-700">{error}</p>
             </div>
           )}
 
-          <p className="mt-4 text-[11px] text-[#9CA3AF] text-center">
+          <p className="text-center text-[11px] text-[#9CA3AF]">
             Your resume is used only to generate questions — never shared or stored beyond this session
           </p>
         </motion.div>
-      </div>
-
-      {/* RIGHT: Info panel */}
-      <div className="hidden lg:flex flex-col bg-white overflow-y-auto">
-        <div className="px-8 pt-10 pb-6 border-b border-[#F3F4F6]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-            How this is different
-          </p>
-          <div className="space-y-4">
-            {[
-              { icon: "🎯", title: "Questions about YOUR projects", sub: "Not generic — \"Walk me through how you handled order tracking in your delivery app\"" },
-              { icon: "🔍", title: "Probes your exact tech stack", sub: "\"You listed Redis — what did you actually use it for?\"" },
-              { icon: "⚠️", title: "Tests for resume inflation", sub: "If you said \"led\" or \"architected\", expect to be asked what that specifically meant" },
-              { icon: "📊", title: "Resume Consistency Score", sub: "Your report shows whether your spoken answers matched what's written" },
-            ].map(({ icon, title, sub }) => (
-              <div key={title} className="flex items-start gap-3">
-                <span className="text-[20px] mt-0.5">{icon}</span>
-                <div>
-                  <p className="text-[13px] font-bold text-[#111]">{title}</p>
-                  <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-relaxed">{sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="px-8 py-6">
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] mb-4">
-            Sample question
-          </p>
-          <div className="rounded-2xl bg-[#111] p-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-[#555] mb-3">
-              Based on your resume
-            </p>
-            <p className="text-[14px] text-white leading-relaxed">
-              &quot;I see you built a food delivery API using Redis for caching. Walk me through what specifically you cached, and how you handled cache invalidation when order status changed.&quot;
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

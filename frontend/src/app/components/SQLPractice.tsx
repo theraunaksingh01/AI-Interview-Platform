@@ -171,9 +171,9 @@ INSERT INTO enrollments VALUES
 ];
 
 const DIFF_STYLE: Record<string, { bg: string; color: string }> = {
-  Easy:   { bg: "#DCFCE7", color: "#166534" },
+  Easy: { bg: "#DCFCE7", color: "#166534" },
   Medium: { bg: "#FEF3C7", color: "#92400E" },
-  Hard:   { bg: "#FEE2E2", color: "#991B1B" },
+  Hard: { bg: "#FEE2E2", color: "#991B1B" },
 };
 
 type ResultRow = Record<string, string | number | null>;
@@ -181,18 +181,18 @@ type ResultRow = Record<string, string | number | null>;
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SQLPractice() {
-  const [db, setDb]                 = useState<any>(null);
-  const [loadError, setLoadError]   = useState("");
-  const [activeQ, setActiveQ]       = useState(0);
-  const [query, setQuery]           = useState("");
-  const [result, setResult]         = useState<{ columns: string[]; rows: ResultRow[] } | null>(null);
-  const [error, setError]           = useState("");
-  const [running, setRunning]       = useState(false);
-  const [execTime, setExecTime]     = useState<number | null>(null);
-  const [showHint, setShowHint]     = useState(false);
+  const [db, setDb] = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
+  const [activeQ, setActiveQ] = useState(0);
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<{ columns: string[]; rows: ResultRow[] } | null>(null);
+  const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
+  const [execTime, setExecTime] = useState<number | null>(null);
+  const [showHint, setShowHint] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [showExp, setShowExp]       = useState(false);
-  const [solved, setSolved]         = useState<Set<number>>(new Set());
+  const [showExp, setShowExp] = useState(false);
+  const [solved, setSolved] = useState<Set<number>>(new Set());
   const dbRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -222,7 +222,7 @@ export default function SQLPractice() {
       const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
       if (tables.length > 0) {
         tables[0].values.forEach(([name]: [string]) => {
-          try { database.run(`DROP TABLE IF EXISTS "${name}"`); } catch {}
+          try { database.run(`DROP TABLE IF EXISTS "${name}"`); } catch { }
         });
       }
       // Load schema for this question
@@ -415,8 +415,19 @@ export default function SQLPractice() {
               </div>
             </div>
           )}
+          {/* Table schema — visible by default, this is what you're querying */}
+          <div className="mt-3 rounded-xl overflow-hidden" style={{ border: "1px solid #E5E7EB" }}>
+            <div className="px-4 py-2" style={{ background: "#F0F9FF", borderBottom: "1px solid #BAE6FD" }}>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#0369A1]">📋 Table Schema</p>
+            </div>
+            <pre className="px-4 py-3 text-[11px] font-mono text-[#374151] overflow-x-auto whitespace-pre-wrap" style={{ background: "#FAFBFC", maxHeight: 140, overflowY: "auto" }}>
+              {q.schema
+                .split("\n")
+                .filter((line) => line.trim().startsWith("CREATE TABLE"))
+                .join("\n")}
+            </pre>
+          </div>
         </div>
-
         {/* SQL Editor */}
         <div className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
           <div className="relative flex-1" style={{ minHeight: 140 }}>

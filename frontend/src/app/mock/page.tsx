@@ -258,13 +258,17 @@ export default function MockLandingPage() {
     return VALID_ROLES.includes(p as typeof VALID_ROLES[number]) ? p : "";
   })();
 
-  const initialDifficulty = (() => {
+    const initialDifficulty = (() => {
     const p = searchParams.get("prefill_difficulty") ?? "";
     return VALID_DIFFICULTIES.includes(p) ? p : "";
   })();
-
+  const initialCompany = (() => {
+    const p = searchParams.get("company") ?? "";
+    return COMPANIES.some((c) => c.value === p) ? p : "";
+  })();
+  
   const [role, setRole] = useState(initialRole);
-  const [company, setCompany] = useState("");
+  const [company, setCompany] = useState(initialCompany);
   const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [language, setLanguage] = useState("");  // preferred coding language
   const [loading, setLoading] = useState(false);

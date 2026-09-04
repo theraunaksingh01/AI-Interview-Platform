@@ -815,6 +815,68 @@ def get_dashboard(user_id: str, db: Session = Depends(get_db)):
         .all()
     )
 
+    # ── Additional feature stats (DSA, Assessment, OA, Topic Practice) ──
+    # Computed regardless of whether mock sessions exist, so a student who's
+    # only used other features still sees accurate numbers.
+    dsa_stats = db.execute(
+        text("""
+            SELECT COUNT(*) FILTER (WHERE status = 'passed') as solved,
+                   COUNT(*) as total_attempts
+            FROM dsa_attempts WHERE user_id = :uid
+        """),
+        {"uid": user_id_int},
+    ).mappings().first()
+
+    assessment_stats = db.execute(
+        text("""
+            SELECT COUNT(*) as attempts,
+                   MAX(total_score) as best_score,
+                   ROUND(AVG(total_score)::numeric, 1) as avg_score
+            FROM assessment_attempts
+            WHERE user_id = :uid AND status = 'completed'
+        """),
+        {"uid": user_id_int},
+    ).mappings().first()
+
+    oa_stats = db.execute(
+        text("""
+            SELECT COUNT(*) as attempts,
+                   MAX(total_score) as best_score,
+                   ROUND(AVG(total_score)::numeric, 1) as avg_score
+            FROM oa_attempts
+            WHERE user_id = :uid AND status = 'completed'
+        """),
+        {"uid": user_id_int},
+    ).mappings().first()
+
+    topic_practice_stats = db.execute(
+        text("""
+            SELECT COUNT(*) as sessions
+            FROM topic_practice_sessions WHERE user_id = :uid
+        """),
+        {"uid": user_id_int},
+    ).mappings().first()
+
+    feature_stats = {
+        "dsa": {
+            "solved": dsa_stats["solved"] or 0,
+            "total_attempts": dsa_stats["total_attempts"] or 0,
+        },
+        "assessment": {
+            "attempts": assessment_stats["attempts"] or 0,
+            "best_score": round(assessment_stats["best_score"]) if assessment_stats["best_score"] else None,
+            "avg_score": float(assessment_stats["avg_score"]) if assessment_stats["avg_score"] else None,
+        },
+        "oa_practice": {
+            "attempts": oa_stats["attempts"] or 0,
+            "best_score": round(oa_stats["best_score"]) if oa_stats["best_score"] else None,
+            "avg_score": float(oa_stats["avg_score"]) if oa_stats["avg_score"] else None,
+        },
+        "topic_practice": {
+            "sessions": topic_practice_stats["sessions"] or 0,
+        },
+    }
+
     if not sessions:
         return {
             "sessions": [],
@@ -823,6 +885,7 @@ def get_dashboard(user_id: str, db: Session = Depends(get_db)):
             "streak": 0,
             "total_sessions": 0,
             "milestones": [],
+            "feature_stats": feature_stats,
         }
 
     session_ids = [s.id for s in sessions if s.id is not None]
@@ -984,6 +1047,7 @@ def get_dashboard(user_id: str, db: Session = Depends(get_db)):
         "total_sessions": len(sessions),
         "best_score": best_score,
         "avg_score": avg_score,
+        "feature_stats": feature_stats,
         "improvement": improvement,
         "weak_spots": weak_spots,
         "milestones": milestones[-5:],
