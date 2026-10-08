@@ -28,7 +28,7 @@ export default function SQLPracticePage() {
         {/* SQL IDE */}
         <div
           className="rounded-2xl border border-[#E5E7EB] bg-white overflow-hidden"
-          style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.05)", minHeight: "75vh" }}
+          style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.05)", height: "75vh" }}
         >
           <SQLPractice />
         </div>

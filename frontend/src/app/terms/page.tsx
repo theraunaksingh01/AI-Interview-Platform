@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 
-const LAST_UPDATED = "July 1, 2025";
+const LAST_UPDATED = "October 3, 2026";
 const CONTACT_EMAIL = "legal@cractal.in";
 const COMPANY_NAME = "Cractal";
 const WEBSITE = "cractal.in";
@@ -37,7 +37,7 @@ const sections = [
       },
       {
         subtitle: "Max Plan — ₹699/month",
-        text: "Everything in Pro plus 11 questions per session, Resume/Project Discussion prep, Cheat Sheet, Personal Coach Agent, DSA solution access, and the ability to re-answer questions on your report.",
+        text: "Everything in Pro plus 11 questions per session, Resume/Project Discussion prep, Cheat Sheet, Build Your Answer, DSA solution access, and the ability to re-answer questions on your report.",
       },
       {
         subtitle: "Billing",

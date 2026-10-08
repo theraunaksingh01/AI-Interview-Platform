@@ -168,6 +168,601 @@ INSERT INTO enrollments VALUES
 (1,101,'A'),(1,102,'B'),(1,103,'A'),(2,101,'B'),(2,104,'C'),
 (3,101,'A'),(3,102,'A'),(4,102,'C'),(4,103,'B');`,
   },
+  {
+    id: 11,
+    difficulty: "Easy",
+    topic: "SELECT + WHERE",
+    question: "Find all students from the CSE branch who have a CGPA above 8.0. Show their name and CGPA, sorted by CGPA descending.",
+    hint: "Use WHERE with two conditions joined by AND. ORDER BY column DESC gives highest values first.",
+    answer: "SELECT name, cgpa\nFROM students\nWHERE branch = 'CSE' AND cgpa > 8.0\nORDER BY cgpa DESC;",
+    explanation: "AND requires both conditions to be true for a row to appear in the result. DESC reverses the default ascending sort order.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL,
+  year INTEGER
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5,3),
+(2,'Priya Singh','ECE',7.8,3),
+(3,'Amit Sharma','CSE',9.1,4),
+(4,'Neha Gupta','IT',8.7,2),
+(5,'Vikram Rao','CSE',7.5,1),
+(6,'Divya Nair','CSE',8.9,4),
+(7,'Rohan Mehta','ECE',9.2,3),
+(8,'Ananya Iyer','CSE',6.8,2);`,
+  },
+  {
+    id: 12,
+    difficulty: "Easy",
+    topic: "ORDER BY + LIMIT",
+    question: "List the top 3 highest-paid employees from the employees table. Show their name and salary.",
+    hint: "Sort by salary in descending order, then restrict the number of rows returned with LIMIT.",
+    answer: "SELECT name, salary\nFROM employees\nORDER BY salary DESC\nLIMIT 3;",
+    explanation: "LIMIT n returns only the first n rows of the result set after all sorting has been applied, making it ideal for top-N queries.",
+    schema: `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  salary REAL,
+  join_year INTEGER
+);
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering',95000,2019),
+(2,'Meena Pillai','HR',62000,2020),
+(3,'Arjun Desai','Engineering',120000,2017),
+(4,'Kavitha Reddy','Finance',78000,2018),
+(5,'Nikhil Joshi','Engineering',105000,2016),
+(6,'Pooja Shetty','Marketing',69000,2021),
+(7,'Kiran Naik','Finance',85000,2015),
+(8,'Lakshmi Rao','HR',58000,2022);`,
+  },
+  {
+    id: 13,
+    difficulty: "Easy",
+    topic: "DISTINCT",
+    question: "Find all unique branches (departments) that appear in the students table. Show each branch name only once, sorted alphabetically.",
+    hint: "DISTINCT removes duplicate values from a column in the result. Combine it with ORDER BY for alphabetical output.",
+    answer: "SELECT DISTINCT branch\nFROM students\nORDER BY branch;",
+    explanation: "DISTINCT tells the database to return only one row for each unique value of the specified column, eliminating duplicates from the result set.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL,
+  year INTEGER
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5,3),
+(2,'Priya Singh','ECE',7.8,3),
+(3,'Amit Sharma','IT',9.1,4),
+(4,'Neha Gupta','IT',8.7,2),
+(5,'Vikram Rao','CSE',7.5,1),
+(6,'Divya Nair','ME',8.2,4),
+(7,'Rohan Mehta','ECE',9.2,3),
+(8,'Ananya Iyer','CSE',6.8,2);`,
+  },
+  {
+    id: 14,
+    difficulty: "Easy",
+    topic: "Aggregation (COUNT + AVG)",
+    question: "For each department in the employees table, show the number of employees and the average salary. Label the columns as emp_count and avg_salary.",
+    hint: "GROUP BY department groups the rows. Use COUNT(*) and AVG(salary) as aggregate functions on each group.",
+    answer: "SELECT department,\n       COUNT(*) AS emp_count,\n       AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department;",
+    explanation: "GROUP BY collapses all rows with the same department value into a single result row, and aggregate functions like COUNT and AVG operate on each group independently.",
+    schema: `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  salary REAL,
+  join_year INTEGER
+);
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering',95000,2019),
+(2,'Meena Pillai','HR',62000,2020),
+(3,'Arjun Desai','Engineering',120000,2017),
+(4,'Kavitha Reddy','Finance',78000,2018),
+(5,'Nikhil Joshi','Engineering',105000,2016),
+(6,'Pooja Shetty','Marketing',69000,2021),
+(7,'Kiran Naik','Finance',85000,2015),
+(8,'Lakshmi Rao','HR',58000,2022);`,
+  },
+  {
+    id: 15,
+    difficulty: "Easy",
+    topic: "LIKE Pattern Matching",
+    question: "Find all customers whose name starts with the letter 'A'. Show their name and city.",
+    hint: "Use the LIKE operator with a wildcard character. The percent sign % matches any sequence of characters.",
+    answer: "SELECT name, city\nFROM customers\nWHERE name LIKE 'A%';",
+    explanation: "LIKE performs pattern matching in text columns. The pattern 'A%' matches any string that begins with A followed by any characters, while '%A%' would match A anywhere in the string.",
+    schema: `
+CREATE TABLE customers (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  city TEXT,
+  email TEXT,
+  registration_date TEXT
+);
+INSERT INTO customers VALUES
+(1,'Aarav Patel','Mumbai','aarav@email.com','2023-01-15'),
+(2,'Bhavna Shah','Delhi','bhavna@email.com','2023-02-20'),
+(3,'Anita Kulkarni','Pune','anita@email.com','2023-03-10'),
+(4,'Deepak Verma','Chennai','deepak@email.com','2023-03-25'),
+(5,'Aishwarya Rao','Bangalore','aish@email.com','2023-04-05'),
+(6,'Farhan Qureshi','Hyderabad','farhan@email.com','2023-05-12'),
+(7,'Geeta Nair','Kochi','geeta@email.com','2023-06-01'),
+(8,'Alok Sharma','Jaipur','alok@email.com','2023-06-18');`,
+  },
+  {
+    id: 16,
+    difficulty: "Easy",
+    topic: "SUM + GROUP BY",
+    question: "For each customer, find the total amount they have spent across all their orders. Show the customer_id and their total spending, sorted by total spending descending.",
+    hint: "SUM(amount) with GROUP BY customer_id adds up order amounts per customer. Use ORDER BY on the aggregate result.",
+    answer: "SELECT customer_id,\n       SUM(amount) AS total_spent\nFROM orders\nGROUP BY customer_id\nORDER BY total_spent DESC;",
+    explanation: "SUM is an aggregate function that adds all values in a column within each group defined by GROUP BY. Aliasing the result with AS lets you reference it in ORDER BY.",
+    schema: `
+CREATE TABLE orders (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER,
+  product TEXT,
+  amount REAL,
+  order_date TEXT
+);
+INSERT INTO orders VALUES
+(1,101,'Laptop',45000,'2024-01-10'),
+(2,102,'Phone',18000,'2024-01-15'),
+(3,101,'Mouse',1200,'2024-01-20'),
+(4,103,'Keyboard',2500,'2024-02-01'),
+(5,102,'Headphones',3500,'2024-02-10'),
+(6,104,'Monitor',22000,'2024-02-15'),
+(7,101,'Webcam',4000,'2024-03-01'),
+(8,103,'USB Hub',1800,'2024-03-05'),
+(9,104,'Laptop',47000,'2024-03-10'),
+(10,102,'Tablet',28000,'2024-03-20');`,
+  },
+  {
+    id: 17,
+    difficulty: "Medium",
+    topic: "INNER JOIN",
+    question: "Show the name of each student and the name of the courses they are enrolled in. Only include students who are actually enrolled in at least one course.",
+    hint: "You need to join three tables: students, enrollments, and courses. An INNER JOIN on matching keys will only return rows where a match exists in both tables.",
+    answer: "SELECT s.name AS student_name,\n       c.course_name\nFROM students s\nINNER JOIN enrollments e ON s.id = e.student_id\nINNER JOIN courses c ON e.course_id = c.id;",
+    explanation: "INNER JOIN returns only the rows where the join condition is satisfied in both tables. Chaining two JOINs bridges the many-to-many relationship through the enrollments junction table.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL
+);
+CREATE TABLE courses (
+  id INTEGER PRIMARY KEY,
+  course_name TEXT,
+  credits INTEGER
+);
+CREATE TABLE enrollments (
+  id INTEGER PRIMARY KEY,
+  student_id INTEGER,
+  course_id INTEGER,
+  grade TEXT
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5),
+(2,'Priya Singh','ECE',7.8),
+(3,'Amit Sharma','IT',9.1),
+(4,'Neha Gupta','CSE',8.7),
+(5,'Vikram Rao','ECE',7.2);
+INSERT INTO courses VALUES
+(1,'Data Structures',4),
+(2,'Database Systems',3),
+(3,'Computer Networks',3),
+(4,'Operating Systems',4);
+INSERT INTO enrollments VALUES
+(1,1,1,'A'),(2,1,2,'B'),(3,2,1,'A'),(4,2,3,'C'),
+(5,3,2,'A'),(6,3,4,'A'),(7,4,1,'B'),(8,4,2,'A');`,
+  },
+  {
+    id: 18,
+    difficulty: "Medium",
+    topic: "LEFT JOIN",
+    question: "List all employees and the name of the project they are assigned to. Include employees who have not been assigned to any project yet, showing NULL for the project name.",
+    hint: "A LEFT JOIN keeps all rows from the left table (employees) and fills in NULLs for the right table (projects) where there is no match.",
+    answer: "SELECT e.name AS employee_name,\n       p.project_name\nFROM employees e\nLEFT JOIN project_assignments pa ON e.id = pa.employee_id\nLEFT JOIN projects p ON pa.project_id = p.id;",
+    explanation: "LEFT JOIN preserves every row from the left table regardless of whether a matching row exists in the right table. Rows without a match get NULL in the right-table columns, making it useful for finding unassigned or unmatched records.",
+    schema: `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  salary REAL
+);
+CREATE TABLE projects (
+  id INTEGER PRIMARY KEY,
+  project_name TEXT,
+  budget REAL
+);
+CREATE TABLE project_assignments (
+  id INTEGER PRIMARY KEY,
+  employee_id INTEGER,
+  project_id INTEGER
+);
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering',95000),
+(2,'Meena Pillai','HR',62000),
+(3,'Arjun Desai','Engineering',120000),
+(4,'Kavitha Reddy','Finance',78000),
+(5,'Nikhil Joshi','Engineering',105000),
+(6,'Pooja Shetty','Marketing',69000);
+INSERT INTO projects VALUES
+(1,'Apollo CRM',5000000),
+(2,'Payroll Upgrade',1200000),
+(3,'Data Migration',800000);
+INSERT INTO project_assignments VALUES
+(1,1,1),(2,3,1),(3,5,3),(4,2,2);`,
+  },
+  {
+    id: 19,
+    difficulty: "Medium",
+    topic: "HAVING Clause",
+    question: "Find all branches in the students table that have more than 2 students with a CGPA above 8.0. Show the branch name and the count of qualifying students.",
+    hint: "Filter rows with WHERE before grouping, then use HAVING to filter the groups based on an aggregate condition. HAVING operates after GROUP BY.",
+    answer: "SELECT branch,\n       COUNT(*) AS high_cgpa_count\nFROM students\nWHERE cgpa > 8.0\nGROUP BY branch\nHAVING COUNT(*) > 2;",
+    explanation: "WHERE filters individual rows before grouping. HAVING filters entire groups after GROUP BY and aggregation - you cannot use WHERE with aggregate conditions because the groups do not exist yet at that stage.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL,
+  year INTEGER
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5,3),
+(2,'Priya Singh','ECE',7.8,3),
+(3,'Amit Sharma','CSE',9.1,4),
+(4,'Neha Gupta','IT',8.7,2),
+(5,'Vikram Rao','CSE',7.5,1),
+(6,'Divya Nair','CSE',8.9,4),
+(7,'Rohan Mehta','ECE',9.2,3),
+(8,'Ananya Iyer','IT',8.4,2),
+(9,'Siddharth Rao','ECE',7.1,1),
+(10,'Tanvi Bhatt','CSE',8.6,3);`,
+  },
+  {
+    id: 20,
+    difficulty: "Medium",
+    topic: "Subquery",
+    question: "Find all employees who earn more than the average salary of their own department. Show their name, department, and salary.",
+    hint: "Write a correlated subquery that calculates the average salary for the same department as the outer row. Reference the outer table inside the subquery.",
+    answer: "SELECT name, department, salary\nFROM employees e1\nWHERE salary > (\n  SELECT AVG(salary)\n  FROM employees e2\n  WHERE e2.department = e1.department\n);",
+    explanation: "A correlated subquery references a column from the outer query (e1.department) and is re-executed once for each row of the outer query, allowing row-by-row comparisons against group-level aggregates.",
+    schema: `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  salary REAL,
+  join_year INTEGER
+);
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering',95000,2019),
+(2,'Meena Pillai','HR',62000,2020),
+(3,'Arjun Desai','Engineering',120000,2017),
+(4,'Kavitha Reddy','Finance',78000,2018),
+(5,'Nikhil Joshi','Engineering',105000,2016),
+(6,'Pooja Shetty','HR',72000,2021),
+(7,'Kiran Naik','Finance',85000,2015),
+(8,'Lakshmi Rao','HR',58000,2022),
+(9,'Deepak Menon','Finance',91000,2014);`,
+  },
+  {
+    id: 21,
+    difficulty: "Medium",
+    topic: "CASE WHEN",
+    question: "For each student, classify their performance as 'Distinction' (CGPA >= 9.0), 'First Class' (CGPA >= 7.5), or 'Pass' (below 7.5). Show name, CGPA, and the classification label.",
+    hint: "CASE WHEN works like an if-else chain. Each WHEN checks a condition in order and returns the matching THEN value. Use ELSE for the default case.",
+    answer: "SELECT name,\n       cgpa,\n       CASE\n         WHEN cgpa >= 9.0 THEN 'Distinction'\n         WHEN cgpa >= 7.5 THEN 'First Class'\n         ELSE 'Pass'\n       END AS classification\nFROM students\nORDER BY cgpa DESC;",
+    explanation: "CASE WHEN evaluates conditions in order and returns the first matching THEN value. Once a condition matches, no further conditions are checked, so the ranges are implicitly 9+ first, then 7.5-8.9, then below 7.5.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL,
+  year INTEGER
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5,3),
+(2,'Priya Singh','ECE',7.8,3),
+(3,'Amit Sharma','IT',9.1,4),
+(4,'Neha Gupta','CSE',6.8,2),
+(5,'Vikram Rao','CSE',7.5,1),
+(6,'Divya Nair','ME',9.4,4),
+(7,'Rohan Mehta','ECE',5.9,3),
+(8,'Ananya Iyer','CSE',8.2,2);`,
+  },
+  {
+    id: 22,
+    difficulty: "Medium",
+    topic: "UNION",
+    question: "Create a combined list of all cities where either a customer lives or an employee works. Each city should appear only once. Sort alphabetically.",
+    hint: "UNION combines the results of two SELECT statements and automatically removes duplicates. Both SELECTs must return the same number of columns.",
+    answer: "SELECT city FROM customers\nUNION\nSELECT city FROM employees\nORDER BY city;",
+    explanation: "UNION merges two result sets and eliminates duplicate rows. If you want to keep duplicates, use UNION ALL, which is faster because it skips the deduplication step.",
+    schema: `
+CREATE TABLE customers (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  city TEXT
+);
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  city TEXT
+);
+INSERT INTO customers VALUES
+(1,'Aarav Patel','Mumbai'),
+(2,'Bhavna Shah','Delhi'),
+(3,'Anita Kulkarni','Pune'),
+(4,'Deepak Verma','Chennai'),
+(5,'Aishwarya Rao','Bangalore'),
+(6,'Farhan Qureshi','Hyderabad');
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering','Mumbai'),
+(2,'Meena Pillai','HR','Bangalore'),
+(3,'Arjun Desai','Engineering','Delhi'),
+(4,'Kavitha Reddy','Finance','Kolkata'),
+(5,'Nikhil Joshi','Engineering','Chennai'),
+(6,'Pooja Shetty','Marketing','Ahmedabad');`,
+  },
+  {
+    id: 23,
+    difficulty: "Medium",
+    topic: "GROUP BY Multiple Columns",
+    question: "Find the number of students in each combination of branch and year. Show branch, year, and the student count, ordered by branch and then year.",
+    hint: "You can GROUP BY more than one column. The grouping creates one result row for every unique combination of the listed columns.",
+    answer: "SELECT branch,\n       year,\n       COUNT(*) AS student_count\nFROM students\nGROUP BY branch, year\nORDER BY branch, year;",
+    explanation: "Listing multiple columns in GROUP BY creates groups based on unique combinations of all those columns together. A student in CSE year 3 and a student in CSE year 4 belong to different groups even though their branch is the same.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL,
+  year INTEGER
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5,3),
+(2,'Priya Singh','ECE',7.8,3),
+(3,'Amit Sharma','CSE',9.1,4),
+(4,'Neha Gupta','IT',8.7,2),
+(5,'Vikram Rao','CSE',7.5,1),
+(6,'Divya Nair','ECE',8.9,4),
+(7,'Rohan Mehta','ECE',9.2,3),
+(8,'Ananya Iyer','CSE',6.8,2),
+(9,'Siddharth Rao','IT',8.1,3),
+(10,'Tanvi Bhatt','CSE',8.6,4),
+(11,'Karan Mehta','IT',7.9,1),
+(12,'Sneha Joshi','ECE',8.3,2);`,
+  },
+  {
+    id: 24,
+    difficulty: "Medium",
+    topic: "String Functions + Date Filtering",
+    question: "Show the name (converted to uppercase) and order date for all orders placed in the month of March 2024. Use the customers table to get the customer name.",
+    hint: "SQLite has UPPER() for text and strftime() for date extraction. Join customers to orders on customer_id. Use strftime('%Y-%m', order_date) to extract year and month.",
+    answer: "SELECT UPPER(c.name) AS customer_name,\n       o.order_date\nFROM orders o\nINNER JOIN customers c ON o.customer_id = c.id\nWHERE strftime('%Y-%m', o.order_date) = '2024-03';",
+    explanation: "SQLite's strftime() formats date strings. '%Y-%m' extracts just the year and month, allowing clean month-level filtering. UPPER() is a scalar function applied per row to transform string values.",
+    schema: `
+CREATE TABLE customers (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  city TEXT
+);
+CREATE TABLE orders (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER,
+  product TEXT,
+  amount REAL,
+  order_date TEXT
+);
+INSERT INTO customers VALUES
+(101,'Aarav Patel','Mumbai'),
+(102,'Bhavna Shah','Delhi'),
+(103,'Anita Kulkarni','Pune'),
+(104,'Deepak Verma','Chennai');
+INSERT INTO orders VALUES
+(1,101,'Laptop',45000,'2024-01-10'),
+(2,102,'Phone',18000,'2024-01-15'),
+(3,101,'Mouse',1200,'2024-02-20'),
+(4,103,'Keyboard',2500,'2024-03-01'),
+(5,102,'Headphones',3500,'2024-03-10'),
+(6,104,'Monitor',22000,'2024-03-15'),
+(7,101,'Webcam',4000,'2024-03-22'),
+(8,103,'USB Hub',1800,'2024-04-05');`,
+  },
+  {
+    id: 25,
+    difficulty: "Hard",
+    topic: "Window Function - RANK",
+    question: "For each department, find the employee with the second highest salary. Show department, employee name, and salary. If two employees share the second rank, include both.",
+    hint: "Use RANK() OVER (PARTITION BY department ORDER BY salary DESC) to assign ranks within each department. Wrap this in a subquery or CTE and filter for rank = 2.",
+    answer: "SELECT department, name, salary\nFROM (\n  SELECT name,\n         department,\n         salary,\n         RANK() OVER (\n           PARTITION BY department\n           ORDER BY salary DESC\n         ) AS rnk\n  FROM employees\n) ranked\nWHERE rnk = 2;",
+    explanation: "PARTITION BY department restarts ranking within each department. RANK() assigns the same rank to ties and skips the next number (1,1,3), so filtering for rank = 2 finds the second highest salary even when there are ties.",
+    schema: `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  salary REAL
+);
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering',95000),
+(2,'Meena Pillai','HR',62000),
+(3,'Arjun Desai','Engineering',120000),
+(4,'Kavitha Reddy','Finance',78000),
+(5,'Nikhil Joshi','Engineering',105000),
+(6,'Pooja Shetty','HR',72000),
+(7,'Kiran Naik','Finance',85000),
+(8,'Lakshmi Rao','HR',58000),
+(9,'Deepak Menon','Finance',91000),
+(10,'Pradeep Kumar','Engineering',88000);`,
+  },
+  {
+    id: 26,
+    difficulty: "Hard",
+    topic: "Window Function - ROW_NUMBER with CTE",
+    question: "For each student, show their name, branch, CGPA, and their rank within their branch based on CGPA (highest CGPA gets rank 1). Use ROW_NUMBER so ties get different consecutive ranks.",
+    hint: "Use a CTE (WITH clause) to compute ROW_NUMBER() OVER (PARTITION BY branch ORDER BY cgpa DESC), then select from it. ROW_NUMBER always assigns unique ranks even for equal values.",
+    answer: "WITH ranked_students AS (\n  SELECT name,\n         branch,\n         cgpa,\n         ROW_NUMBER() OVER (\n           PARTITION BY branch\n           ORDER BY cgpa DESC\n         ) AS branch_rank\n  FROM students\n)\nSELECT name, branch, cgpa, branch_rank\nFROM ranked_students\nORDER BY branch, branch_rank;",
+    explanation: "ROW_NUMBER() assigns a unique sequential integer to every row in each partition regardless of ties. CTEs (WITH clause) improve readability by naming the intermediate result and letting you filter or join against it cleanly.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5),
+(2,'Priya Singh','ECE',7.8),
+(3,'Amit Sharma','CSE',9.1),
+(4,'Neha Gupta','IT',8.7),
+(5,'Vikram Rao','CSE',7.5),
+(6,'Divya Nair','ECE',8.9),
+(7,'Rohan Mehta','ECE',9.2),
+(8,'Ananya Iyer','CSE',8.8),
+(9,'Siddharth Rao','IT',8.1),
+(10,'Tanvi Bhatt','IT',9.0);`,
+  },
+  {
+    id: 27,
+    difficulty: "Hard",
+    topic: "NOT EXISTS",
+    question: "Find all students who have not enrolled in any course. Show their name and branch.",
+    hint: "Use NOT EXISTS with a correlated subquery that checks the enrollments table for the current student. If no matching enrollment row exists, NOT EXISTS is true.",
+    answer: "SELECT name, branch\nFROM students s\nWHERE NOT EXISTS (\n  SELECT 1\n  FROM enrollments e\n  WHERE e.student_id = s.id\n);",
+    explanation: "NOT EXISTS returns true when the subquery produces no rows. It is often more readable and efficient than NOT IN when dealing with NULLs, because NOT IN with a subquery that returns any NULL will make the whole result empty.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT,
+  cgpa REAL
+);
+CREATE TABLE enrollments (
+  id INTEGER PRIMARY KEY,
+  student_id INTEGER,
+  course_id INTEGER,
+  grade TEXT
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE',8.5),
+(2,'Priya Singh','ECE',7.8),
+(3,'Amit Sharma','IT',9.1),
+(4,'Neha Gupta','CSE',8.7),
+(5,'Vikram Rao','ECE',7.2),
+(6,'Divya Nair','ME',8.4),
+(7,'Rohan Mehta','CSE',6.9);
+INSERT INTO enrollments VALUES
+(1,1,1,'A'),(2,1,2,'B'),(3,2,1,'A'),
+(4,3,2,'A'),(5,4,1,'B'),(6,6,3,'C');`,
+  },
+  {
+    id: 28,
+    difficulty: "Hard",
+    topic: "Three-Table JOIN + Aggregation",
+    question: "For each student, show their name, total number of courses enrolled in, and their average grade points. Convert letter grades to points: A=10, B=8, C=6, D=4. Only show students enrolled in at least 2 courses.",
+    hint: "Join students, enrollments. Use CASE WHEN to convert grades to numbers inside AVG(). Use HAVING to filter by course count.",
+    answer: "SELECT s.name,\n       COUNT(e.id) AS course_count,\n       AVG(\n         CASE e.grade\n           WHEN 'A' THEN 10\n           WHEN 'B' THEN 8\n           WHEN 'C' THEN 6\n           WHEN 'D' THEN 4\n           ELSE 0\n         END\n       ) AS avg_grade_points\nFROM students s\nINNER JOIN enrollments e ON s.id = e.student_id\nGROUP BY s.id, s.name\nHAVING COUNT(e.id) >= 2\nORDER BY avg_grade_points DESC;",
+    explanation: "Wrapping CASE WHEN inside AVG() allows on-the-fly transformation of categorical data into numeric values for aggregation. HAVING with COUNT filters out groups (students) that do not meet the minimum enrollment threshold.",
+    schema: `
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  branch TEXT
+);
+CREATE TABLE enrollments (
+  id INTEGER PRIMARY KEY,
+  student_id INTEGER,
+  course_id INTEGER,
+  grade TEXT
+);
+INSERT INTO students VALUES
+(1,'Rahul Kumar','CSE'),
+(2,'Priya Singh','ECE'),
+(3,'Amit Sharma','IT'),
+(4,'Neha Gupta','CSE'),
+(5,'Vikram Rao','ECE');
+INSERT INTO enrollments VALUES
+(1,1,1,'A'),(2,1,2,'B'),(3,1,3,'A'),
+(4,2,1,'B'),(5,2,2,'C'),
+(6,3,1,'A'),(7,3,3,'A'),(8,3,4,'B'),
+(9,4,2,'C'),
+(10,5,1,'A'),(11,5,3,'B'),(12,5,4,'C');`,
+  },
+  {
+    id: 29,
+    difficulty: "Hard",
+    topic: "Finding Duplicates",
+    question: "Find all products that have been ordered more than once by the same customer (i.e., duplicate orders). Show the customer_id, product name, and how many times they ordered it.",
+    hint: "GROUP BY customer_id and product together. Then use HAVING COUNT(*) > 1 to keep only the combinations that appear more than once.",
+    answer: "SELECT customer_id,\n       product,\n       COUNT(*) AS order_count\nFROM orders\nGROUP BY customer_id, product\nHAVING COUNT(*) > 1\nORDER BY order_count DESC;",
+    explanation: "Duplicate detection works by grouping on the columns that define uniqueness and then filtering groups that have more than one row. The group represents the combination that repeats, and COUNT(*) tells you how many times.",
+    schema: `
+CREATE TABLE orders (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER,
+  product TEXT,
+  amount REAL,
+  order_date TEXT
+);
+INSERT INTO orders VALUES
+(1,101,'Laptop',45000,'2024-01-10'),
+(2,102,'Phone',18000,'2024-01-15'),
+(3,101,'Mouse',1200,'2024-01-20'),
+(4,103,'Laptop',46000,'2024-02-01'),
+(5,102,'Phone',17500,'2024-02-10'),
+(6,101,'Laptop',44000,'2024-03-01'),
+(7,103,'Mouse',1100,'2024-03-05'),
+(8,102,'Phone',18500,'2024-03-20'),
+(9,104,'Monitor',22000,'2024-03-25'),
+(10,101,'Mouse',1300,'2024-04-02');`,
+  },
+  {
+    id: 30,
+    difficulty: "Hard",
+    topic: "Nested Aggregation with Subquery",
+    question: "Find the department(s) with the highest average salary. Show the department name and its average salary. If two departments tie on the highest average, show both.",
+    hint: "First compute average salary per department in a subquery. Then in the outer query, filter for those where the average equals the maximum of all those averages. Use a nested MAX() over the inner result.",
+    answer: "SELECT department,\n       avg_salary\nFROM (\n  SELECT department,\n         AVG(salary) AS avg_salary\n  FROM employees\n  GROUP BY department\n) dept_avgs\nWHERE avg_salary = (\n  SELECT MAX(avg_salary)\n  FROM (\n    SELECT AVG(salary) AS avg_salary\n    FROM employees\n    GROUP BY department\n  )\n);",
+    explanation: "You cannot directly apply MAX() to the result of AVG() in one query level because aggregate functions cannot be nested directly. Subqueries act as named intermediate tables that resolve one level of aggregation at a time.",
+    schema: `
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  department TEXT,
+  salary REAL
+);
+INSERT INTO employees VALUES
+(1,'Suresh Babu','Engineering',95000),
+(2,'Meena Pillai','HR',62000),
+(3,'Arjun Desai','Engineering',120000),
+(4,'Kavitha Reddy','Finance',78000),
+(5,'Nikhil Joshi','Engineering',105000),
+(6,'Pooja Shetty','HR',72000),
+(7,'Kiran Naik','Finance',85000),
+(8,'Lakshmi Rao','HR',58000),
+(9,'Deepak Menon','Finance',91000),
+(10,'Pradeep Kumar','Engineering',88000);`,
+  },
 ];
 
 const DIFF_STYLE: Record<string, { bg: string; color: string }> = {

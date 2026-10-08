@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 
-const LAST_UPDATED = "July 1, 2025";
+const LAST_UPDATED = "October 3, 2026";
 const CONTACT_EMAIL = "legal@cractal.in";
 const COMPANY_NAME = "Cractal";
 const WEBSITE = "cractal.in";
@@ -22,7 +22,7 @@ const sections = [
       },
       {
         subtitle: "Session & Practice Data",
-        text: "We record your mock interview answers, scores, DSA submissions, code written in the practice IDE, hints revealed, and coaching feedback. This data powers your Skill Passport, session history, and Personal Coach Agent.",
+        text: "We record your mock interview answers, scores, DSA submissions, code written in the practice IDE, hints revealed, and coaching feedback. This data powers your Skill Passport, and session history.",
       },
       {
         subtitle: "Usage Data",

@@ -49,12 +49,11 @@ export default function HowItWorks() {
         {/* Small Heading */}
 
         <div className="text-center">
-          <p className="text-sm font-medium tracking-wide text-blue-500">
-            // Start in less than 15 minutes
+          <p className="text-[11px] font-black uppercase tracking-widest text-[#9CA3AF]">
+            Start in less than 5 minutes
           </p>
-
           <h2 className="mt-3 text-4xl font-bold tracking-tight text-black md:text-5xl">
-            Here's how it works
+            Here's how Mock Interview works
           </h2>
         </div>
 
@@ -65,15 +64,14 @@ export default function HowItWorks() {
           {steps.map((item, index) => (
             <div
               key={index}
-              className={`bg-white p-8 ${
-                index !== steps.length - 1
-                  ? "border-b md:border-b-0 md:border-r border-gray-200"
-                  : ""
-              }`}
+              className={`bg-white p-8 ${index !== steps.length - 1
+                ? "border-b md:border-b-0 md:border-r border-gray-200"
+                : ""
+                }`}
             >
               {/* Image */}
 
-              <div className="relative h-52 overflow-hidden rounded-2xl bg-neutral-900">
+              <div className="relative aspect-square overflow-hidden rounded-2xl bg-neutral-900">
 
                 <Image
                   src={item.image}
@@ -82,11 +80,7 @@ export default function HowItWorks() {
                   className="object-cover"
                 />
 
-                {/* Placeholder if image doesn't exist */}
 
-                <div className="absolute inset-0 flex items-center justify-center text-white/40 text-lg font-semibold">
-                  Replace Image
-                </div>
               </div>
 
               {/* Step */}

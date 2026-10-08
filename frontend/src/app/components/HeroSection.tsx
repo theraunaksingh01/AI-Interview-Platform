@@ -183,6 +183,22 @@ export function HeroSection() {
             transition={{ duration: 0.6, delay: 0.5 }}
             className="mt-8 flex items-center justify-center gap-3 flex-wrap px-6"
           >
+            <Link href="/assessment">
+              <button
+                style={{
+                  background: "#FFD600",
+                  color: "#111111",
+                  fontWeight: 700,
+                  fontSize: "14px",
+                  padding: "12px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Take Free Readiness Assessment →
+              </button>
+            </Link>
             <Link href="/mock">
               <button
                 style={{
@@ -196,7 +212,7 @@ export function HeroSection() {
                   cursor: "pointer",
                 }}
               >
-                Start Free Mock Interview
+                Start Mock Interview
               </button>
             </Link>
             <Link href="#how-it-works">
@@ -264,28 +280,25 @@ export function HeroSection() {
             }}
           >
             <div className="relative -mr-56 mt-12 overflow-hidden px-2 sm:mr-0 sm:mt-12 md:mt-16">
-              <div
+              {/* <div
                 aria-hidden
-                className="absolute inset-0 z-10 from-transparent from-35%"
-                style={{
-                  background: "linear-gradient(to bottom, transparent 35%, #FFFDF0)",
-                }}
-              />
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 rounded-b-2xl"
+                style={{ background: "linear-gradient(to bottom, transparent, rgba(255,253,240,0.9))" }}
+              /> */}
               <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1 ring-background bg-background inset-shadow-2xs">
-                <img
-                  className="aspect-15/8 relative hidden rounded-2xl dark:block bg-background"
-                  src="https://tailark.com//_next/image?url=%2Fmail2.png&w=3840&q=75"
-                  alt="app screen"
-                  width={2700}
-                  height={1440}
-                />
-                <img
-                  className="z-2 aspect-15/8 relative rounded-2xl border border-border/25 dark:hidden"
-                  src="https://tailark.com/_next/image?url=%2Fmail2-light.png&w=3840&q=75"
-                  alt="app screen"
-                  width={2700}
-                  height={1440}
-                />
+                <video
+                  className="relative aspect-video w-full rounded-2xl bg-[#0d0d0d]"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  poster="/images/hero-poster.png"
+                  aria-label="Cractal product preview: assessment results, OA practice and mock interview"
+                >
+                  <source src="/videos/cractal-hero.webm" type="video/webm" />
+                  <source src="/videos/cractal-hero.mp4" type="video/mp4" />
+                </video>
               </div>
             </div>
           </AnimatedGroup>
