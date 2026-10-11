@@ -89,6 +89,7 @@ export default function SignupPage() {
   const searchParams = useSearchParams();
   const { login } = useAuth();
   const refCode = searchParams.get("ref");
+  const promoCode = searchParams.get("code");
 
   const [referralValidation, setReferralValidation] = useState<{
     valid: boolean; message: string; name: string;
@@ -221,6 +222,27 @@ export default function SignupPage() {
           });
         } catch { /* silent */ }
       }
+
+      // Step 4: Redeem promo code (Founding 50) if present
+      if (promoCode) {
+        try {
+          const pr = await fetch(`${API_BASE}/api/promo/redeem`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ code: promoCode }),
+          });
+          const pd = await pr.json();
+          console.log("promo redeem:", pr.status, pd); // remove after testing
+          sessionStorage.setItem(
+            "promoMessage",
+            pr.ok ? (pd.message || "Pro unlocked!") : (typeof pd.detail === "string" ? pd.detail : "")
+          );
+        } catch { /* silent: never block signup */ }
+      }
+
 
       window.location.href = "/mock/dashboard";
     } catch (err) {
@@ -363,6 +385,26 @@ export default function SignupPage() {
                   </p>
                   <p className="text-[11px]" style={{ color: "#6B7280" }}>
                     You&apos;ll get 2 bonus sessions when you sign up
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Promo banner */}
+            {promoCode && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-5 flex items-center gap-3 rounded-2xl px-4 py-3"
+                style={{ background: "#FFFDF0", border: "1px solid #FDE68A" }}
+              >
+                <span className="text-[18px]">&#127881;</span>
+                <div>
+                  <p className="text-[12px] font-black" style={{ color: "#92400E" }}>
+                    Founding 50 code applied
+                  </p>
+                  <p className="text-[11px]" style={{ color: "#6B7280" }}>
+                    Sign up with the same email you applied with to unlock Pro.
                   </p>
                 </div>
               </motion.div>

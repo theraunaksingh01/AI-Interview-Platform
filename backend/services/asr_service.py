@@ -3,16 +3,11 @@ import tempfile
 import logging
 import numpy as np
 from typing import Any, Dict, List
-
-from faster_whisper import WhisperModel
+from services.whisper_loader import transcribe_audio
 
 logger = logging.getLogger(__name__)
 
-model = WhisperModel(
-    "small",
-    device="cpu",
-    compute_type="float32",
-)
+
 
 
 def transcribe_audio_bytes(audio_bytes: bytes) -> str:
@@ -42,14 +37,7 @@ def transcribe_audio_bytes_with_segments(audio_bytes: bytes) -> Dict[str, Any]:
             f.write(audio_bytes)
 
         try:
-            segments_iter, _ = model.transcribe(
-                path,
-                language="en",
-                beam_size=5,
-                vad_filter=False,
-                condition_on_previous_text=False,
-                temperature=0.0,
-            )
+            segments_iter, _ = transcribe_audio(path, vad_filter=False)
         except Exception:
             logger.error(
                 "Final ASR failed: invalid WebM container (expected for fragmented chunks)",
@@ -96,14 +84,7 @@ def transcribe_pcm_bytes(pcm_bytes: bytes) -> str:
 
     audio = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-    segments, _ = model.transcribe(
-        audio,
-        language="en",
-        beam_size=5,
-        vad_filter=True,           # skip silent segments — main source of hallucinations
-        condition_on_previous_text=False,
-        temperature=0.0,
-    )
+    segments, _ = transcribe_audio(audio)
 
     return " ".join(seg.text.strip() for seg in segments).strip()
 
@@ -122,14 +103,7 @@ def transcribe_pcm_with_vad_result(pcm_bytes: bytes) -> dict:
 
     audio = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-    segments, info = model.transcribe(
-        audio,
-        language="en",
-        beam_size=5,
-        vad_filter=True,
-        condition_on_previous_text=False,
-        temperature=0.0,
-    )
+    segments, info = transcribe_audio(audio)
 
     segments_list = list(segments)
     transcript = " ".join(seg.text.strip() for seg in segments_list).strip()

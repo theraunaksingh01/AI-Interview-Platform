@@ -6,10 +6,7 @@ from db.models import Upload, UploadStatus
 from celery_app import app
 from core.s3_client import get_s3_client
 from core.config import settings
-from faster_whisper import WhisperModel
-
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
-_model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+from services.whisper_loader import transcribe_audio
 
 def _extract_wav_16k_mono(src_path: str) -> str:
     """
@@ -70,7 +67,7 @@ def transcribe_upload(upload_id: int) -> dict:
 
         # transcribe (turn off vad_filter to avoid empty-segment edge cases)
         try:
-            segments, info = _model.transcribe(wav_path, vad_filter=False)
+            segments, info = transcribe_audio(wav_path, vad_filter=False)
             text_parts = []
             for seg in segments:
                 if seg and getattr(seg, "text", None):

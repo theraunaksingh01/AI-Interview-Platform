@@ -8,6 +8,7 @@ import sys
 import logging
 from dotenv import load_dotenv
 from pathlib import Path
+import secrets
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -49,7 +50,7 @@ if not loaded_from:
 _log.info(f"[ENV] AI_PROVIDER={os.getenv('AI_PROVIDER')}, OLLAMA_URL={os.getenv('OLLAMA_URL')}, OLLAMA_MODEL={os.getenv('OLLAMA_MODEL')}")
 # ---------------------------------------------------------
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from api import ops as ops_router
 from core.request_id import RequestIDMiddleware
@@ -68,7 +69,7 @@ from api import uploads_me, uploads
 from api import transcribe_upload
 from api import score
 from api import interview 
-from api import resumes
+# from api import resumes
 from api import interview_link
 from api import interview_generate
 from api import interview_ai
@@ -104,7 +105,11 @@ from api.forgot_password import router as forgot_password_router
 from api import referral as referral_api
 from api import answer_scaffold as answer_scaffold_api
 
+from api.promo import router as promo_api
+from api.promo_admin import router as promo_admin_api
 
+
+RECRUITER_API = os.getenv("ENABLE_RECRUITER_API", "0") == "1"
 
 app = FastAPI(title="AI Interview Platform API")
 
@@ -134,7 +139,7 @@ app.include_router(uploads.router)
 
 app.include_router(uploads_me.router)
 
-app.include_router(resumes.router)
+# app.include_router(resumes.router)
 
 app.include_router(interview_link.router)
 
@@ -142,18 +147,17 @@ app.include_router(interview_generate.router)
 
 app.include_router(interview_ai.router)
 
-app.include_router(interview_router)
-
 app.include_router(ws_interview.router)
 
 app.include_router(interview_audio.router)
 
 app.include_router(interview_replay.router)
 
-app.include_router(rubric.router)
+if RECRUITER_API:
+      app.include_router(rubric.router)
+      app.include_router(candidates.router)
+      app.include_router(interview_token.router)
 
-app.include_router(candidates.router)
-app.include_router(interview_token.router)
 app.include_router(mock.router)
 app.include_router(calendar_api.router)
 app.include_router(passport_api.router)
@@ -183,25 +187,24 @@ app.include_router(referral_api.router)
 
 app.include_router(answer_scaffold_api.router)
 
+app.include_router(promo_api)
+app.include_router(promo_admin_api)
+
 _startup_import_error = None
 
 
-try:
-    # Prefer importing explicit router symbols (recommended)
-    from api.public_interview import router as public_router
-    app.include_router(public_router)
-    app.logger and app.logger.info("Included api.public_interview")
-except Exception as exc:
-    # Don't break app startup — capture error for /__startup_error
-    _startup_import_error = _startup_import_error or exc
+if RECRUITER_API:
+    try:
+        from api.public_interview import router as public_router
+        app.include_router(public_router)
+    except Exception as exc:
+        _startup_import_error = _startup_import_error or exc
 
-try:
-    from api.candidate_link import router as candidate_router
-    app.include_router(candidate_router)
-    app.logger and app.logger.info("Included api.candidate_link")
-except Exception as exc:
-    # best-effort: non-fatal
-    _startup_import_error = _startup_import_error or exc
+    try:
+        from api.candidate_link import router as candidate_router
+        app.include_router(candidate_router)
+    except Exception as exc:
+        _startup_import_error = _startup_import_error or exc
 
 
 
@@ -265,14 +268,13 @@ _startup_import_error = None
 # doesn't kill the app; instead we capture the error and expose it at /__startup_error.
 try:
     # Import routers (these should exist in your project)
-    from api.roles import router as roles_router
     from api import auth as auth_router
     from api import uploads as uploads_router
     from api import uploads_proxy as uploads_proxy_router
     from api import uploads_me as uploads_me_router
 
     # Include them unconditionally
-    app.include_router(roles_router)
+    
     app.include_router(auth_router.router)
     app.include_router(uploads_router.router)
     app.include_router(uploads_proxy_router.router)
@@ -282,10 +284,8 @@ except Exception as exc:  # capture import/startup error for diagnostics
     _startup_import_error = exc
 
 @app.get("/__startup_error")
-def startup_error(x_admin_key: str = ""):
-    if x_admin_key != os.getenv("ADMIN_SECRET_KEY", ""):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="not_found")
-    if _startup_import_error is None:
-        return {"ok": True, "error": None}
-    return {"ok": False, "error": repr(_startup_import_error)}
+   
+def startup_error(x_admin_key: str = Header("")):
+    expected = os.getenv("ADMIN_SECRET_KEY", "")
+    if not expected or not secrets.compare_digest(x_admin_key, expected):
+        raise HTTPException(status_code=403)

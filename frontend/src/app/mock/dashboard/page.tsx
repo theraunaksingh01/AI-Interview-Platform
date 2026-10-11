@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/context/AuthContext";
 import { CalendarWidget } from "@/app/components/CalendarWidget";
+import PromoBox from "@/app/components/PromoBox";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE ||
@@ -546,6 +547,8 @@ export default function MockDashboardPage() {
     return (
       <main className="min-h-screen bg-[#FAFAF8] px-4 pb-16 pt-28 sm:px-8">
         <div className="mx-auto max-w-[1100px]">
+
+          <PromoBox plan={(user as any)?.plan} />
 
           {/* Header */}
           <div className="mb-8">

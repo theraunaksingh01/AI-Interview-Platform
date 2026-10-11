@@ -4,11 +4,10 @@ from sqlalchemy.orm import Session
 from db.session import SessionLocal
 from models.responses import Responses
 from core.s3_client import get_s3_client
-from faster_whisper import WhisperModel
+from services.whisper_loader import transcribe_audio
 from celery_app import app
 
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
-_model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+
 
 @app.task(name="tasks.transcribe_response")
 def transcribe_response(response_id: str) -> dict:
@@ -31,7 +30,7 @@ def transcribe_response(response_id: str) -> dict:
                 return {"ok": False, "error": f"S3 download failed: {e}"}
 
         try:
-            segments, info = _model.transcribe(tmp_path, vad_filter=True)
+            segments, info = transcribe_audio(tmp_path)
             text = " ".join(seg.text.strip() for seg in segments).strip()
         except Exception as e:
             return {"ok": False, "error": f"Transcription failed: {e}"}

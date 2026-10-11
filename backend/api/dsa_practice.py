@@ -17,9 +17,6 @@ import json
 import logging
 import os
 import re
-import subprocess
-import sys
-import tempfile
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -32,6 +29,8 @@ from api.deps import get_current_user
 from api.rate_limit import code_execution_rate_limit_dep
 from db.session import SessionLocal
 from core.code_safety import validate_code
+
+from api.runner_client import run_remote, RunnerUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -82,129 +81,26 @@ class SubmitRequest(BaseModel):
     hints_revealed: int = 0
 
 
-# ─── Subprocess executor ──────────────────────────────────────────────────────
-
-def _run_python(code: str, timeout: int = 5) -> dict:
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(code)
-        path = f.name
-    try:
-        result = subprocess.run(
-            [sys.executable, path],
-            capture_output=True, text=True, timeout=timeout
-        )
-        return {
-            "status": "ok" if result.returncode == 0 else "runtime_error",
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
-        }
-    except subprocess.TimeoutExpired:
-        return {"status": "tle", "stdout": "", "stderr": "Time limit exceeded"}
-    except Exception as e:
-        return {"status": "runtime_error", "stdout": "", "stderr": str(e)}
-    finally:
-        try:
-            os.unlink(path)
-        except Exception:
-            pass
-
-
-def _run_java(code: str, timeout: int = 10) -> dict:
-    tmpdir = tempfile.mkdtemp()
-    try:
-        path = os.path.join(tmpdir, "Main.java")
-        with open(path, "w") as f:
-            f.write(code)
-
-        # Compile
-        compile_result = subprocess.run(
-            ["javac", path],
-            capture_output=True, text=True, timeout=15
-        )
-        if compile_result.returncode != 0:
-            return {
-                "status": "compilation_error",
-                "stdout": "",
-                "stderr": compile_result.stderr.strip(),
-            }
-
-        # Run
-        try:
-            result = subprocess.run(
-                ["java", "-cp", tmpdir, "Main"],
-                capture_output=True, text=True, timeout=timeout
-            )
-            return {
-                "status": "ok" if result.returncode == 0 else "runtime_error",
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            }
-        except subprocess.TimeoutExpired:
-            return {"status": "tle", "stdout": "", "stderr": "Time limit exceeded"}
-    except Exception as e:
-        return {"status": "runtime_error", "stdout": "", "stderr": str(e)}
-    finally:
-        import shutil
-        try:
-            shutil.rmtree(tmpdir)
-        except Exception:
-            pass
-
-
-def _run_cpp(code: str, timeout: int = 5) -> dict:
-    tmpdir = tempfile.mkdtemp()
-    try:
-        src = os.path.join(tmpdir, "solution.cpp")
-        exe = os.path.join(tmpdir, "solution.exe" if os.name == "nt" else "solution")
-
-        with open(src, "w") as f:
-            f.write(code)
-
-        # Compile
-        compile_result = subprocess.run(
-            ["g++", "-o", exe, src, "-std=c++17"],
-            capture_output=True, text=True, timeout=15
-        )
-        if compile_result.returncode != 0:
-            return {
-                "status": "compilation_error",
-                "stdout": "",
-                "stderr": compile_result.stderr.strip(),
-            }
-
-        # Run
-        try:
-            result = subprocess.run(
-                [exe],
-                capture_output=True, text=True, timeout=timeout
-            )
-            return {
-                "status": "ok" if result.returncode == 0 else "runtime_error",
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            }
-        except subprocess.TimeoutExpired:
-            return {"status": "tle", "stdout": "", "stderr": "Time limit exceeded"}
-    except Exception as e:
-        return {"status": "runtime_error", "stdout": "", "stderr": str(e)}
-    finally:
-        import shutil
-        try:
-            shutil.rmtree(tmpdir)
-        except Exception:
-            pass
-
+# ─── Remote executor (isolated runner service) ────────────────────────────────
 
 def execute_code(source_code: str, language: str, timeout: int = 5) -> dict:
-    """Single entry point for all languages. Swap internals here when moving to Judge0."""
-    if language == "python":
-        return _run_python(source_code, timeout)
-    elif language == "java":
-        return _run_java(source_code, timeout)
-    elif language == "cpp":
-        return _run_cpp(source_code, timeout)
-    return {"status": "runtime_error", "stdout": "", "stderr": f"Unsupported language: {language}"}
+    """Runs code on the isolated runner. Student code never runs in this process."""
+    if language not in ("python", "java", "cpp"):
+        return {"status": "runtime_error", "stdout": "", "stderr": f"Unsupported language: {language}"}
+    try:
+        r = run_remote(language, source_code, "", float(max(timeout, 5)))
+    except RunnerUnavailable as e:
+        log.error("code runner unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="runner_unavailable")
 
+    stdout = (r.get("stdout") or "").strip()
+    stderr = (r.get("stderr") or "").strip()
+    if r.get("timed_out"):
+        return {"status": "tle", "stdout": "", "stderr": "Time limit exceeded"}
+    if r.get("returncode", 0) != 0:
+        status = "compilation_error" if r.get("stage") == "compile" else "runtime_error"
+        return {"status": status, "stdout": stdout, "stderr": stderr}
+    return {"status": "ok", "stdout": stdout, "stderr": stderr}
 
 # ─── Test harness builders ────────────────────────────────────────────────────
 
@@ -573,16 +469,16 @@ def get_problem(
 
 @router.post("/run/{question_id}")
 def run_code(
+    request: Request,
     question_id: int,
     payload: RunRequest,
     db: Session = Depends(_get_db),
     current_user=Depends(get_current_user),
+    _rl=Depends(code_execution_rate_limit_dep),
 ) -> dict:
     """Run against sample cases only. No attempt saved."""
     if payload.language not in ("python", "java", "cpp"):
         raise HTTPException(status_code=400, detail="unsupported_language")
-    validate_code(payload.code, payload.language)
-    
     validate_code(payload.code, payload.language)
 
     detail = db.execute(

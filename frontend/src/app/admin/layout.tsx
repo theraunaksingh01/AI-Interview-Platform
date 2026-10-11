@@ -19,6 +19,7 @@ const NAV = [
   { label: "Analytics",      href: "/admin/analytics",        icon: "∿" },
   { label: "System",         href: "/admin/system",           icon: "⊙" },
   { label: "Feedback",       href: "/admin/feedback",         icon: "💬" },
+  { label: "Founding 50",    href: "/admin/promo",            icon: "🎟" },
   
 ];
 

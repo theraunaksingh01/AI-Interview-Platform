@@ -9,14 +9,12 @@ from api.deps import get_current_user
 from core.config import settings
 from core.s3_client import get_s3_client
 from models.responses import Responses
-from faster_whisper import WhisperModel
+from services.whisper_loader import transcribe_audio
 from tasks.transcribe_response import transcribe_response as transcribe_task
 
 router = APIRouter(prefix="/transcribe", tags=["transcription"])
 
-# Load Whisper model once (CPU-friendly defaults)
-WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "base")  # tiny|base|small|medium|large-v3
-_model = WhisperModel(WHISPER_MODEL_NAME, device="cpu", compute_type="int8")
+
 
 
 @router.post("/responses/{response_id}")
@@ -54,7 +52,7 @@ def transcribe_response(
 
     try:
         # Transcribe with Faster-Whisper
-        segments, info = _model.transcribe(tmp_path, vad_filter=True)
+        segments, info = transcribe_audio(tmp_path)
         transcript = " ".join((seg.text or "").strip() for seg in segments).strip()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {e}")
