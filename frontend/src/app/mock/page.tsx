@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -243,7 +244,7 @@ function SessionLimitModal({ onClose }: { onClose: () => void }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function MockLandingPage() {
+function MockLandingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();   // ← use Next.js hook, not window.location
   const { user } = useAuth();
@@ -286,6 +287,7 @@ export default function MockLandingPage() {
       setRole(onboardingRole);
       localStorage.removeItem("onboarding_role");
     }
+
     if (onboardingLevel && !difficulty) {
       const levelMap: Record<string, string> = {
         beginner: "beginner",
@@ -873,5 +875,13 @@ export default function MockLandingPage() {
 
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <MockLandingPageInner />
+    </Suspense>
   );
 }

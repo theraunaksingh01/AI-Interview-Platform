@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { InterviewRoom } from "@/app/interview/[id]/live/page";
+import { InterviewRoom } from "@/app/components/InterviewRoom";
 import CoachingOverlay from "@/components/CoachingOverlay";
 import type { CoachingState } from "@/hooks/useCoaching";
 

@@ -13,7 +13,7 @@ const DIFF_STYLES: Record<string, string> = {
   hard: "bg-rose-100 text-rose-700",
 };
 
-export function AdminDSAPage() {
+function AdminDSAPage() {
   const { authHeader, user, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
   const [page, setPage] = useState(1);

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
@@ -12,7 +13,7 @@ type InterviewQuestion = {
   description?: string | null;
 };
 
-export default function RecordAnswerPage() {
+function RecordAnswerPageInner() {
   const { id: interviewId } = useParams() as { id: string };
   const qs = useSearchParams();
   const questionId = qs.get("question");
@@ -62,6 +63,7 @@ export default function RecordAnswerPage() {
         console.error(e);
         alert("Could not access camera/microphone.");
       }
+
     })();
   }, []);
 
@@ -411,5 +413,13 @@ export default function RecordAnswerPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <RecordAnswerPageInner />
+    </Suspense>
   );
 }

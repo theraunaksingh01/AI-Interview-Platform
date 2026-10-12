@@ -425,7 +425,7 @@ export function CompanyPrep() {
                           <span style={{ color: "#E5E7EB" }}>(input) {"{"}</span>
                         </div>
                         <div style={{ color: "#34D399", paddingLeft: "14px" }}>
-                          // optimal approach
+                          {"// optimal approach"}
                         </div>
                         <div style={{ paddingLeft: "14px" }}>
                           <span style={{ color: "#FBBF24" }}>return</span>{" "}

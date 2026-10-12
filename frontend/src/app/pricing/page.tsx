@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { Fragment } from "react";
 import { useSearchParams } from "next/navigation";
@@ -185,7 +186,7 @@ function UpgradeBanner() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PricingPage() {
+function PricingPageInner() {
   const { user } = useAuth();
   return (
     <main className="min-h-screen bg-[#F9FAFB] pt-20">
@@ -381,5 +382,13 @@ export default function PricingPage() {
 
       </section>
     </main>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <PricingPageInner />
+    </Suspense>
   );
 }

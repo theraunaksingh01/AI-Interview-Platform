@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -96,7 +97,7 @@ type GradeResult = {
   error?: string;
 };
 
-export default function CodePage() {
+function CodePageInner() {
   const { id: interviewId } = useParams() as { id: string };
   const sp = useSearchParams();
   const questionId = sp.get("question");
@@ -141,6 +142,7 @@ export default function CodePage() {
         setCases(sc.map(c => ({ input: c.input ?? "", expected: c.expected ?? "" })));
         setActive(0);
       }
+
     })();
   }, [API, interviewId, questionId, token]);
 
@@ -363,5 +365,13 @@ export default function CodePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <CodePageInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 // frontend/src/app/reset-password/page.tsx
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,7 +10,7 @@ const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageInner() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const token        = searchParams.get("token") ?? "";
@@ -44,6 +45,7 @@ export default function ResetPasswordPage() {
               : "Invalid reset link. Please request a new one."
           );
         }
+
       })
       .catch(() => {
         setTokenError("Could not verify reset link. Please try again.");
@@ -260,5 +262,13 @@ export default function ResetPasswordPage() {
 
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordPageInner />
+    </Suspense>
   );
 }

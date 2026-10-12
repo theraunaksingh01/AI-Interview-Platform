@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/mock/dashboard", icon: LayoutDashboard },
   { label: "Uploads", href: "/uploads", icon: Upload },
 ];
 
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Logo / Brand */}
         <div className="flex h-14 items-center justify-between border-b border-slate-100 px-4">
           {!collapsed && (
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href="/mock/dashboard" className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
                 AI
               </div>
@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           )}
           {collapsed && (
-            <Link href="/dashboard" className="mx-auto">
+            <Link href="/mock/dashboard" className="mx-auto">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
                 AI
               </div>

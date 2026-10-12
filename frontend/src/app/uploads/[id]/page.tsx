@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 type Feedback = {
   communication: number;
@@ -65,12 +66,12 @@ export default function UploadDetail() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Upload #{data.id}</h1>
       <div className="mt-2">
-      <a
+      <Link
         href="/uploads"
         className="text-sm underline text-blue-600 hover:text-blue-800"
       >
         ← Back to Uploads
-      </a>
+      </Link>
       </div>
       <div className="text-sm text-gray-600">
         File: <b>{data.filename}</b> • Status: <b>{data.status}</b>

@@ -27,7 +27,7 @@ function useAdminFetch(path: string) {
   return { data, loading };
 }
  
-export function AdminAnalyticsPage() {
+function AdminAnalyticsPage() {
   const { data: retention } = useAdminFetch("/api/admin/analytics/retention");
   const { data: funnel } = useAdminFetch("/api/admin/analytics/funnel");
   const { data: qAnalytics } = useAdminFetch("/api/admin/analytics/questions");
