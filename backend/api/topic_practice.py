@@ -29,7 +29,7 @@ from db.session import SessionLocal
 
 import tempfile, os
 from fastapi import UploadFile, File
-from services.asr_service import model as _whisper
+from services.whisper_loader import transcribe_audio
 
 log = logging.getLogger(__name__)
 
@@ -363,7 +363,7 @@ async def transcribe_audio(
         target = wav_path if (result.returncode == 0 and os.path.exists(wav_path)) else tmp_path
 
         # Run Faster Whisper
-        segments, _ = _whisper.transcribe(
+        segments, _ = transcribe_audio(
             target,
             language="en",
             vad_filter=False,

@@ -1,30 +1,47 @@
 import os
-from uuid import uuid4
-import pythoncom
-import pyttsx3
+import sys
+import logging
+import tempfile
 
-AUDIO_DIR = os.path.join(os.getcwd(), "agent_audio")
-os.makedirs(AUDIO_DIR, exist_ok=True)
+log = logging.getLogger(__name__)
 
 
 def synthesize_speech(text: str) -> bytes:
-    if not text.strip():
+    """Return WAV bytes for `text`, or b"" if TTS is unavailable.
+
+    Windows (dev): SAPI voices via pyttsx3 + pythoncom.
+    Linux (prod):  espeak-ng via pyttsx3 (must be installed in the image).
+    Never raises: the interview must continue even if audio fails.
+    """
+    if not text or not text.strip():
         return b""
 
-    # REQUIRED for Windows threads
-    pythoncom.CoInitialize()
+    path = None
+    try:
+        if sys.platform == "win32":
+            import pythoncom  # only exists on Windows
+            pythoncom.CoInitialize()
 
-    engine = pyttsx3.init()
-    engine.setProperty("rate", 150)
-    engine.setProperty("volume", 1.0)
+        import pyttsx3
 
-    filename = f"{uuid4().hex}.wav"
-    path = os.path.join(AUDIO_DIR, filename)
+        engine = pyttsx3.init()
+        engine.setProperty("rate", 150)
+        engine.setProperty("volume", 1.0)
 
-    engine.save_to_file(text, path)
-    engine.runAndWait()
+        fd, path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
 
-    with open(path, "rb") as f:
-        data = f.read()
+        engine.save_to_file(text, path)
+        engine.runAndWait()
 
-    return data
+        with open(path, "rb") as f:
+            return f.read()
+    except Exception:
+        log.exception("TTS failed; continuing without audio")
+        return b""
+    finally:
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass

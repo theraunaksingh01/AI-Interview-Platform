@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from db.session import SessionLocal
 from api.deps import get_current_user
-from services.asr_service import model as _whisper
+from services.whisper_loader import transcribe_audio
 from api.rate_limit import transcribe_rate_limit_dep
 
 log = logging.getLogger("api.answer_scaffold")
@@ -244,7 +244,7 @@ async def transcribe_blank(
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         target = wav_path if (result.returncode == 0 and os.path.exists(wav_path)) else tmp_path
 
-        segments, _ = _whisper.transcribe(
+        segments, _ = transcribe_audio(
             target,
             language="en",
             vad_filter=False,
