@@ -25,7 +25,7 @@ loaded_from = None
 for p in cand_paths:
     try:
         if os.path.exists(p):
-            load_dotenv(p, override=True)
+            load_dotenv(p, override=False)
             loaded_from = p
             _log.info(f"Loaded .env from: {p}")
             break
@@ -78,7 +78,8 @@ CANDIDATE_MODULES = [
     "tasks.score_question",
     "tasks.live_scoring",
     "tasks.report_pdf",
-    "tasks.code_grade",   # keep here if/when you add tasks/code_grade.py
+    "tasks.code_grade",
+    "tasks.transcribe_response",   # keep here if/when you add tasks/code_grade.py
     "tasks.generate_coaching_report",
 ]
 
