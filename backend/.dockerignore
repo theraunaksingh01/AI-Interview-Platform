@@ -1,0 +1,16 @@
+.env
+.env.*
+.venv
+.venv311
+venv
+__pycache__
+*.pyc
+.git
+archive
+tests
+agent_audio
+uploads
+*.wav
+debug_*.py
+print_routes.py
+backfill_*.py

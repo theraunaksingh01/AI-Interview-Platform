@@ -32,7 +32,7 @@ loaded_from = None
 for p in cand_paths:
     try:
         if os.path.exists(p):
-            load_dotenv(p, override=True)
+            load_dotenv(p, override=False)
             loaded_from = p
             _log.info(f"Loaded .env from: {p}")
             break

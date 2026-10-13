@@ -238,3 +238,6 @@ Thumbs.db
 minio_data/
 .minio.sys/
 
+.venv*/
+agent_audio/
+deploy/db/content.sql
